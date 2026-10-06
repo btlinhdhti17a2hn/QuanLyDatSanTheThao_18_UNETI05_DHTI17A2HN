@@ -1,4 +1,10 @@
+using Microsoft.EntityFrameworkCore;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+
 var builder = WebApplication.CreateBuilder(args);
+// Cấu hình kết nối Cơ sở dữ liệu SQL Server (Lấy chuỗi kết nối từ appsettings.json)
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
