@@ -140,5 +140,30 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             TempData["Success"] = "Đăng ký tài khoản thành công! Vui lòng đăng nhập.";
             return RedirectToAction("DangNhap");
         }
+
+        // ==========================================================
+        // PHẦN QUẢN LÝ TÀI KHOẢN (DÀNH RIÊNG CHO ADMIN)
+        // ==========================================================
+
+        // Hàm kiểm tra quyền Admin tại Controller
+        private bool KiemTraQuyenAdmin()
+        {
+            return HttpContext.Session.GetString("VaiTro") == "Admin";
+        }
+
+        // 1. Xem danh sách tài khoản
+        [HttpGet]
+        public IActionResult Index()
+        {
+            // Bắt buộc kiểm tra quyền tại Controller theo đúng yêu cầu đề bài
+            if (!KiemTraQuyenAdmin())
+            {
+                TempData["Error"] = "Bạn không có quyền truy cập chức năng này!";
+                return RedirectToAction("DangNhap", "TaiKhoan");
+            }
+
+            var dsTaiKhoan = _context.TaiKhoans.OrderByDescending(t => t.MaTaiKhoan).ToList();
+            return View(dsTaiKhoan);
+        }
     }
 }
