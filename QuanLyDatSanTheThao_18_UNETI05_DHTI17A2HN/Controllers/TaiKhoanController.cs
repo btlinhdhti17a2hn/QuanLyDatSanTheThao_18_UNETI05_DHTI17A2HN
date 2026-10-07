@@ -165,5 +165,29 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             var dsTaiKhoan = _context.TaiKhoans.OrderByDescending(t => t.MaTaiKhoan).ToList();
             return View(dsTaiKhoan);
         }
+
+        // 2. Khóa / Mở khóa tài khoản
+        [HttpPost]
+        public async Task<IActionResult> ThayDoiTrangThai(int id)
+        {
+            if (!KiemTraQuyenAdmin()) return RedirectToAction("DangNhap", "TaiKhoan");
+
+            var taiKhoan = await _context.TaiKhoans.FindAsync(id);
+            if (taiKhoan == null) return NotFound();
+
+            // Không cho phép Admin tự khóa tài khoản Admin khác để tránh lỗi hệ thống
+            if (taiKhoan.VaiTro == "Admin")
+            {
+                TempData["Error"] = "Không thể khóa tài khoản Quản trị viên!";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Đảo ngược trạng thái (Đang true thành false, đang false thành true)
+            taiKhoan.TrangThai = !taiKhoan.TrangThai;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Cập nhật trạng thái tài khoản thành công!";
+            return RedirectToAction(nameof(Index));
+        }
     }
 }

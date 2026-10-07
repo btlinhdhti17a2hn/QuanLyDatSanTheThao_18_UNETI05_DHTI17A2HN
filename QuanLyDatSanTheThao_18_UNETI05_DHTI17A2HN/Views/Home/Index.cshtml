@@ -1,8 +1,330 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Trang Chủ (Home Index) - Banner tràn khung full-width
+*@
+
+@{
+    ViewData["Title"] = "Trang chủ - Sports Ground";
+    bool daDangNhap = Context.Session.GetString("VaiTro") != null;
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<style>
+    /* ===== HERO ===== */
+    .hero-full {
+        width: 100vw;
+        margin-left: calc(50% - 50vw);
+        min-height: 560px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(135deg, rgba(5, 46, 22, 0.88) 0%, rgba(0, 0, 0, 0.6) 55%, rgba(20, 83, 45, 0.75) 100%),
+            url('https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1920&q=80') center / cover no-repeat;
+    }
+    .hero-badge {
+        background: rgba(34, 197, 94, 0.18);
+        border: 1px solid rgba(74, 222, 128, 0.6);
+        color: #bbf7d0;
+        backdrop-filter: blur(6px);
+        letter-spacing: .5px;
+    }
+    .hero-title {
+        font-weight: 800;
+        line-height: 1.2;
+        text-shadow: 0 4px 18px rgba(0, 0, 0, .6);
+    }
+    .hero-title span {
+        background: linear-gradient(90deg, #4ade80, #a3e635);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .btn-hero {
+        border-radius: 50px;
+        padding: .85rem 2.2rem;
+        font-weight: 700;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn-hero:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .35);
+    }
+    .btn-hero-main {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        border: none;
+        color: #fff;
+    }
+    .btn-hero-main:hover { color: #fff; }
+
+    /* ===== DẢI ĐIỂM NỔI BẬT ===== */
+    .highlight-bar {
+        margin-top: -45px;
+        position: relative;
+        z-index: 5;
+    }
+    .highlight-box {
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, .12);
+        padding: 1.5rem 1rem;
+    }
+    .highlight-item { text-align: center; padding: .5rem 1rem; }
+    .highlight-item .num { font-size: 1.6rem; }
+    .highlight-item .label { font-weight: 700; color: #166534; }
+    .highlight-item small { color: #6b7280; }
+    @@media (min-width: 768px) {
+        .highlight-item + .highlight-item { border-left: 1px solid #e5e7eb; }
+    }
+
+    /* ===== TIÊU ĐỀ MỤC ===== */
+    .section-title { font-weight: 800; color: #166534; }
+    .section-title::after {
+        content: "";
+        display: block;
+        width: 70px;
+        height: 4px;
+        margin: 12px auto 0;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #16a34a, #a3e635);
+    }
+    .section-sub { color: #6b7280; }
+
+    /* ===== THẺ GIỚI THIỆU ===== */
+    .feature-card {
+        border: none;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .07);
+        transition: transform .3s ease, box-shadow .3s ease;
+        border-top: 4px solid transparent;
+    }
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 18px 40px rgba(22, 163, 74, .22);
+        border-top-color: #22c55e;
+    }
+    .feature-icon {
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        margin: 0 auto 1rem;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    }
+
+    /* ===== MÔN THỂ THAO ===== */
+    .sport-card {
+        border-radius: 18px;
+        padding: 2rem 1rem;
+        text-align: center;
+        color: #fff;
+        font-weight: 700;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, .15);
+        transition: transform .3s ease;
+    }
+    .sport-card:hover { transform: scale(1.05); }
+    .sport-card .emoji { font-size: 3rem; display: block; margin-bottom: .5rem; }
+    .sport-1 { background: linear-gradient(135deg, #16a34a, #4ade80); }
+    .sport-2 { background: linear-gradient(135deg, #ea580c, #fb923c); }
+    .sport-3 { background: linear-gradient(135deg, #0284c7, #38bdf8); }
+    .sport-4 { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+    .sport-5 { background: linear-gradient(135deg, #0d9488, #2dd4bf); }
+
+    /* ===== CÁC BƯỚC ===== */
+    .step-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        color: #fff;
+        font-size: 1.6rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 20px rgba(22, 163, 74, .35);
+    }
+
+    /* ===== CTA CUỐI TRANG ===== */
+    .cta-box {
+        border-radius: 22px;
+        padding: 3rem 1.5rem;
+        color: #fff;
+        text-align: center;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        box-shadow: 0 15px 40px rgba(22, 163, 74, .35);
+    }
+</style>
+
+<!-- ===== BANNER FULL-WIDTH ===== -->
+<div class="hero-full text-white text-center">
+    <div class="container py-5">
+        <span class="badge hero-badge rounded-pill px-4 py-2 mb-4 fs-6 fw-semibold">
+            🟢 Hệ thống sân thể thao Sport Ground
+        </span>
+        <h1 class="hero-title display-4 mb-3">
+            NỀN TẢNG ĐẶT SÂN<br /><span>THỂ THAO CHUYÊN NGHIỆP</span>
+        </h1>
+        <p class="fs-5 mb-5 col-md-8 mx-auto text-light opacity-75">
+            Cung cấp dịch vụ đặt sân bóng đá, bóng rổ, cầu lông, tennis, pickleball nhanh chóng.
+            Hệ thống quản lý lịch đặt minh bạch và chuyên nghiệp.
+        </p>
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+            <a class="btn btn-hero btn-hero-main btn-lg" asp-controller="SanTheThao" asp-action="Index">
+                🏟️ Xem danh sách sân
+            </a>
+            @if (!daDangNhap)
+            {
+                <a class="btn btn-hero btn-outline-light btn-lg" asp-controller="TaiKhoan" asp-action="DangNhap">
+                    🔑 Đăng nhập
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- ===== DẢI ĐIỂM NỔI BẬT ===== -->
+<div class="container highlight-bar">
+    <div class="highlight-box">
+        <div class="row g-0">
+            <div class="col-md-4 highlight-item">
+                <div class="num">🕒</div>
+                <div class="label">Đặt sân 24/7</div>
+                <small>Đặt lịch mọi lúc, mọi nơi</small>
+            </div>
+            <div class="col-md-4 highlight-item">
+                <div class="num">⚡</div>
+                <div class="label">Xác nhận nhanh</div>
+                <small>Phản hồi lịch đặt trong thời gian ngắn</small>
+            </div>
+            <div class="col-md-4 highlight-item">
+                <div class="num">🔍</div>
+                <div class="label">Giá minh bạch</div>
+                <small>Công khai theo từng khung giờ</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== GIỚI THIỆU ===== -->
+<div class="container my-5 pt-4">
+    <div class="text-center mb-5">
+        <h3 class="section-title text-uppercase">🏟️ Giới thiệu về Sports Ground</h3>
+        <p class="section-sub mt-3">Lý do hàng trăm khách hàng tin chọn chúng tôi</p>
+    </div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card feature-card h-100 text-center p-3">
+                <div class="card-body">
+                    <div class="feature-icon">⚽</div>
+                    <h5 class="fw-bold text-success mb-3">Hệ thống sân đạt chuẩn</h5>
+                    <p class="text-muted mb-0">
+                        Cung cấp hệ thống sân bóng đá, bóng rổ, cầu lông, tennis, pickleball với chất lượng mặt sân cao cấp,
+                        hệ thống chiếu sáng và không gian rộng rãi.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card feature-card h-100 text-center p-3">
+                <div class="card-body">
+                    <div class="feature-icon">⭐</div>
+                    <h5 class="fw-bold text-success mb-3">Dịch vụ chuyên nghiệp</h5>
+                    <p class="text-muted mb-0">
+                        Đội ngũ nhân viên thân thiện, hỗ trợ đặt lịch nhanh chóng, cung cấp đầy đủ
+                        dụng cụ tập luyện và các tiện ích đi kèm.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card feature-card h-100 text-center p-3">
+                <div class="card-body">
+                    <div class="feature-icon">💰</div>
+                    <h5 class="fw-bold text-success mb-3">Chi phí hợp lý &amp; ưu đãi</h5>
+                    <p class="text-muted mb-0">
+                        Bảng giá công khai minh bạch theo từng khung giờ, nhiều chương trình ưu đãi
+                        hấp dẫn cho khách hàng đặt lịch cố định.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MÔN THỂ THAO ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title text-uppercase">Các môn thể thao</h3>
+        <p class="section-sub mt-3">Chọn môn bạn yêu thích và đặt sân ngay</p>
+    </div>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-4 justify-content-center">
+        <div class="col">
+            <a class="text-decoration-none" asp-controller="SanTheThao" asp-action="Index">
+                <div class="sport-card sport-1"><span class="emoji">⚽</span>Bóng đá</div>
+            </a>
+        </div>
+        <div class="col">
+            <a class="text-decoration-none" asp-controller="SanTheThao" asp-action="Index">
+                <div class="sport-card sport-2"><span class="emoji">🏀</span>Bóng rổ</div>
+            </a>
+        </div>
+        <div class="col">
+            <a class="text-decoration-none" asp-controller="SanTheThao" asp-action="Index">
+                <div class="sport-card sport-3"><span class="emoji">🏸</span>Cầu lông</div>
+            </a>
+        </div>
+        <div class="col">
+            <a class="text-decoration-none" asp-controller="SanTheThao" asp-action="Index">
+                <div class="sport-card sport-4"><span class="emoji">🎾</span>Tennis</div>
+            </a>
+        </div>
+        <div class="col">
+            <a class="text-decoration-none" asp-controller="SanTheThao" asp-action="Index">
+                <div class="sport-card sport-5"><span class="emoji">🏓</span>Pickleball</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 3 BƯỚC ĐẶT SÂN ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title text-uppercase">Đặt sân chỉ với 3 bước</h3>
+    </div>
+    <div class="row g-4 text-center">
+        <div class="col-md-4">
+            <div class="step-circle">1</div>
+            <h5 class="fw-bold">Chọn sân</h5>
+            <p class="text-muted">Tìm và lọc sân theo loại, giá và nhu cầu của bạn.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="step-circle">2</div>
+            <h5 class="fw-bold">Chọn khung giờ</h5>
+            <p class="text-muted">Xem lịch trống và chọn thời gian phù hợp.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="step-circle">3</div>
+            <h5 class="fw-bold">Xác nhận &amp; ra sân</h5>
+            <p class="text-muted">Chờ xác nhận từ hệ thống rồi đến sân thi đấu.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CTA CUỐI TRANG ===== -->
+<div class="container mb-5">
+    <div class="cta-box">
+        <h3 class="fw-bold mb-2">Sẵn sàng ra sân chưa?</h3>
+        <p class="mb-4 opacity-75">Đặt sân ngay hôm nay để không bỏ lỡ khung giờ vàng.</p>
+        <a class="btn btn-light btn-lg fw-bold rounded-pill px-5" asp-controller="SanTheThao" asp-action="Index">
+            Đặt sân ngay →
+        </a>
+    </div>
 </div>
