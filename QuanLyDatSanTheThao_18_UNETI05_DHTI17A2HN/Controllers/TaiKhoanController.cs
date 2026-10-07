@@ -71,5 +71,74 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Đẩy về trang chủ
             return RedirectToAction("Index", "Home");
         }
+        // GET: Hiển thị trang Đăng ký
+        [HttpGet]
+        public IActionResult DangKy()
+        {
+            if (HttpContext.Session.GetInt32("MaTaiKhoan") != null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+            return View();
+        }
+
+        // POST: Xử lý thông tin Đăng ký
+        [HttpPost]
+        public async Task<IActionResult> DangKy(string tenDangNhap, string matKhau, string xacNhanMatKhau, string hoTen, string email, string soDienThoai)
+        {
+            // Kiểm tra các trường bắt buộc
+            if (string.IsNullOrEmpty(tenDangNhap) || string.IsNullOrEmpty(matKhau) || string.IsNullOrEmpty(hoTen) || string.IsNullOrEmpty(soDienThoai))
+            {
+                ViewBag.Error = "Vui lòng điền đầy đủ các thông tin bắt buộc!";
+                return View();
+            }
+
+            if (matKhau != xacNhanMatKhau)
+            {
+                ViewBag.Error = "Mật khẩu xác nhận không khớp!";
+                return View();
+            }
+
+            // Kiểm tra xem Tên đăng nhập đã tồn tại trong CSDL chưa (dùng LINQ)
+            var existingUser = _context.TaiKhoans.FirstOrDefault(x => x.TenDangNhap == tenDangNhap);
+            if (existingUser != null)
+            {
+                ViewBag.Error = "Tên đăng nhập này đã có người sử dụng, vui lòng chọn tên khác!";
+                return View();
+            }
+
+            // 1. Tạo bản ghi Tài khoản mới (Vai trò mặc định là KhachHang)
+            var taiKhoanMoi = new TaiKhoan
+            {
+                TenDangNhap = tenDangNhap,
+                MatKhau = matKhau,
+                HoTen = hoTen,
+                Email = email ?? "",
+                VaiTro = "KhachHang",
+                TrangThai = true
+            };
+
+            _context.TaiKhoans.Add(taiKhoanMoi);
+            await _context.SaveChangesAsync(); // Lưu để lấy ra MaTaiKhoan vừa sinh ra
+
+            // 2. Tạo bản ghi Khách hàng tương ứng liên kết với Tài khoản vừa tạo
+            var khachHangMoi = new KhachHang
+            {
+                MaTaiKhoan = taiKhoanMoi.MaTaiKhoan,
+                HoTen = hoTen,
+                SoDienThoai = soDienThoai,
+                Email = email ?? "",
+                NgayDangKy = DateTime.Now,
+                DiemTichLuy = 0,
+                TrangThai = true
+            };
+
+            _context.KhachHangs.Add(khachHangMoi);
+            await _context.SaveChangesAsync();
+
+            // Đăng ký thành công thì thông báo và chuyển hướng sang trang Đăng nhập
+            TempData["Success"] = "Đăng ký tài khoản thành công! Vui lòng đăng nhập.";
+            return RedirectToAction("DangNhap");
+        }
     }
 }
