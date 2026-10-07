@@ -71,7 +71,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Đẩy về trang chủ
             return RedirectToAction("Index", "Home");
         }
-
         // GET: Hiển thị trang Đăng ký
         [HttpGet]
         public IActionResult DangKy()
