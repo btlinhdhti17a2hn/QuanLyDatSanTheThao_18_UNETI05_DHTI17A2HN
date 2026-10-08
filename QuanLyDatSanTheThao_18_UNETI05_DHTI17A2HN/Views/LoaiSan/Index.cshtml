@@ -1,0 +1,389 @@
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Razor View - Hiển thị danh sách Quản lý Loại Sân
+*@
+@model IEnumerable<QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.LoaiSan>
+@{
+    ViewData["Title"] = "Quản lý Loại Sân";
+
+    int tongSo = Model.Count();
+    int dangHoatDong = Model.Count(x => x.TrangThai);
+    int biKhoa = tongSo - dangHoatDong;
+
+    // Chọn icon theo tên loại sân
+    Func<string?, string> layIcon = ten =>
+    {
+        var t = (ten ?? "").ToLower();
+        if (t.Contains("bóng đá")) return "⚽";
+        if (t.Contains("bóng rổ")) return "🏀";
+        if (t.Contains("cầu lông")) return "🏸";
+        if (t.Contains("tennis")) return "🎾";
+        if (t.Contains("pickleball")) return "🏓";
+        if (t.Contains("bóng chuyền")) return "🏐";
+        return "🏟️";
+    };
+}
+
+<style>
+    .page-header {
+        border-radius: 20px;
+        padding: 1.8rem 2rem;
+        color: #fff;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        box-shadow: 0 12px 30px rgba(22, 163, 74, .3);
+        position: relative;
+        overflow: hidden;
+    }
+
+        .page-header::after {
+            content: "🏟️";
+            position: absolute;
+            right: 25px;
+            bottom: -25px;
+            font-size: 7rem;
+            opacity: .13;
+        }
+
+        .page-header h2 {
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .page-header p {
+            margin: .3rem 0 0;
+            opacity: .85;
+        }
+
+    .btn-add {
+        background: #fff;
+        color: #15803d;
+        font-weight: 700;
+        border: none;
+        border-radius: 50px;
+        padding: .65rem 1.6rem;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+        .btn-add:hover {
+            color: #14532d;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+        }
+
+    .stat-card {
+        border: none;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .07);
+        padding: 1.1rem 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform .25s ease, box-shadow .25s ease;
+    }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, .12);
+        }
+
+    .stat-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+    }
+
+        .stat-icon.s-total {
+            background: #dbeafe;
+        }
+
+        .stat-icon.s-active {
+            background: #dcfce7;
+        }
+
+        .stat-icon.s-lock {
+            background: #f3f4f6;
+        }
+
+    .stat-num {
+        font-size: 1.7rem;
+        font-weight: 800;
+        line-height: 1;
+    }
+
+    .stat-label {
+        color: #6b7280;
+        font-size: .85rem;
+    }
+
+    .table-card {
+        border: none;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+        overflow: hidden;
+    }
+
+    .table-pretty {
+        margin: 0;
+    }
+
+        .table-pretty thead th {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #166534;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: .78rem;
+            letter-spacing: .6px;
+            border: none;
+            padding: 1rem .9rem;
+        }
+
+        .table-pretty tbody td {
+            padding: 1rem .9rem;
+            border-color: #f1f5f9;
+        }
+
+        .table-pretty tbody tr {
+            transition: background .2s ease, transform .2s ease;
+        }
+
+            .table-pretty tbody tr:hover {
+                background: #f0fdf4;
+            }
+
+    .ma-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        color: #475569;
+        font-weight: 700;
+    }
+
+    .loai-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .gia-tag {
+        display: inline-block;
+        padding: .35rem .8rem;
+        border-radius: 50px;
+        background: #fef2f2;
+        color: #dc2626;
+        font-weight: 700;
+    }
+
+    .nguoi-tag {
+        display: inline-block;
+        padding: .3rem .75rem;
+        border-radius: 50px;
+        background: #eff6ff;
+        color: #2563eb;
+        font-weight: 600;
+        font-size: .9rem;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .35rem .85rem;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: .82rem;
+    }
+
+        .status-pill::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+    .status-on {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .status-off {
+        background: #f3f4f6;
+        color: #6b7280;
+    }
+
+    .btn-act {
+        border: none;
+        border-radius: 50px;
+        padding: .4rem 1rem;
+        font-weight: 700;
+        font-size: .85rem;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+        .btn-act:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 14px rgba(0, 0, 0, .2);
+        }
+
+    .btn-edit {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
+        color: #fff;
+    }
+
+        .btn-edit:hover {
+            color: #fff;
+        }
+
+    .btn-del {
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        color: #fff;
+    }
+
+    .empty-box {
+        text-align: center;
+        padding: 3.5rem 1rem;
+        color: #6b7280;
+    }
+
+        .empty-box .emoji {
+            font-size: 3.5rem;
+        }
+</style>
+
+<div class="container mt-4 mb-5">
+
+    <!-- TIÊU ĐỀ TRANG -->
+    <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2>⚙️ QUẢN LÝ LOẠI SÂN</h2>
+            <p>Thiết lập loại sân, đơn giá theo giờ và trạng thái hoạt động</p>
+        </div>
+        <a asp-action="Create" class="btn btn-add">+ Thêm loại sân mới</a>
+    </div>
+
+    <!-- THÔNG BÁO -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
+            ✅ @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
+            ❌ @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- THỐNG KÊ NHANH -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon s-total">📋</div>
+                <div>
+                    <div class="stat-num text-primary">@tongSo</div>
+                    <div class="stat-label">Tổng số loại sân</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon s-active">✅</div>
+                <div>
+                    <div class="stat-num text-success">@dangHoatDong</div>
+                    <div class="stat-label">Đang hoạt động</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-icon s-lock">🔒</div>
+                <div>
+                    <div class="stat-num text-secondary">@biKhoa</div>
+                    <div class="stat-label">Đang khóa</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG DANH SÁCH -->
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table table-pretty align-middle">
+                <thead>
+                    <tr>
+                        <th>Mã</th>
+                        <th>Tên loại sân</th>
+                        <th>Mô tả</th>
+                        <th>Số người tối đa</th>
+                        <th>Đơn giá / giờ</th>
+                        <th>Trạng thái</th>
+                        <th class="text-center">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td><span class="ma-badge">@item.MaLoaiSan</span></td>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <span class="loai-icon">@layIcon(item.TenLoai)</span>
+                                    <span class="fw-bold">@item.TenLoai</span>
+                                </div>
+                            </td>
+                            <td class="text-muted">@item.MoTa</td>
+                            <td><span class="nguoi-tag">👥 @item.SoNguoiToiDa người</span></td>
+                            <td><span class="gia-tag">@item.DonGiaTheoGio.ToString("N0") đ</span></td>
+                            <td>
+                                @if (item.TrangThai)
+                                {
+                                    <span class="status-pill status-on">Hoạt động</span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill status-off">Khóa</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <a asp-action="Edit" asp-route-id="@item.MaLoaiSan" class="btn btn-act btn-edit me-1">✏️ Sửa</a>
+                                <form asp-action="Delete" asp-route-id="@item.MaLoaiSan" method="post" class="d-inline"
+                                      onsubmit="return confirm('Bạn có chắc chắn muốn xóa loại sân này không?');">
+                                    <button type="submit" class="btn btn-act btn-del">🗑️ Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (!Model.Any())
+        {
+            <div class="empty-box">
+                <div class="emoji">📭</div>
+                <h5 class="mt-2 fw-bold">Chưa có loại sân nào</h5>
+                <p class="mb-3">Hãy thêm loại sân đầu tiên để bắt đầu quản lý.</p>
+                <a asp-action="Create" class="btn btn-success rounded-pill fw-bold px-4">+ Thêm loại sân mới</a>
+            </div>
+        }
+    </div>
+</div>

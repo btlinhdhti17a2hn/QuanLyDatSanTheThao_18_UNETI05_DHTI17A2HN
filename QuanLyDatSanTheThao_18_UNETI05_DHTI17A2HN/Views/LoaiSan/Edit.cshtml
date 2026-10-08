@@ -1,0 +1,227 @@
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Razor View - Chỉnh sửa, cập nhật Loại Sân
+*@
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.LoaiSan
+@{
+    ViewData["Title"] = "Sửa loại sân";
+}
+
+<style>
+    .form-card {
+        border: none;
+        border-radius: 22px;
+        box-shadow: 0 12px 35px rgba(0, 0, 0, .1);
+        overflow: hidden;
+    }
+
+    .form-banner {
+        padding: 1.6rem 2rem;
+        color: #fff;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        position: relative;
+        overflow: hidden;
+    }
+
+        .form-banner::after {
+            content: "✏️";
+            position: absolute;
+            right: 20px;
+            bottom: -20px;
+            font-size: 6rem;
+            opacity: .15;
+        }
+
+        .form-banner h4 {
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .form-banner p {
+            margin: .3rem 0 0;
+            opacity: .85;
+            font-size: .92rem;
+        }
+
+    .id-chip {
+        display: inline-block;
+        margin-top: .6rem;
+        padding: .2rem .8rem;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, .22);
+        font-weight: 700;
+        font-size: .82rem;
+    }
+
+    .form-card .form-label {
+        color: #166534;
+        margin-bottom: .4rem;
+    }
+
+    .form-card .input-group-text {
+        background: #f0fdf4;
+        border: 1px solid #d1fae5;
+        border-right: none;
+        border-radius: 12px 0 0 12px;
+        font-size: 1.1rem;
+    }
+
+    .form-card .input-group .form-control {
+        border: 1px solid #d1fae5;
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        padding: .7rem 1rem;
+    }
+
+    .form-card textarea.form-control {
+        border: 1px solid #d1fae5;
+        border-radius: 12px;
+        padding: .7rem 1rem;
+    }
+
+    .form-card .form-control:focus {
+        border-color: #22c55e;
+        box-shadow: 0 0 0 .2rem rgba(34, 197, 94, .2);
+    }
+
+    .input-group:focus-within .input-group-text {
+        border-color: #22c55e;
+    }
+
+    .input-group .suffix {
+        background: #f0fdf4;
+        border: 1px solid #d1fae5;
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        padding: 0 1rem;
+        display: flex;
+        align-items: center;
+        color: #166534;
+        font-weight: 700;
+    }
+
+        .input-group .suffix + .form-control {
+            border-radius: 0;
+        }
+
+    .status-box {
+        background: #f0fdf4;
+        border: 1px solid #d1fae5;
+        border-radius: 14px;
+        padding: .9rem 1.2rem;
+    }
+
+        .status-box .form-check-input {
+            width: 3em;
+            height: 1.5em;
+            cursor: pointer;
+        }
+
+            .status-box .form-check-input:checked {
+                background-color: #16a34a;
+                border-color: #16a34a;
+            }
+
+    .btn-back {
+        border: none;
+        border-radius: 50px;
+        padding: .65rem 1.8rem;
+        font-weight: 700;
+        background: #f1f5f9;
+        color: #475569;
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+        .btn-back:hover {
+            background: #e2e8f0;
+            color: #334155;
+            transform: translateY(-2px);
+        }
+
+    .btn-save {
+        border: none;
+        border-radius: 50px;
+        padding: .65rem 2rem;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        box-shadow: 0 6px 16px rgba(22, 163, 74, .35);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+
+        .btn-save:hover {
+            color: #fff;
+            transform: translateY(-3px);
+            box-shadow: 0 10px 22px rgba(22, 163, 74, .45);
+        }
+</style>
+
+<div class="container mt-4 mb-5" style="max-width: 680px;">
+    <div class="card form-card">
+
+        <div class="form-banner">
+            <h4>CẬP NHẬT LOẠI SÂN</h4>
+            <p>Chỉnh sửa thông tin, đơn giá và trạng thái hoạt động</p>
+            <span class="id-chip">Mã loại sân: #@Model.MaLoaiSan</span>
+        </div>
+
+        <div class="card-body p-4">
+            <form asp-action="Edit">
+                <input type="hidden" asp-for="MaLoaiSan" />
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                <div class="mb-4">
+                    <label asp-for="TenLoai" class="form-label fw-bold">Tên Loại Sân <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">🏟️</span>
+                        <input asp-for="TenLoai" class="form-control" placeholder="Ví dụ: Sân Bóng Đá 5 Người" required />
+                    </div>
+                    <span asp-validation-for="TenLoai" class="text-danger"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label asp-for="MoTa" class="form-label fw-bold">Mô Tả</label>
+                    <textarea asp-for="MoTa" class="form-control" rows="3" placeholder="Mô tả ngắn về loại sân..."></textarea>
+                    <span asp-validation-for="MoTa" class="text-danger"></span>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-5">
+                        <label asp-for="SoNguoiToiDa" class="form-label fw-bold">Số Người Tối Đa</label>
+                        <div class="input-group">
+                            <span class="input-group-text">👥</span>
+                            <input asp-for="SoNguoiToiDa" class="form-control" type="number" min="1" />
+                        </div>
+                        <span asp-validation-for="SoNguoiToiDa" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-7">
+                        <label asp-for="DonGiaTheoGio" class="form-label fw-bold">Đơn Giá Theo Giờ</label>
+                        <div class="input-group">
+                            <span class="input-group-text">💰</span>
+                            <input asp-for="DonGiaTheoGio" class="form-control" type="number" min="0" step="1000" />
+                            <span class="suffix">VNĐ</span>
+                        </div>
+                        <span asp-validation-for="DonGiaTheoGio" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <div class="status-box form-check form-switch mb-4 d-flex align-items-center gap-3">
+                    <input class="form-check-input ms-0" asp-for="TrangThai" />
+                    <label class="form-check-label fw-bold" asp-for="TrangThai">Đang hoạt động</label>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a asp-action="Index" class="btn btn-back">← Quay lại</a>
+                    <button type="submit" class="btn btn-save">💾 Cập Nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
