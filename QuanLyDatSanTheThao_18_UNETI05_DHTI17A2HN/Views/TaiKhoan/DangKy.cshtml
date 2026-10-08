@@ -1,0 +1,251 @@
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Razor View Đăng ký tài khoản khách hàng
+*@
+
+@{
+    ViewData["Title"] = "Đăng ký tài khoản";
+}
+
+<style>
+    .reg-wrap {
+        display: flex;
+        justify-content: center;
+        padding: 2rem 0 3rem;
+    }
+    .reg-card {
+        width: 100%;
+        max-width: 640px;
+        border: none;
+        border-radius: 24px;
+        box-shadow: 0 15px 45px rgba(22, 163, 74, .18);
+        overflow: hidden;
+    }
+    .reg-banner {
+        padding: 2rem 1.5rem 1.8rem;
+        text-align: center;
+        color: #fff;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        position: relative;
+        overflow: hidden;
+    }
+    .reg-banner::before,
+    .reg-banner::after {
+        content: "";
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .1);
+    }
+    .reg-banner::before { width: 160px; height: 160px; top: -60px; left: -50px; }
+    .reg-banner::after { width: 120px; height: 120px; bottom: -50px; right: -30px; }
+    .reg-logo {
+        width: 72px;
+        height: 72px;
+        margin: 0 auto 1rem;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, .95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.2rem;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+        position: relative;
+        z-index: 1;
+    }
+    .reg-banner h4 { font-weight: 800; margin: 0; position: relative; z-index: 1; }
+    .reg-banner p { margin: .35rem 0 0; opacity: .85; font-size: .92rem; position: relative; z-index: 1; }
+
+    .reg-card .form-label { color: #166534; margin-bottom: .4rem; }
+    .reg-card .input-group-text {
+        background: #f0fdf4;
+        border: 1px solid #d1fae5;
+        border-right: none;
+        border-radius: 12px 0 0 12px;
+        font-size: 1.1rem;
+    }
+    .reg-card .input-group .form-control {
+        border: 1px solid #d1fae5;
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        padding: .75rem 1rem;
+    }
+    .reg-card .input-group .form-control.has-toggle {
+        border-right: none;
+        border-radius: 0;
+    }
+    .reg-card .form-control:focus {
+        border-color: #22c55e;
+        box-shadow: none;
+    }
+    .reg-card .input-group:focus-within {
+        border-radius: 12px;
+        box-shadow: 0 0 0 .2rem rgba(34, 197, 94, .2);
+    }
+    .reg-card .input-group:focus-within .input-group-text,
+    .reg-card .input-group:focus-within .form-control,
+    .reg-card .input-group:focus-within .btn-eye {
+        border-color: #22c55e;
+    }
+    .btn-eye {
+        background: #fff;
+        border: 1px solid #d1fae5;
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        padding: 0 1rem;
+        cursor: pointer;
+        font-size: 1.1rem;
+    }
+    .btn-eye:hover { background: #f0fdf4; }
+
+    .match-msg { font-size: .82rem; min-height: 1.2rem; margin-top: .3rem; font-weight: 600; }
+    .match-ok { color: #16a34a; }
+    .match-no { color: #dc2626; }
+
+    .btn-reg {
+        border: none;
+        border-radius: 50px;
+        padding: .8rem;
+        font-weight: 800;
+        letter-spacing: .5px;
+        color: #fff;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        box-shadow: 0 8px 20px rgba(22, 163, 74, .4);
+        transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .btn-reg:hover {
+        color: #fff;
+        transform: translateY(-3px);
+        box-shadow: 0 12px 26px rgba(22, 163, 74, .5);
+    }
+
+    .reg-footer {
+        background: #f0fdf4;
+        border-top: 1px solid #d1fae5;
+        text-align: center;
+        padding: 1.1rem;
+    }
+    .reg-footer a { color: #15803d; font-weight: 800; text-decoration: none; }
+    .reg-footer a:hover { text-decoration: underline; }
+</style>
+
+<div class="reg-wrap">
+    <div class="card reg-card">
+
+        <div class="reg-banner">
+            <div class="reg-logo">🏟️</div>
+            <h4>ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG</h4>
+            <p>Tạo tài khoản để đặt sân nhanh chóng và theo dõi lịch đặt</p>
+        </div>
+
+        <div class="card-body p-4 p-md-5 pb-4">
+            @if (ViewBag.Error != null)
+            {
+                <div class="alert alert-danger border-0 shadow-sm rounded-4 text-center">
+                    ❌ @ViewBag.Error
+                </div>
+            }
+
+            <form asp-controller="TaiKhoan" asp-action="DangKy" method="post" id="formDangKy">
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Họ và tên <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">🙋</span>
+                        <input type="text" name="hoTen" class="form-control" required placeholder="Nhập họ và tên..." autocomplete="name" />
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Tên đăng nhập <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">👤</span>
+                        <input type="text" name="tenDangNhap" class="form-control" required placeholder="Nhập tên đăng nhập..." autocomplete="username" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label fw-bold">Mật khẩu <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">🔒</span>
+                            <input type="password" id="oMatKhau" name="matKhau" class="form-control has-toggle" required placeholder="Nhập mật khẩu..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oMatKhau" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <label class="form-label fw-bold">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">🔑</span>
+                            <input type="password" id="oXacNhan" name="xacNhanMatKhau" class="form-control has-toggle" required placeholder="Nhập lại mật khẩu..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oXacNhan" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                        <div class="match-msg" id="thongBaoKhop"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Số điện thoại <span class="text-danger">*</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text">📱</span>
+                        <input type="tel" name="soDienThoai" class="form-control" required placeholder="Nhập số điện thoại..." autocomplete="tel" />
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text">✉️</span>
+                        <input type="email" name="email" class="form-control" placeholder="Nhập địa chỉ email..." autocomplete="email" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-reg w-100 text-uppercase">Đăng Ký Ngay</button>
+            </form>
+        </div>
+
+        <div class="reg-footer">
+            <small>Đã có tài khoản? <a asp-controller="TaiKhoan" asp-action="DangNhap">Đăng nhập tại đây</a></small>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            // Nút hiện / ẩn mật khẩu
+            document.querySelectorAll('.btn-eye').forEach(function (nut) {
+                nut.addEventListener('click', function () {
+                    const o = document.getElementById(nut.dataset.target);
+                    const dangAn = o.type === 'password';
+                    o.type = dangAn ? 'text' : 'password';
+                    nut.textContent = dangAn ? '🙈' : '👁️';
+                });
+            });
+
+            // Kiểm tra mật khẩu xác nhận có khớp không
+            const matKhau = document.getElementById('oMatKhau');
+            const xacNhan = document.getElementById('oXacNhan');
+            const thongBao = document.getElementById('thongBaoKhop');
+
+            function kiemTraKhop() {
+                if (!xacNhan.value) {
+                    thongBao.textContent = '';
+                    xacNhan.setCustomValidity('');
+                    return;
+                }
+                if (matKhau.value === xacNhan.value) {
+                    thongBao.textContent = '✔ Mật khẩu khớp';
+                    thongBao.className = 'match-msg match-ok';
+                    xacNhan.setCustomValidity('');
+                } else {
+                    thongBao.textContent = '✖ Mật khẩu chưa khớp';
+                    thongBao.className = 'match-msg match-no';
+                    xacNhan.setCustomValidity('Mật khẩu xác nhận không khớp.');
+                }
+            }
+
+            matKhau.addEventListener('input', kiemTraKhop);
+            xacNhan.addEventListener('input', kiemTraKhop);
+        })();
+    </script>
+}
