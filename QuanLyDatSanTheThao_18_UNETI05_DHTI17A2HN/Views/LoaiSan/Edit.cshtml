@@ -172,23 +172,23 @@
                 <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
                 <div class="mb-4">
-                    <label asp-for="TenLoai" class="form-label fw-bold">Tên Loại Sân <span class="text-danger">*</span></label>
+                    <label asp-for="TenLoai" class="form-label fw-bold">Tên loại sân <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text">🏟️</span>
-                        <input asp-for="TenLoai" class="form-control" placeholder="Ví dụ: Sân Bóng Đá 5 Người" required />
+                        <input asp-for="TenLoai" class="form-control" placeholder="Ví dụ: Sân bóng đá 5 người" required />
                     </div>
                     <span asp-validation-for="TenLoai" class="text-danger"></span>
                 </div>
 
                 <div class="mb-4">
-                    <label asp-for="MoTa" class="form-label fw-bold">Mô Tả</label>
+                    <label asp-for="MoTa" class="form-label fw-bold">Mô tả</label>
                     <textarea asp-for="MoTa" class="form-control" rows="3" placeholder="Mô tả ngắn về loại sân..."></textarea>
                     <span asp-validation-for="MoTa" class="text-danger"></span>
                 </div>
 
                 <div class="row g-3 mb-4">
                     <div class="col-md-5">
-                        <label asp-for="SoNguoiToiDa" class="form-label fw-bold">Số Người Tối Đa</label>
+                        <label asp-for="SoNguoiToiDa" class="form-label fw-bold">Số người tối đa</label>
                         <div class="input-group">
                             <span class="input-group-text">👥</span>
                             <input asp-for="SoNguoiToiDa" class="form-control" type="number" min="1" />
@@ -196,10 +196,10 @@
                         <span asp-validation-for="SoNguoiToiDa" class="text-danger"></span>
                     </div>
                     <div class="col-md-7">
-                        <label asp-for="DonGiaTheoGio" class="form-label fw-bold">Đơn Giá Theo Giờ</label>
+                        <label asp-for="DonGiaTheoGio" class="form-label fw-bold">Đơn giá theo giờ</label>
                         <div class="input-group">
                             <span class="input-group-text">💰</span>
-                            <input asp-for="DonGiaTheoGio" class="form-control" type="number" min="0" step="1000" />
+                            <input asp-for="DonGiaTheoGio" class="form-control" type="number" min="0" step="any" />
                             <span class="suffix">VNĐ</span>
                         </div>
                         <span asp-validation-for="DonGiaTheoGio" class="text-danger"></span>
@@ -213,7 +213,7 @@
 
                 <div class="d-flex justify-content-between">
                     <a asp-action="Index" class="btn btn-back">← Quay lại</a>
-                    <button type="submit" class="btn btn-save">💾 Cập Nhật</button>
+                    <button type="submit" class="btn btn-save">💾 Cập nhật</button>
                 </div>
             </form>
         </div>
