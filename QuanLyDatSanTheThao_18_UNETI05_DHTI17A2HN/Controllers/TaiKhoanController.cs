@@ -1,17 +1,16 @@
 ﻿// Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
 // Nội dung thực hiện: Controller TaiKhoan - Xử lý đăng nhập, đăng xuất và phân quyền
+
 using Microsoft.AspNetCore.Mvc;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 
-
-namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
+namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
     public class TaiKhoanController : Controller
     {
         private readonly ApplicationDbContext _context;
-
         public TaiKhoanController(ApplicationDbContext context)
         {
             _context = context;
@@ -35,19 +34,19 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
         {
             if (!string.IsNullOrEmpty(tenDangNhap) && !string.IsNullOrEmpty(matKhau))
             {
-                // Sử dụng LINQ để truy vấn kiểm tra tài khoản trong Database[cite: 1]
+                // Sử dụng LINQ để truy vấn kiểm tra tài khoản trong Database
                 var user = _context.TaiKhoans.FirstOrDefault(x => x.TenDangNhap == tenDangNhap && x.MatKhau == matKhau);
 
                 if (user != null)
                 {
-                    // Kiểm tra tài khoản có bị khóa không[cite: 1]
+                    // Kiểm tra tài khoản có bị khóa không
                     if (user.TrangThai == false)
                     {
                         ViewBag.Error = "Tài khoản của bạn đã bị khóa, vui lòng liên hệ Admin!";
                         return View();
                     }
 
-                    // Lưu thông tin vào Session khi đăng nhập thành công[cite: 1]
+                    // Lưu thông tin vào Session khi đăng nhập thành công
                     HttpContext.Session.SetInt32("MaTaiKhoan", user.MaTaiKhoan);
                     HttpContext.Session.SetString("HoTen", user.HoTen);
                     HttpContext.Session.SetString("VaiTro", user.VaiTro);
@@ -66,13 +65,12 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
         // Xử lý Đăng xuất
         public IActionResult DangXuat()
         {
-            // Xóa toàn bộ Session[cite: 1]
+            // Xóa toàn bộ Session
             HttpContext.Session.Clear();
 
             // Đẩy về trang chủ
             return RedirectToAction("Index", "Home");
         }
-
         // GET: Hiển thị trang Đăng ký
         [HttpGet]
         public IActionResult DangKy()
@@ -113,7 +111,7 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
             var taiKhoanMoi = new TaiKhoan
             {
                 TenDangNhap = tenDangNhap,
-                MatKhau = matKhau, // (Đồ án cơ bản lưu plain text, nâng cao có thể mã hóa)
+                MatKhau = matKhau,
                 HoTen = hoTen,
                 Email = email ?? "",
                 VaiTro = "KhachHang",
@@ -155,7 +153,7 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
 
         // 1. Xem danh sách tài khoản
         [HttpGet]
-        public IActionResult QuanLyTaiKhoan()
+        public IActionResult Index()
         {
             // Bắt buộc kiểm tra quyền tại Controller theo đúng yêu cầu đề bài
             if (!KiemTraQuyenAdmin())
@@ -181,7 +179,7 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
             if (taiKhoan.VaiTro == "Admin")
             {
                 TempData["Error"] = "Không thể khóa tài khoản Quản trị viên!";
-                return RedirectToAction(nameof(QuanLyTaiKhoan));
+                return RedirectToAction(nameof(Index));
             }
 
             // Đảo ngược trạng thái (Đang true thành false, đang false thành true)
@@ -189,7 +187,7 @@ namespace QuanLyDatSanTheThao_18_UNETI5_DHTI17A2HN.Controllers
             await _context.SaveChangesAsync();
 
             TempData["Success"] = "Cập nhật trạng thái tài khoản thành công!";
-            return RedirectToAction(nameof(QuanLyTaiKhoan));
+            return RedirectToAction(nameof(Index));
         }
     }
 }

@@ -1,376 +1,47 @@
-﻿@using Microsoft.AspNetCore.Http
-@inject IHttpContextAccessor HttpContextAccessor
-<!DOCTYPE html>
-<html lang="vi">
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - QLDatSanTheThao</title>
+    <title>@ViewData["Title"] - QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/QLDatSanTheThao.styles.css" asp-append-version="true" />
-
-    <style>
-        /* ===== CHUNG ===== */
-        html { position: static; min-height: 0; }
-        body {
-            margin-bottom: 0 !important;
-            overflow-x: hidden;
-        }
-
-        /* ===== THANH MENU ===== */
-        .main-nav {
-            background: #fff;
-            border-bottom: 3px solid #22c55e;
-            box-shadow: 0 4px 18px rgba(22, 163, 74, .12);
-            padding: .6rem 0;
-        }
-        .main-nav .navbar-brand {
-            font-weight: 800;
-            font-size: 1.35rem;
-            letter-spacing: .5px;
-        }
-        .main-nav .navbar-brand .brand-text {
-            background: linear-gradient(90deg, #14532d, #16a34a 55%, #65a30d);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .main-nav .nav-link {
-            color: #374151;
-            font-weight: 600;
-            border-radius: 50px;
-            padding: .5rem 1.1rem !important;
-            margin: 0 .15rem;
-            transition: background .2s ease, color .2s ease;
-        }
-        .main-nav .nav-link:hover {
-            background: #f0fdf4;
-            color: #15803d;
-        }
-        .main-nav .nav-link.active {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
-        }
-        .main-nav .nav-link.admin-link { color: #15803d; }
-        .main-nav .nav-link.admin-link.active { color: #fff; }
-
-        .btn-login-nav {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            color: #fff !important;
-            font-weight: 700;
-            border-radius: 50px;
-            padding: .5rem 1.5rem !important;
-            box-shadow: 0 6px 16px rgba(22, 163, 74, .35);
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-        .btn-login-nav:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(22, 163, 74, .45);
-            background: linear-gradient(135deg, #16a34a, #22c55e) !important;
-        }
-
-        .user-toggle {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-            background: #f0fdf4;
-            border: 1px solid #d1fae5;
-            color: #166534 !important;
-            font-weight: 700;
-            border-radius: 50px;
-            padding: .3rem 1rem .3rem .35rem !important;
-        }
-        .user-toggle:hover { background: #dcfce7; }
-        .user-avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 800;
-            background: linear-gradient(135deg, #16a34a, #4ade80);
-            box-shadow: 0 3px 8px rgba(22, 163, 74, .4);
-        }
-
-        .main-nav .dropdown-menu {
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, .15);
-            padding: .5rem;
-            margin-top: .6rem;
-        }
-        .main-nav .dropdown-item {
-            border-radius: 10px;
-            padding: .55rem 1rem;
-            font-weight: 600;
-        }
-        .main-nav .dropdown-item:hover { background: #f0fdf4; color: #15803d; }
-        .main-nav .dropdown-item.text-danger:hover { background: #fef2f2; color: #dc2626 !important; }
-
-        /* ===== CHÂN TRANG ===== */
-        .site-footer {
-            position: static;
-            width: 100%;
-            margin-top: 3rem;
-            color: #d1fae5;
-            background: linear-gradient(135deg, #052e16, #14532d 60%, #166534);
-            border-top: 4px solid #22c55e;
-            line-height: 1.6;
-            white-space: normal;
-        }
-        .site-footer .footer-main { padding: 3rem 0 1.5rem; }
-        .site-footer .f-brand {
-            font-size: 1.4rem;
-            font-weight: 800;
-            color: #fff;
-            text-decoration: none;
-        }
-        .site-footer .f-desc { color: #bbf7d0; opacity: .9; margin-top: .8rem; font-size: .93rem; }
-        .site-footer .f-sports { margin-top: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
-        .site-footer .f-sports span {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            background: rgba(255, 255, 255, .1);
-            transition: transform .2s ease, background .2s ease;
-        }
-        .site-footer .f-sports span:hover { transform: translateY(-4px); background: rgba(255, 255, 255, .2); }
-
-        .site-footer h6 {
-            color: #fff;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .6px;
-            font-size: .9rem;
-            margin-bottom: 1.1rem;
-            position: relative;
-            padding-bottom: .6rem;
-        }
-        .site-footer h6::after {
-            content: "";
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            width: 36px;
-            height: 3px;
-            border-radius: 3px;
-            background: linear-gradient(90deg, #4ade80, #a3e635);
-        }
-        .site-footer .f-links { list-style: none; padding: 0; margin: 0; }
-        .site-footer .f-links li { margin-bottom: .55rem; }
-        .site-footer .f-links a {
-            color: #d1fae5;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color .2s ease, padding-left .2s ease;
-        }
-        .site-footer .f-links a::before { content: "›"; margin-right: .5rem; color: #4ade80; font-weight: 800; }
-        .site-footer .f-links a:hover { color: #fff; padding-left: .3rem; }
-
-        .site-footer .f-contact { display: flex; gap: .75rem; margin-bottom: .8rem; font-size: .93rem; }
-        .site-footer .f-contact .ic { flex-shrink: 0; }
-        .site-footer .f-time {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: .45rem 0;
-            border-bottom: 1px dashed rgba(255, 255, 255, .18);
-            font-size: .93rem;
-        }
-        .site-footer .f-time:last-child { border-bottom: none; }
-        .site-footer .f-time strong { color: #fff; white-space: nowrap; }
-
-        .site-footer .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, .15);
-            padding: 1.1rem 0;
-            font-size: .88rem;
-            color: #bbf7d0;
-        }
-        .site-footer .footer-bottom a { color: #fff; font-weight: 700; text-decoration: none; }
-        .site-footer .footer-bottom a:hover { text-decoration: underline; }
-        .btn-top {
-            border: none;
-            border-radius: 50px;
-            padding: .4rem 1.1rem;
-            font-weight: 700;
-            font-size: .85rem;
-            color: #14532d;
-            background: linear-gradient(135deg, #bbf7d0, #a3e635);
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-        .btn-top:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
-
-        @@media (max-width: 575.98px) {
-            .main-nav .nav-link { margin: .15rem 0; }
-        }
-    </style>
+    <link rel="stylesheet" href="~/QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.styles.css" asp-append-version="true" />
 </head>
-<body class="d-flex flex-column min-vh-100">
-    @{
-        var controllerHienTai = ViewContext.RouteData.Values["controller"]?.ToString() ?? "";
-        var actionHienTai = ViewContext.RouteData.Values["action"]?.ToString() ?? "";
-
-        // Trả về "active" nếu đang ở đúng trang
-        Func<string, string, string> hoatDong = (c, a) =>
-            (controllerHienTai == c && actionHienTai == a) ? "active" : "";
-        Func<string, string> hoatDongController = (c) =>
-            (controllerHienTai == c) ? "active" : "";
-
-        var vaiTroMenu = HttpContextAccessor.HttpContext?.Session?.GetString("VaiTro");
-        var tenNguoiDung = HttpContextAccessor.HttpContext?.Session?.GetString("HoTen");
-        var vaiTro = vaiTroMenu;
-        string chuCaiDau = string.IsNullOrWhiteSpace(tenNguoiDung) ? "?" : tenNguoiDung.Trim().Substring(0, 1).ToUpper();
-    }
-
+<body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light main-nav mb-3">
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">🏟️ <span class="brand-text">SPORTS GROUND</span></a>
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1 align-items-sm-center">
+                    <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
-                            <a class="nav-link @hoatDong("Home", "Index")" asp-area="" asp-controller="Home" asp-action="Index">Trang chủ</a>
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link @hoatDong("Home", "Privacy")" asp-area="" asp-controller="Home" asp-action="Privacy">Giới thiệu</a>
+                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link @hoatDongController("SanTheThao")" asp-area="" asp-controller="SanTheThao" asp-action="Index">Danh sách sân</a>
-                        </li>
-
-                        @if (vaiTroMenu == "Admin")
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link admin-link @hoatDongController("LoaiSan")" asp-controller="LoaiSan" asp-action="Index">Quản lý loại sân</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link admin-link @(controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan" ? "active" : "")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a>
-                            </li>
-                        }
-                    </ul>
-
-                    <!-- CỤM MENU BÊN PHẢI: HIỂN THỊ TRẠNG THÁI ĐĂNG NHẬP -->
-                    <ul class="navbar-nav align-items-sm-center">
-                        @if (string.IsNullOrEmpty(tenNguoiDung))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link btn-login-nav" asp-controller="TaiKhoan" asp-action="DangNhap">🔑 Đăng nhập</a>
-                            </li>
-                        }
-                        else
-                        {
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle user-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <span class="user-avatar">@chuCaiDau</span>
-                                    <span>Xin chào: @tenNguoiDung</span>
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="#">👤 Thông tin cá nhân</a></li>
-                                    @if (vaiTro == "Admin" || vaiTro == "NhanVien")
-                                    {
-                                        <li><a class="dropdown-item" href="#">📊 Trang quản trị (Dashboard)</a></li>
-                                    }
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" asp-controller="TaiKhoan" asp-action="DangXuat">🚪 Đăng xuất</a></li>
-                                </ul>
-                            </li>
-                        }
                     </ul>
                 </div>
             </div>
         </nav>
     </header>
-
-    <div class="container flex-grow-1">
+    <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <!-- ===== CHÂN TRANG ===== -->
-    <footer class="site-footer">
-        <div class="container footer-main">
-            <div class="row g-4">
-
-                <!-- Cột 1: Giới thiệu ngắn -->
-                <div class="col-lg-4 col-md-6">
-                    <a class="f-brand" asp-area="" asp-controller="Home" asp-action="Index">🏟️ SPORTS GROUND</a>
-                    <p class="f-desc">
-                        Nền tảng quản lý và đặt sân thể thao trực tuyến. Tìm sân, chọn khung giờ
-                        và xác nhận lịch đặt nhanh chóng, minh bạch.
-                    </p>
-                    <div class="f-sports">
-                        <span title="Bóng đá">⚽</span>
-                        <span title="Bóng rổ">🏀</span>
-                        <span title="Cầu lông">🏸</span>
-                        <span title="Tennis">🎾</span>
-                        <span title="Pickleball">🏓</span>
-                    </div>
-                </div>
-
-                <!-- Cột 2: Liên kết nhanh -->
-                <div class="col-lg-2 col-md-6 col-6">
-                    <h6>Liên kết</h6>
-                    <ul class="f-links">
-                        <li><a asp-area="" asp-controller="Home" asp-action="Index">Trang chủ</a></li>
-                        <li><a asp-area="" asp-controller="Home" asp-action="Privacy">Giới thiệu</a></li>
-                        <li><a asp-area="" asp-controller="SanTheThao" asp-action="Index">Danh sách sân</a></li>
-                        @if (string.IsNullOrEmpty(tenNguoiDung))
-                        {
-                            <li><a asp-controller="TaiKhoan" asp-action="DangNhap">Đăng nhập</a></li>
-                            <li><a asp-controller="TaiKhoan" asp-action="DangKy">Đăng ký</a></li>
-                        }
-                        @if (vaiTroMenu == "Admin")
-                        {
-                            <li><a asp-controller="LoaiSan" asp-action="Index">Quản lý loại sân</a></li>
-                            <li><a asp-controller="TaiKhoan" asp-action="Index">Quản lý tài khoản</a></li>
-                        }
-                    </ul>
-                </div>
-
-                <!-- Cột 3: Liên hệ -->
-                <div class="col-lg-3 col-md-6 col-6">
-                    <h6>Liên hệ</h6>
-                    <div class="f-contact"><span class="ic">📍</span><span>Hà Nội, Việt Nam</span></div>
-                    <div class="f-contact"><span class="ic">📞</span><span>0123 456 789</span></div>
-                    <div class="f-contact"><span class="ic">✉️</span><span>support@sportsground.vn</span></div>
-                </div>
-
-                <!-- Cột 4: Giờ mở cửa -->
-                <div class="col-lg-3 col-md-6">
-                    <h6>Giờ mở cửa</h6>
-                    <div class="f-time"><span>Thứ 2 - Thứ 6</span><strong>06:00 - 22:00</strong></div>
-                    <div class="f-time"><span>Thứ 7</span><strong>06:00 - 23:00</strong></div>
-                    <div class="f-time"><span>Chủ nhật</span><strong>06:00 - 23:00</strong></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="footer-bottom">
-            <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <div>
-                    &copy; 2026 - QLDatSanTheThao &middot;
-                    <a asp-area="" asp-controller="Home" asp-action="Privacy">Giới thiệu</a>
-                    &middot; Bài tập lớn .NET - Đề 18 (UNETI)
-                </div>
-                <button type="button" class="btn-top" onclick="window.scrollTo({ top: 0, behavior: 'smooth' });">↑ Lên đầu trang</button>
-            </div>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2026 - QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
-
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
