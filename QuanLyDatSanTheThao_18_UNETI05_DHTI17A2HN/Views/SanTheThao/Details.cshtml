@@ -1,0 +1,355 @@
+@*
+// Họ và tên: Bùi Thùy Linh
+// Mã sinh viên: 23103100108
+// Nội dung thực hiện: Giao diện Razor View - Chi tiết sân thể thao, tình trạng khả dụng và lịch đã đặt (Module 2)
+*@
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.SanTheThaoDetailsViewModel
+@{
+    var s = Model.San;
+    ViewData["Title"] = s.TenSan;
+
+    var vaiTro = Context.Session.GetString("VaiTro");
+    bool laQuanLy = vaiTro == "Admin" || vaiTro == "NhanVien";
+}
+
+<style>
+    
+    .detail-card {
+        border-radius: 20px;
+        border: 1.5px solid #d1fae5;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.07);
+        background: #ffffff;
+    }
+    .detail-banner {
+        padding: 30px 32px;
+        color: #ffffff;
+        position: relative;
+    }
+    .detail-banner.th-green { background: linear-gradient(135deg, #047857 0%, #10b981 100%); }
+    .detail-banner.th-orange { background: linear-gradient(135deg, #c2410c 0%, #f97316 100%); }
+    .detail-banner.th-blue { background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%); }
+    .detail-banner.th-purple { background: linear-gradient(135deg, #6b21a8 0%, #a855f7 100%); }
+    .detail-banner.th-teal { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); }
+
+    .detail-banner .big-emoji {
+        font-size: 3rem;
+        display: block;
+        margin-bottom: 8px;
+    }
+    .detail-banner h3 {
+        font-weight: 800;
+        font-size: 1.85rem;
+        margin-top: 10px;
+        margin-bottom: 4px;
+        letter-spacing: -0.5px;
+    }
+    .detail-banner p {
+        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+
+    .detail-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #f0fdf4;
+    }
+    .detail-row:last-of-type {
+        border-bottom: none;
+    }
+    .detail-row .ic {
+        width: 44px;
+        height: 44px;
+        background: #ecfdf5;
+        border: 1px solid #a7f3d0;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .detail-row .lb {
+        font-size: 0.8rem;
+        color: #64748b;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 2px;
+    }
+    .detail-row .vl {
+        font-size: 1.05rem;
+        color: #0f172a;
+        font-weight: 700;
+    }
+
+    .chip {
+        background: #f0fdf4;
+        color: #065f46;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        padding: 4px 12px;
+        margin-right: 6px;
+        margin-bottom: 6px;
+        display: inline-block;
+    }
+
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 4px 14px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+    .status-pill.status-on {
+        color: #15803d !important;
+        border: 1px solid #bbf7d0;
+    }
+    .status-pill.status-warn {
+        color: #b45309 !important;
+        border: 1px solid #fde68a;
+    }
+    .status-pill.status-off {
+        color: #dc2626 !important;
+        border: 1px solid #fecaca;
+    }
+
+    .btn-back {
+        background: #f0fdf4;
+        color: #047857;
+        font-weight: 700;
+        border: 1.5px solid #a7f3d0;
+        border-radius: 12px;
+        padding: 10px 22px;
+        text-decoration: none;
+        transition: all 0.25s ease;
+    }
+    .btn-back:hover {
+        background: #dcfce7;
+        color: #064e3b;
+    }
+    .btn-book {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.95rem;
+        border-radius: 12px;
+        padding: 10px 24px;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-book:hover {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: #ffffff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
+    }
+    .btn-book.disabled {
+        background: #e2e8f0;
+        color: #94a3b8;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    /* Cột lịch đặt sân bên phải */
+    .side-card {
+        border-radius: 20px;
+        border: 1.5px solid #d1fae5;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.05);
+        background: #ffffff;
+    }
+    .side-title {
+        color: #065f46;
+        font-weight: 800;
+        font-size: 1.15rem;
+    }
+    .lich-item {
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border: 1.5px solid #e2e8f0;
+    }
+    .lich-item .t {
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    .lich-item.st-cho {
+        background: #fffbeb;
+        border-color: #fde68a;
+        color: #92400e;
+    }
+    .lich-item.st-dang {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1e40af;
+    }
+    .lich-item.st-xong {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+    }
+    .lich-item.st-khac {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #475569;
+    }
+    .empty-box {
+        text-align: center;
+    }
+    .empty-box .emoji {
+        font-size: 2.5rem;
+    }
+</style>
+
+<div class="container mt-4 mb-5">
+    <div class="row g-4">
+
+        <!-- CỘT TRÁI: THÔNG TIN SÂN -->
+        <div class="col-lg-7">
+            <div class="card detail-card">
+                <div class="detail-banner @SanTheThaoUi.Theme(s.LoaiSan.TenLoai)">
+                    <span class="big-emoji">@SanTheThaoUi.Icon(s.LoaiSan.TenLoai)</span>
+                    @if (s.DangKhaDung)
+                    {
+                        <span class="status-pill status-on" style="background:#fff">Còn khả dụng</span>
+                    }
+                    else if (s.DangBaoTri)
+                    {
+                        <span class="status-pill status-warn" style="background:#fff">Đang bảo trì</span>
+                    }
+                    else
+                    {
+                        <span class="status-pill status-off" style="background:#fff">Ngừng hoạt động</span>
+                    }
+                    <h3>@s.TenSan</h3>
+                    <p>@s.LoaiSan.TenLoai · Mã sân #@s.MaSan</p>
+                </div>
+
+                <div class="card-body p-4">
+                    <div class="detail-row">
+                        <div class="ic">📍</div>
+                        <div><div class="lb">Địa chỉ</div><div class="vl">@s.DiaChi</div></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="ic">💰</div>
+                        <div><div class="lb">Đơn giá theo giờ</div><div class="vl text-danger">@SanTheThaoUi.Tien(s.DonGia) / giờ</div></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="ic">🕒</div>
+                        <div><div class="lb">Giờ hoạt động</div><div class="vl">@SanTheThaoUi.Gio(s.GioMoCua) - @SanTheThaoUi.Gio(s.GioDongCua)</div></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="ic">👥</div>
+                        <div><div class="lb">Số người tối đa</div><div class="vl">@s.LoaiSan.SoNguoiToiDa người</div></div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="ic">✨</div>
+                        <div>
+                            <div class="lb">Tiện ích</div>
+                            <div class="vl">
+                                @{
+                                    var dsTienIch = SanTheThaoUi.TachTienIch(s.TienIch);
+                                }
+                                @if (dsTienIch.Length == 0)
+                                {
+                                    <span class="text-muted fw-normal">Chưa cập nhật</span>
+                                }
+                                else
+                                {
+                                    foreach (var ti in dsTienIch)
+                                    {
+                                        <span class="chip">✔ @ti</span>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    @if (s.NgayBaoTri.HasValue)
+                    {
+                        <div class="detail-row">
+                            <div class="ic">🛠️</div>
+                            <div><div class="lb">Ngày bảo trì</div><div class="vl">@s.NgayBaoTri.Value.ToString("dd/MM/yyyy")</div></div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(s.GhiChu))
+                    {
+                        <div class="detail-row">
+                            <div class="ic">📝</div>
+                            <div><div class="lb">Ghi chú</div><div class="vl fw-normal">@s.GhiChu</div></div>
+                        </div>
+                    }
+                    <div class="detail-row">
+                        <div class="ic">🏆</div>
+                        <div><div class="lb">Lượt đặt đã hoàn thành</div><div class="vl">@Model.SoLuotDatHoanThanh lượt</div></div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-4">
+                        <a asp-action="Index" class="btn btn-back">← Quay lại danh sách</a>
+                        @if (laQuanLy)
+                        {
+                            <a asp-action="Edit" asp-route-id="@s.MaSan" class="btn btn-act btn-edit px-4 py-2">✏️ Sửa sân</a>
+                        }
+                        @if (s.DangKhaDung)
+                        {
+                            <a asp-controller="DatSan" asp-action="Create" asp-route-maSan="@s.MaSan" class="btn-book ms-auto">📅 Đặt sân ngay</a>
+                        }
+                        else
+                        {
+                            <span class="btn-book disabled ms-auto">🚫 Sân không khả dụng</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI: LỊCH ĐÃ ĐẶT SẮP TỚI -->
+        <div class="col-lg-5">
+            <div class="card side-card">
+                <div class="card-body p-4">
+                    <h5 class="side-title mb-1">📅 Lịch đã đặt sắp tới</h5>
+                    <p class="text-muted small mb-3">Các khung giờ đã có người đặt (chưa hủy) - hãy chọn khung giờ khác.</p>
+
+                    @if (!Model.LichSapToi.Any())
+                    {
+                        <div class="empty-box py-4">
+                            <div class="emoji">🎉</div>
+                            <div class="fw-bold mt-2">Chưa có lịch đặt nào</div>
+                            <small>Sân đang trống, bạn có thể đặt ngay!</small>
+                        </div>
+                    }
+                    else
+                    {
+                        foreach (var l in Model.LichSapToi)
+                        {
+                            <div class="lich-item @SanTheThaoUi.MauTrangThaiDat(l.TrangThai)">
+                                <div class="t">
+                                    @l.GioBatDau.ToString("dd/MM/yyyy") · @l.GioBatDau.ToString("HH:mm") - @l.GioKetThuc.ToString("HH:mm")
+                                </div>
+                                <small>
+                                    @l.TrangThai
+                                    @if (laQuanLy && !string.IsNullOrEmpty(l.TenKhach))
+                                    {
+                                        <text> · Khách: @l.TenKhach</text>
+                                    }
+                                </small>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,6 +1,448 @@
-﻿@{
-    ViewData["Title"] = "Privacy Policy";
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện trang Giới thiệu (Home/Privacy)
+*@
+@{
+    ViewData["Title"] = "Giới thiệu";
 }
-<h1>@ViewData["Title"]</h1>
 
-<p>Use this page to detail your site's privacy policy.</p>
+<style>
+    /* ===== HERO ===== */
+    .about-hero {
+        border-radius: 24px;
+        padding: 4rem 1.5rem;
+        text-align: center;
+        color: #fff;
+        position: relative;
+        overflow: hidden;
+        background:
+            linear-gradient(135deg, rgba(5, 46, 22, .9), rgba(22, 163, 74, .75)),
+            url('https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=1600&q=80') center / cover no-repeat;
+        box-shadow: 0 15px 40px rgba(22, 163, 74, .3);
+    }
+    .about-hero h1 { font-weight: 800; text-shadow: 0 4px 16px rgba(0, 0, 0, .5); }
+    .about-hero p { max-width: 720px; margin: 1rem auto 0; opacity: .92; font-size: 1.1rem; }
+    .about-badge {
+        display: inline-block;
+        padding: .4rem 1.2rem;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, .18);
+        border: 1px solid rgba(255, 255, 255, .45);
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+
+    /* ===== TIÊU ĐỀ MỤC ===== */
+    .section-title { font-weight: 800; color: #166534; text-transform: uppercase; }
+    .section-title::after {
+        content: "";
+        display: block;
+        width: 70px;
+        height: 4px;
+        margin: 12px auto 0;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #16a34a, #a3e635);
+    }
+    .section-sub { color: #6b7280; }
+
+    /* ===== CÂU CHUYỆN ===== */
+    .story-box {
+        background: #fff;
+        border-radius: 22px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+        padding: 2rem;
+        height: 100%;
+    }
+    .story-box h4 { color: #166534; font-weight: 800; }
+    .mission-card {
+        border-radius: 22px;
+        padding: 2rem;
+        height: 100%;
+        color: #fff;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        box-shadow: 0 12px 30px rgba(22, 163, 74, .3);
+    }
+    .mission-card li { margin-bottom: .6rem; }
+
+    /* ===== SỐ LIỆU ===== */
+    .stat-strip {
+        background: #fff;
+        border-radius: 22px;
+        box-shadow: 0 15px 40px rgba(0, 0, 0, .1);
+        padding: 1.8rem 1rem;
+        margin-top: -45px;
+        position: relative;
+        z-index: 5;
+    }
+    .stat-item { text-align: center; padding: .5rem; }
+    .stat-item .num { font-size: 2.2rem; font-weight: 800; color: #16a34a; line-height: 1.1; }
+    .stat-item .label { color: #6b7280; font-weight: 600; }
+    @@media (min-width: 768px) {
+        .stat-item + .stat-item { border-left: 1px solid #e5e7eb; }
+    }
+
+    /* ===== GIÁ TRỊ ===== */
+    .value-card {
+        border: none;
+        border-radius: 20px;
+        background: #fff;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .07);
+        border-top: 4px solid transparent;
+        transition: transform .3s ease, box-shadow .3s ease;
+        height: 100%;
+    }
+    .value-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 18px 40px rgba(22, 163, 74, .22);
+        border-top-color: #22c55e;
+    }
+    .value-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        margin: 0 auto 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.1rem;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    }
+
+    /* ===== MÔN THỂ THAO ===== */
+    .sport-pill {
+        display: flex;
+        align-items: center;
+        gap: .8rem;
+        padding: 1rem 1.3rem;
+        border-radius: 18px;
+        color: #fff;
+        font-weight: 700;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
+        transition: transform .3s ease;
+    }
+    .sport-pill:hover { transform: scale(1.04); }
+    .sport-pill .emoji { font-size: 2rem; }
+    .sp-1 { background: linear-gradient(135deg, #16a34a, #4ade80); }
+    .sp-2 { background: linear-gradient(135deg, #ea580c, #fb923c); }
+    .sp-3 { background: linear-gradient(135deg, #0284c7, #38bdf8); }
+    .sp-4 { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+    .sp-5 { background: linear-gradient(135deg, #0d9488, #2dd4bf); }
+
+    /* ===== CÁC BƯỚC ===== */
+    .step-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        color: #fff;
+        font-size: 1.6rem;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 1rem;
+        box-shadow: 0 8px 20px rgba(22, 163, 74, .35);
+    }
+
+    /* ===== FAQ ===== */
+    .faq .accordion-item {
+        border: none;
+        border-radius: 16px !important;
+        margin-bottom: .8rem;
+        overflow: hidden;
+        box-shadow: 0 5px 16px rgba(0, 0, 0, .07);
+    }
+    .faq .accordion-button { font-weight: 700; color: #166534; background: #fff; }
+    .faq .accordion-button:not(.collapsed) {
+        background: #f0fdf4;
+        color: #15803d;
+        box-shadow: none;
+    }
+    .faq .accordion-button:focus { box-shadow: 0 0 0 .2rem rgba(34, 197, 94, .25); }
+
+    /* ===== LIÊN HỆ ===== */
+    .contact-card {
+        background: #fff;
+        border-radius: 22px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+        padding: 2rem;
+        height: 100%;
+    }
+    .contact-row { display: flex; gap: 1rem; align-items: flex-start; margin-bottom: 1.1rem; }
+    .contact-icon {
+        width: 46px;
+        height: 46px;
+        flex-shrink: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+    }
+    .contact-row .t { font-weight: 700; color: #166534; }
+    .time-row {
+        display: flex;
+        justify-content: space-between;
+        padding: .6rem 0;
+        border-bottom: 1px dashed #d1fae5;
+    }
+    .time-row:last-child { border-bottom: none; }
+
+    /* ===== CTA ===== */
+    .cta-box {
+        border-radius: 22px;
+        padding: 3rem 1.5rem;
+        color: #fff;
+        text-align: center;
+        background: linear-gradient(135deg, #14532d, #16a34a 60%, #65a30d);
+        box-shadow: 0 15px 40px rgba(22, 163, 74, .35);
+    }
+</style>
+
+<!-- ===== HERO ===== -->
+<div class="about-hero mt-2">
+    <span class="about-badge">🏟️ Về chúng tôi</span>
+    <h1 class="display-5">SPORTS GROUND</h1>
+    <p>
+        Nền tảng quản lý và đặt sân thể thao trực tuyến, giúp bạn tìm sân, chọn khung giờ
+        và xác nhận lịch đặt nhanh chóng, minh bạch.
+    </p>
+</div>
+
+<!-- ===== SỐ LIỆU ===== -->
+<div class="container">
+    <div class="stat-strip">
+        <div class="row g-0">
+            <div class="col-6 col-md-3 stat-item">
+                <div class="num">5+</div>
+                <div class="label">Loại sân thể thao</div>
+            </div>
+            <div class="col-6 col-md-3 stat-item">
+                <div class="num">24/7</div>
+                <div class="label">Đặt sân trực tuyến</div>
+            </div>
+            <div class="col-6 col-md-3 stat-item">
+                <div class="num">100%</div>
+                <div class="label">Giá minh bạch</div>
+            </div>
+            <div class="col-6 col-md-3 stat-item">
+                <div class="num">3 bước</div>
+                <div class="label">Đặt sân nhanh gọn</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CÂU CHUYỆN & SỨ MỆNH ===== -->
+<div class="container my-5 pt-4">
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="story-box">
+                <h4>📖 Câu chuyện của chúng tôi</h4>
+                <p class="text-muted mt-3">
+                    Sports Ground ra đời từ mong muốn giúp người chơi thể thao không còn phải gọi điện
+                    hỏi lịch từng sân hay chờ đợi xác nhận thủ công. Chỉ với vài thao tác, bạn có thể
+                    xem sân còn trống, chọn khung giờ phù hợp và theo dõi trạng thái lịch đặt của mình.
+                </p>
+                <p class="text-muted mb-0">
+                    Hệ thống hỗ trợ đầy đủ các môn phổ biến như bóng đá, bóng rổ, cầu lông, tennis và
+                    pickleball, đồng thời giúp chủ sân và nhân viên quản lý lịch đặt, dịch vụ đi kèm
+                    cùng thống kê doanh thu một cách rõ ràng.
+                </p>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="mission-card">
+                <h4 class="fw-bold mb-3">🎯 Sứ mệnh</h4>
+                <ul class="list-unstyled mb-0">
+                    <li>✅ Kết nối người chơi với hệ thống sân chất lượng.</li>
+                    <li>✅ Đơn giản hóa việc đặt sân và quản lý lịch.</li>
+                    <li>✅ Công khai bảng giá theo từng khung giờ.</li>
+                    <li>✅ Mang lại trải nghiệm chuyên nghiệp, thân thiện.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== GIÁ TRỊ CỐT LÕI ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title">Giá trị cốt lõi</h3>
+        <p class="section-sub mt-3">Những điều chúng tôi luôn hướng tới</p>
+    </div>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card value-card text-center p-3">
+                <div class="card-body">
+                    <div class="value-icon">⚽</div>
+                    <h5 class="fw-bold text-success mb-3">Sân đạt chuẩn</h5>
+                    <p class="text-muted mb-0">Mặt sân chất lượng, hệ thống chiếu sáng tốt và không gian rộng rãi.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card value-card text-center p-3">
+                <div class="card-body">
+                    <div class="value-icon">⭐</div>
+                    <h5 class="fw-bold text-success mb-3">Dịch vụ chuyên nghiệp</h5>
+                    <p class="text-muted mb-0">Nhân viên thân thiện, hỗ trợ nhanh chóng cùng đầy đủ tiện ích đi kèm.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card value-card text-center p-3">
+                <div class="card-body">
+                    <div class="value-icon">💰</div>
+                    <h5 class="fw-bold text-success mb-3">Chi phí hợp lý</h5>
+                    <p class="text-muted mb-0">Bảng giá minh bạch, nhiều ưu đãi cho khách đặt lịch cố định.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MÔN THỂ THAO ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title">Các môn thể thao hỗ trợ</h3>
+    </div>
+    <div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3 justify-content-center">
+        <div class="col"><div class="sport-pill sp-1"><span class="emoji">⚽</span>Bóng đá</div></div>
+        <div class="col"><div class="sport-pill sp-2"><span class="emoji">🏀</span>Bóng rổ</div></div>
+        <div class="col"><div class="sport-pill sp-3"><span class="emoji">🏸</span>Cầu lông</div></div>
+        <div class="col"><div class="sport-pill sp-4"><span class="emoji">🎾</span>Tennis</div></div>
+        <div class="col"><div class="sport-pill sp-5"><span class="emoji">🏓</span>Pickleball</div></div>
+    </div>
+</div>
+
+<!-- ===== 3 BƯỚC ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title">Quy trình đặt sân</h3>
+    </div>
+    <div class="row g-4 text-center">
+        <div class="col-md-4">
+            <div class="step-circle">1</div>
+            <h5 class="fw-bold">Chọn sân</h5>
+            <p class="text-muted">Tìm và lọc sân theo loại, giá và nhu cầu của bạn.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="step-circle">2</div>
+            <h5 class="fw-bold">Chọn khung giờ</h5>
+            <p class="text-muted">Xem lịch trống và chọn thời gian phù hợp.</p>
+        </div>
+        <div class="col-md-4">
+            <div class="step-circle">3</div>
+            <h5 class="fw-bold">Xác nhận &amp; ra sân</h5>
+            <p class="text-muted">Chờ xác nhận từ hệ thống rồi đến sân thi đấu.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CÂU HỎI THƯỜNG GẶP ===== -->
+<div class="container my-5 py-3" style="max-width: 820px;">
+    <div class="text-center mb-5">
+        <h3 class="section-title">Câu hỏi thường gặp</h3>
+    </div>
+    <div class="accordion faq" id="faqAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                    Tôi cần tài khoản để đặt sân không?
+                </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                <div class="accordion-body text-muted">
+                    Có. Bạn đăng ký tài khoản khách hàng miễn phí, sau đó đăng nhập để đặt sân và theo dõi lịch đặt của mình.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                    Làm sao biết lịch đặt đã được xác nhận?
+                </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body text-muted">
+                    Sau khi gửi yêu cầu, nhân viên sẽ xác nhận hoặc hủy lịch. Trạng thái lịch đặt được cập nhật ngay trong hệ thống.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                    Giá thuê sân được tính như thế nào?
+                </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body text-muted">
+                    Giá được tính theo đơn giá mỗi giờ của từng loại sân, cộng thêm các dịch vụ đi kèm nếu có (nước uống, thuê dụng cụ...).
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                    Tôi có thể hủy lịch đặt không?
+                </button>
+            </h2>
+            <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body text-muted">
+                    Bạn có thể liên hệ nhân viên để hủy lịch. Vui lòng báo sớm để chúng tôi sắp xếp lại sân cho khách khác.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== LIÊN HỆ & GIỜ MỞ CỬA ===== -->
+<div class="container my-5 py-3">
+    <div class="text-center mb-5">
+        <h3 class="section-title">Liên hệ</h3>
+    </div>
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="contact-card">
+                <div class="contact-row">
+                    <div class="contact-icon">📍</div>
+                    <div><div class="t">Địa chỉ</div><div class="text-muted">Hà Nội, Việt Nam</div></div>
+                </div>
+                <div class="contact-row">
+                    <div class="contact-icon">📞</div>
+                    <div><div class="t">Hotline</div><div class="text-muted">0123 456 789</div></div>
+                </div>
+                <div class="contact-row">
+                    <div class="contact-icon">✉️</div>
+                    <div><div class="t">Email</div><div class="text-muted">support@sportsground.vn</div></div>
+                </div>
+                <div class="contact-row mb-0">
+                    <div class="contact-icon">🎓</div>
+                    <div><div class="t">Đề tài</div><div class="text-muted">Bài tập lớn Thực hành lập trình .NET - Đề 18 (UNETI)</div></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="contact-card">
+                <h5 class="fw-bold text-success mb-3">🕒 Giờ mở cửa</h5>
+                <div class="time-row"><span>Thứ 2 - Thứ 6</span><strong>06:00 - 22:00</strong></div>
+                <div class="time-row"><span>Thứ 7</span><strong>06:00 - 23:00</strong></div>
+                <div class="time-row"><span>Chủ nhật</span><strong>06:00 - 23:00</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== CTA ===== -->
+<div class="container mb-5">
+    <div class="cta-box">
+        <h3 class="fw-bold mb-2">Sẵn sàng ra sân chưa?</h3>
+        <p class="mb-4 opacity-75">Xem danh sách sân và đặt lịch ngay hôm nay.</p>
+        <a class="btn btn-light btn-lg fw-bold rounded-pill px-5" asp-controller="SanTheThao" asp-action="Index">
+            Xem danh sách sân →
+        </a>
+    </div>
+</div>
