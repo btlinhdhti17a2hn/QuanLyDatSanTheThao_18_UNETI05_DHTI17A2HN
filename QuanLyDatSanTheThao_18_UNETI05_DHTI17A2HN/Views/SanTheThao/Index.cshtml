@@ -1,0 +1,913 @@
+@*
+// Họ và tên: Bùi Thùy Linh
+// Mã sinh viên: 23103100108
+// Nội dung thực hiện: Giao diện danh sách sân thể thao - tìm kiếm, lọc, sắp xếp, phân trang (Module 2)
+*@
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.SanTheThaoIndexViewModel
+@{
+    var vaiTro = Context.Session.GetString("VaiTro");
+    bool laQuanLy = vaiTro == "Admin" || vaiTro == "NhanVien";
+    ViewData["Title"] = laQuanLy ? "Quản lý sân thể thao" : "Danh sách sân thể thao";
+
+    // Địa chỉ trang hiện tại (kèm điều kiện lọc) để quay lại sau khi xóa / đổi trạng thái
+    string returnUrl = Context.Request.Path.Value + Context.Request.QueryString.Value;
+
+    // Giá trị hiển thị lại trong các ô lọc
+    string? vNgay = Model.NgaySuDung?.ToString("yyyy-MM-dd");
+    string? vGioBd = Model.GioBatDau?.ToString(@"hh\:mm");
+    string? vGioKt = Model.GioKetThuc?.ToString(@"hh\:mm");
+    string? vGiaTu = Model.GiaTu?.ToString("0");
+    string? vGiaDen = Model.GiaDen?.ToString("0");
+
+    var cacKieuSapXep = new (string Ma, string Ten)[]
+    {
+        ("ten_asc", "Tên sân A → Z"),
+        ("ten_desc", "Tên sân Z → A"),
+        ("gia_asc", "Đơn giá tăng dần"),
+        ("gia_desc", "Đơn giá giảm dần"),
+        ("gio_asc", "Giờ mở cửa sớm → muộn"),
+        ("gio_desc", "Giờ mở cửa muộn → sớm")
+    };
+
+    // Cửa sổ số trang hiển thị: trang hiện tại ± 2
+    int trangTu = Math.Max(1, Model.TrangHienTai - 2);
+    int trangDen = Math.Min(Model.TongTrang, Model.TrangHienTai + 2);
+}
+
+<style>
+    /* ==========================================================================
+       Họ và tên: Bùi Thùy Linh - Mã SV: 23103100108 - Module 2: Sân Thể Thao
+       Bảng màu chủ đạo: Xanh lá thể thao tươi mát, hiện đại (Sports Emerald & Pitch Green)
+       ========================================================================== */
+    :root {
+        --stt-green-dark: #064e3b;
+        --stt-green-primary: #059669;
+        --stt-green-vibrant: #10b981;
+        --stt-green-light: #ecfdf5;
+        --stt-green-border: #a7f3d0;
+        --stt-green-hover: #047857;
+    }
+
+    /* Tiêu đề trang */
+    .page-header {
+        background: linear-gradient(135deg, #064e3b 0%, #047857 55%, #059669 100%);
+        border-radius: 20px;
+        padding: 26px 32px;
+        color: #ffffff;
+        box-shadow: 0 10px 25px -5px rgba(5, 150, 105, 0.25);
+    }
+    .page-header h2 {
+        font-weight: 800;
+        font-size: 1.85rem;
+        margin-bottom: 6px;
+        letter-spacing: -0.5px;
+    }
+    .page-header p {
+        color: #d1fae5;
+        margin-bottom: 0;
+        font-size: 0.95rem;
+    }
+    .btn-add {
+        background-color: #ffffff;
+        color: #047857;
+        font-weight: 700;
+        border-radius: 12px;
+        padding: 10px 22px;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border: none;
+        display: inline-block;
+    }
+    .btn-add:hover {
+        background-color: #ecfdf5;
+        color: #064e3b;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Thẻ thống kê (Admin) */
+    .stat-card {
+        background: #ffffff;
+        border: 1.5px solid #d1fae5;
+        border-radius: 16px;
+        padding: 18px 22px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 14px rgba(5, 150, 105, 0.05);
+        transition: all 0.2s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(5, 150, 105, 0.1);
+        border-color: #86efac;
+    }
+    .stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+    }
+    .stat-icon.s-total { background: #ecfdf5; }
+    .stat-icon.s-active { background: #dcfce7; }
+    .stat-icon.s-lock { background: #fef3c7; }
+    .stat-num {
+        font-size: 1.6rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+    .stat-label {
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    /* Thẻ bộ lọc tìm kiếm */
+    .filter-card {
+        background: #ffffff;
+        border: 1.5px solid #a7f3d0;
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(5, 150, 105, 0.06);
+        position: relative;
+    }
+    .filter-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 24px;
+        right: 24px;
+        height: 4px;
+        background: linear-gradient(90deg, #059669, #10b981, #34d399);
+        border-radius: 4px 4px 0 0;
+    }
+    .filter-card .form-label {
+        font-weight: 700;
+        font-size: 0.86rem;
+        color: #065f46;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .filter-card .form-control,
+    .filter-card .form-select {
+        border-radius: 10px;
+        border: 1.5px solid #d1fae5;
+        font-size: 0.9rem;
+        padding: 9px 13px;
+        transition: all 0.2s ease;
+        background-color: #fcfdfd;
+    }
+    .filter-card .form-control:focus,
+    .filter-card .form-select:focus {
+        border-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+        background-color: #ffffff;
+    }
+    .check-box {
+        background: #f0fdf4;
+        border: 1.5px solid #bbf7d0;
+        border-radius: 10px;
+        padding: 0 14px;
+        min-height: 42px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 0;
+    }
+    .check-box.form-check {
+        padding-left: 14px !important;
+    }
+    .check-box .form-check-input {
+        margin-left: 0 !important;
+        margin-top: 0 !important;
+        float: none !important;
+        cursor: pointer;
+        width: 2.2em;
+        height: 1.2em;
+        flex-shrink: 0;
+    }
+    .check-box .form-check-input:checked {
+        background-color: #059669;
+        border-color: #059669;
+    }
+    .check-box .form-check-label {
+        cursor: pointer;
+        margin-bottom: 0;
+        user-select: none;
+        color: #065f46;
+        font-weight: 700;
+        font-size: 0.88rem;
+    }
+    .btn-filter {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #ffffff;
+        font-weight: 700;
+        border-radius: 10px;
+        padding: 9px 22px;
+        border: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+    .btn-filter:hover {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: #ffffff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(5, 150, 105, 0.35);
+    }
+    .btn-reset {
+        background: #f0fdf4;
+        color: #047857;
+        font-weight: 700;
+        border: 1.5px solid #a7f3d0;
+        border-radius: 10px;
+        padding: 9px 18px;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        display: inline-block;
+    }
+    .btn-reset:hover {
+        background: #dcfce7;
+        color: #064e3b;
+        border-color: #86efac;
+    }
+
+    /* Thanh thông báo kết quả */
+    .result-bar {
+        background: #ecfdf5;
+        color: #065f46;
+        border: 1.5px solid #a7f3d0;
+        border-radius: 50px;
+        padding: 6px 16px;
+        font-weight: 700;
+        font-size: 0.88rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* Thẻ sân thể thao (Khách hàng) */
+    .court-card {
+        background: #ffffff;
+        border: 1.5px solid #d1fae5;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 4px 18px rgba(5, 150, 105, 0.05);
+        transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .court-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 32px rgba(5, 150, 105, 0.15);
+        border-color: #34d399;
+    }
+    .court-top {
+        padding: 14px 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #ffffff;
+        font-size: 1.25rem;
+    }
+    .court-top.th-green { background: linear-gradient(135deg, #047857 0%, #10b981 100%); }
+    .court-top.th-orange { background: linear-gradient(135deg, #c2410c 0%, #f97316 100%); }
+    .court-top.th-blue { background: linear-gradient(135deg, #0369a1 0%, #0ea5e9 100%); }
+    .court-top.th-purple { background: linear-gradient(135deg, #6b21a8 0%, #a855f7 100%); }
+    .court-top.th-teal { background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%); }
+
+    .court-id {
+        background: rgba(255, 255, 255, 0.22);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.82rem;
+        border-radius: 20px;
+        padding: 3px 10px;
+        backdrop-filter: blur(4px);
+    }
+    .court-badge {
+        font-size: 0.78rem !important;
+        padding: 4px 10px !important;
+    }
+
+    .court-body {
+        padding: 18px 20px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+    .loai-tag {
+        background: #ecfdf5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+        font-weight: 700;
+        font-size: 0.78rem;
+        border-radius: 20px;
+        padding: 3px 12px;
+        align-self: flex-start;
+        margin-bottom: 8px;
+    }
+    .court-name {
+        font-weight: 800;
+        font-size: 1.15rem;
+        color: #0f172a;
+        margin-bottom: 8px;
+        line-height: 1.35;
+    }
+    .court-meta {
+        font-size: 0.88rem;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin-bottom: 6px;
+    }
+    .court-meta span:first-child {
+        flex-shrink: 0;
+    }
+    .chip {
+        background: #f0fdf4;
+        color: #065f46;
+        border: 1px solid #bbf7d0;
+        border-radius: 12px;
+        font-size: 0.76rem;
+        font-weight: 600;
+        padding: 3px 9px;
+        margin-right: 4px;
+        margin-bottom: 4px;
+        display: inline-block;
+    }
+
+    .court-foot {
+        background: #fcfdfd;
+        border-top: 1.5px solid #f0fdf4;
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .court-price {
+        font-weight: 800;
+        font-size: 1.15rem;
+        color: #059669;
+        line-height: 1.2;
+    }
+    .court-price small {
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 500;
+    }
+    .btn-detail {
+        background: #f0fdf4;
+        color: #047857;
+        border: 1.5px solid #a7f3d0;
+        font-weight: 700;
+        font-size: 0.84rem;
+        border-radius: 10px;
+        padding: 7px 14px;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .btn-detail:hover {
+        background: #dcfce7;
+        color: #064e3b;
+        border-color: #86efac;
+    }
+    .btn-book {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        color: #ffffff;
+        font-weight: 700;
+        font-size: 0.84rem;
+        border-radius: 10px;
+        padding: 7px 16px;
+        text-decoration: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.2);
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-book:hover {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: #ffffff;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 14px rgba(5, 150, 105, 0.3);
+    }
+    .btn-book.disabled {
+        background: #e2e8f0;
+        color: #94a3b8;
+        box-shadow: none;
+        pointer-events: none;
+    }
+
+    /* Pills trạng thái */
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 0.82rem;
+        padding: 4px 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+    .status-pill.status-on {
+        background: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+    }
+    .status-pill.status-warn {
+        background: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+    .status-pill.status-off {
+        background: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fecaca;
+    }
+
+    /* Bảng quản lý (Admin) */
+    .table-card {
+        border-radius: 18px;
+        border: 1.5px solid #d1fae5;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(5, 150, 105, 0.05);
+        background: #ffffff;
+    }
+    .table-pretty {
+        margin-bottom: 0;
+    }
+    .table-pretty thead {
+        background: linear-gradient(135deg, #064e3b 0%, #047857 100%);
+        color: #ffffff;
+    }
+    .table-pretty thead th {
+        font-weight: 700;
+        font-size: 0.88rem;
+        padding: 14px 16px;
+        border: none;
+        letter-spacing: 0.3px;
+    }
+    .table-pretty tbody td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #f0fdf4;
+        font-size: 0.92rem;
+    }
+    .table-pretty tbody tr:hover {
+        background-color: #f0fdf4;
+    }
+    .ma-badge {
+        background: #ecfdf5;
+        color: #047857;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        border: 1px solid #a7f3d0;
+    }
+    .loai-icon {
+        font-size: 1.4rem;
+        width: 38px;
+        height: 38px;
+        background: #ecfdf5;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .gio-tag {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        color: #334155;
+    }
+    .gia-tag {
+        font-weight: 800;
+        color: #059669;
+        font-size: 0.92rem;
+    }
+    .btn-act {
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        padding: 5px 10px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+    .btn-act.btn-view {
+        background: #e0f2fe;
+        color: #0369a1;
+        border-color: #bae6fd;
+    }
+    .btn-act.btn-view:hover { background: #bae6fd; }
+    .btn-act.btn-edit {
+        background: #fef3c7;
+        color: #b45309;
+        border-color: #fde68a;
+    }
+    .btn-act.btn-edit:hover { background: #fde68a; }
+    .btn-act.btn-toggle {
+        background: #ecfdf5;
+        color: #047857;
+        border-color: #a7f3d0;
+    }
+    .btn-act.btn-toggle:hover { background: #a7f3d0; }
+    .btn-act.btn-del {
+        background: #fee2e2;
+        color: #b91c1c;
+        border-color: #fecaca;
+    }
+    .btn-act.btn-del:hover { background: #fecaca; }
+
+    /* Hộp rỗng (Không tìm thấy) */
+    .empty-box {
+        text-align: center;
+        padding: 60px 20px;
+    }
+    .empty-box .emoji {
+        font-size: 3rem;
+        margin-bottom: 12px;
+    }
+
+    /* Phân trang màu xanh */
+    .pagination-green .page-link {
+        color: #047857;
+        border: 1.5px solid #d1fae5;
+        border-radius: 10px !important;
+        margin: 0 3px;
+        font-weight: 700;
+        padding: 8px 14px;
+        transition: all 0.2s ease;
+    }
+    .pagination-green .page-link:hover {
+        background-color: #ecfdf5;
+        border-color: #86efac;
+        color: #064e3b;
+    }
+    .pagination-green .page-item.active .page-link {
+        background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        border-color: #059669;
+        color: #ffffff;
+        box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
+    }
+    .pagination-green .page-item.disabled .page-link {
+        color: #94a3b8;
+        border-color: #f1f5f9;
+        background: #f8fafc;
+    }
+</style>
+
+<div class="container mt-4 mb-5">
+
+    <!-- TIÊU ĐỀ TRANG -->
+    <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            @if (laQuanLy)
+            {
+                <h2>🏟️ QUẢN LÝ SÂN THỂ THAO</h2>
+                <p>Thêm, sửa, xóa sân và cập nhật trạng thái hoạt động của từng sân</p>
+            }
+            else
+            {
+                <h2>🏟️ DANH SÁCH SÂN THỂ THAO</h2>
+                <p>Tìm sân phù hợp, kiểm tra tình trạng và đặt lịch nhanh chóng</p>
+            }
+        </div>
+        @if (laQuanLy)
+        {
+            <a asp-action="Create" class="btn btn-add">+ Thêm sân mới</a>
+        }
+    </div>
+
+    <!-- THÔNG BÁO -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
+            ✅ @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["Warning"] != null)
+    {
+        <div class="alert alert-warning border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
+            ⚠️ @TempData["Warning"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger border-0 shadow-sm rounded-4 alert-dismissible fade show" role="alert">
+            ❌ @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(Model.CanhBao))
+    {
+        <div class="alert alert-info border-0 shadow-sm rounded-4" role="alert">ℹ️ @Model.CanhBao</div>
+    }
+
+    <!-- THỐNG KÊ NHANH (dành cho quản lý) -->
+    @if (laQuanLy)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-icon s-total">🏟️</div>
+                    <div>
+                        <div class="stat-num text-primary">@Model.TongSan</div>
+                        <div class="stat-label">Tổng số sân</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-icon s-active">✅</div>
+                    <div>
+                        <div class="stat-num text-success">@Model.SanKhaDung</div>
+                        <div class="stat-label">Đang khả dụng</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="stat-icon s-lock">🛠️</div>
+                    <div>
+                        <div class="stat-num" style="color:#b45309">@Model.SanKhongKhaDung</div>
+                        <div class="stat-label">Ngừng / đang bảo trì</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- BỘ LỌC: TÌM KIẾM + LỌC + SẮP XẾP (gửi bằng GET để giữ điều kiện trên URL) -->
+    <form method="get" asp-action="Index" class="filter-card mb-4">
+        <div class="row g-3">
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label">🔍 Tìm kiếm</label>
+                <input type="text" name="tuKhoa" value="@Model.TuKhoa" class="form-control"
+                       placeholder="Tên sân, loại sân hoặc địa chỉ..." />
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">⚽ Loại sân</label>
+                <select name="maLoaiSan" class="form-select">
+                    <option value="">Tất cả loại sân</option>
+                    @foreach (var l in Model.LoaiSans)
+                    {
+                        <option value="@l.MaLoaiSan" selected="@(Model.MaLoaiSan == l.MaLoaiSan)">@l.TenLoai</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label">📌 Trạng thái</label>
+                <select name="trangThai" class="form-select">
+                    <option value="">Tất cả</option>
+                    <option value="hoatdong" selected="@(Model.TrangThai == "hoatdong")">Hoạt động</option>
+                    <option value="ngung" selected="@(Model.TrangThai == "ngung")">Ngừng hoạt động</option>
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <label class="form-label">💰 Giá từ (đ)</label>
+                <input type="number" name="giaTu" value="@vGiaTu" min="0" step="1000" class="form-control" placeholder="0" />
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <label class="form-label">💰 Giá đến (đ)</label>
+                <input type="number" name="giaDen" value="@vGiaDen" min="0" step="1000" class="form-control" placeholder="500000" />
+            </div>
+
+            <div class="col-lg-3 col-md-4">
+                <label class="form-label">📅 Ngày sử dụng</label>
+                <input type="date" name="ngaySuDung" value="@vNgay" class="form-control" />
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <label class="form-label">⏰ Từ giờ</label>
+                <input type="time" name="gioBatDau" value="@vGioBd" class="form-control" />
+            </div>
+            <div class="col-lg-2 col-md-4 col-6">
+                <label class="form-label">⏰ Đến giờ</label>
+                <input type="time" name="gioKetThuc" value="@vGioKt" class="form-control" />
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label">🟢 Sân còn trống</label>
+                <div class="check-box form-check form-switch">
+                    <input class="form-check-input ms-0" type="checkbox" role="switch" id="conTrong" name="conTrong" value="true" @(Model.ConTrong ? "checked" : "") />
+                    <label class="form-check-label fw-bold small" for="conTrong">Chỉ sân trống</label>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6">
+                <label class="form-label">↕️ Sắp xếp</label>
+                <select name="sapXep" class="form-select">
+                    @foreach (var kieu in cacKieuSapXep)
+                    {
+                        <option value="@kieu.Ma" selected="@(Model.SapXep == kieu.Ma)">@kieu.Ten</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-3">
+            <button type="submit" class="btn btn-filter">🔎 Tìm kiếm / Lọc</button>
+            <a asp-action="Index" class="btn btn-reset">✖ Xóa bộ lọc</a>
+        </div>
+    </form>
+
+    <!-- THANH KẾT QUẢ -->
+    <div class="mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="result-bar">📋 Tìm thấy @Model.TongKetQua sân @(Model.CoLoc ? "phù hợp" : "")</span>
+        @if (Model.TongTrang > 0)
+        {
+            <span class="text-muted small">Trang @Model.TrangHienTai / @Model.TongTrang</span>
+        }
+    </div>
+
+    @if (!Model.DanhSach.Any())
+    {
+        <div class="card table-card">
+            <div class="empty-box">
+                <div class="emoji">🔍</div>
+                <h5 class="mt-2 fw-bold">Không tìm thấy sân nào</h5>
+                <p class="mb-3">Hãy thử thay đổi từ khóa hoặc nới lỏng điều kiện lọc.</p>
+                <a asp-action="Index" class="btn btn-success rounded-pill fw-bold px-4">Xem tất cả sân</a>
+            </div>
+        </div>
+    }
+    else if (laQuanLy)
+    {
+        <!-- ================= GIAO DIỆN QUẢN LÝ (BẢNG) ================= -->
+        <div class="card table-card">
+            <div class="table-responsive">
+                <table class="table table-pretty align-middle">
+                    <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Sân</th>
+                            <th>Địa chỉ</th>
+                            <th>Giờ hoạt động</th>
+                            <th>Đơn giá / giờ</th>
+                            <th>Trạng thái</th>
+                            <th class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in Model.DanhSach)
+                        {
+                            <tr>
+                                <td><span class="ma-badge">@s.MaSan</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="loai-icon">@SanTheThaoUi.Icon(s.LoaiSan.TenLoai)</span>
+                                        <div>
+                                            <div class="fw-bold">@s.TenSan</div>
+                                            <span class="loai-tag">@s.LoaiSan.TenLoai</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-muted">@s.DiaChi</td>
+                                <td><span class="gio-tag">🕒 @SanTheThaoUi.Gio(s.GioMoCua) - @SanTheThaoUi.Gio(s.GioDongCua)</span></td>
+                                <td><span class="gia-tag">@SanTheThaoUi.Tien(s.DonGia)</span></td>
+                                <td>
+                                    @if (s.DangKhaDung)
+                                    {
+                                        <span class="status-pill status-on">Còn khả dụng</span>
+                                    }
+                                    else if (s.DangBaoTri)
+                                    {
+                                        <span class="status-pill status-warn">Đang bảo trì</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-pill status-off">Ngừng hoạt động</span>
+                                    }
+                                </td>
+                                <td class="text-center text-nowrap">
+                                    <a asp-action="Details" asp-route-id="@s.MaSan" class="btn btn-act btn-view me-1">👁️ Xem</a>
+                                    <a asp-action="Edit" asp-route-id="@s.MaSan" class="btn btn-act btn-edit me-1">✏️ Sửa</a>
+
+                                    <form asp-action="DoiTrangThai" asp-route-id="@s.MaSan" method="post" class="d-inline">
+                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                        <button type="submit" class="btn btn-act btn-toggle me-1">@(s.TrangThai ? "⏸️ Ngừng" : "▶️ Mở lại")</button>
+                                    </form>
+
+                                    <form asp-action="Delete" asp-route-id="@s.MaSan" method="post" class="d-inline"
+                                          onsubmit="return confirm('Bạn có chắc chắn muốn xóa sân này không?');">
+                                        <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                        <button type="submit" class="btn btn-act btn-del">🗑️ Xóa</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- ================= GIAO DIỆN KHÁCH HÀNG (THẺ SÂN) ================= -->
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            @foreach (var s in Model.DanhSach)
+            {
+                <div class="col">
+                    <div class="court-card">
+                        <div class="court-top @SanTheThaoUi.Theme(s.LoaiSan.TenLoai)">
+                            <span class="court-id">Sân #@s.MaSan</span>
+                            @if (s.DangKhaDung)
+                            {
+                                <span class="status-pill status-on court-badge">Còn khả dụng</span>
+                            }
+                            else if (s.DangBaoTri)
+                            {
+                                <span class="status-pill status-warn court-badge">Đang bảo trì</span>
+                            }
+                            else
+                            {
+                                <span class="status-pill status-off court-badge">Không khả dụng</span>
+                            }
+                            <span>@SanTheThaoUi.Icon(s.LoaiSan.TenLoai)</span>
+                        </div>
+
+                        <div class="court-body">
+                            <span class="loai-tag">@s.LoaiSan.TenLoai</span>
+                            <div class="court-name">@s.TenSan</div>
+                            <div class="court-meta"><span>📍</span><span>@s.DiaChi</span></div>
+                            <div class="court-meta"><span>🕒</span><span>Mở cửa @SanTheThaoUi.Gio(s.GioMoCua) - @SanTheThaoUi.Gio(s.GioDongCua)</span></div>
+                            <div class="court-meta"><span>👥</span><span>Tối đa @s.LoaiSan.SoNguoiToiDa người</span></div>
+                            <div class="mt-2">
+                                @foreach (var ti in SanTheThaoUi.TachTienIch(s.TienIch))
+                                {
+                                    <span class="chip">✔ @ti</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="court-foot">
+                            <div class="court-price me-auto">@SanTheThaoUi.Tien(s.DonGia)<small> /giờ</small></div>
+                            <a asp-action="Details" asp-route-id="@s.MaSan" class="btn-detail">Chi tiết</a>
+                            @if (s.DangKhaDung)
+                            {
+                                <a asp-controller="DatSan" asp-action="Create" asp-route-maSan="@s.MaSan" class="btn-book">📅 Đặt sân</a>
+                            }
+                            else
+                            {
+                                <span class="btn-book disabled">🚫 Đặt sân</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- ================= PHÂN TRANG (giữ nguyên toàn bộ điều kiện) ================= -->
+    @if (Model.TongTrang > 1)
+    {
+        <nav class="mt-4 d-flex flex-column align-items-center gap-2" aria-label="Phân trang">
+            <ul class="pagination pagination-green mb-0">
+                <li class="page-item @(Model.TrangHienTai <= 1 ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-all-route-data="Model.TaoRouteData(Model.TrangHienTai - 1)">‹ Trước</a>
+                </li>
+
+                @if (trangTu > 1)
+                {
+                    <li class="page-item"><a class="page-link" asp-action="Index" asp-all-route-data="Model.TaoRouteData(1)">1</a></li>
+                    @if (trangTu > 2)
+                    {
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    }
+                }
+
+                @for (int p = trangTu; p <= trangDen; p++)
+                {
+                    <li class="page-item @(p == Model.TrangHienTai ? "active" : "")">
+                        <a class="page-link" asp-action="Index" asp-all-route-data="Model.TaoRouteData(p)">@p</a>
+                    </li>
+                }
+
+                @if (trangDen < Model.TongTrang)
+                {
+                    @if (trangDen < Model.TongTrang - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">…</span></li>
+                    }
+                    <li class="page-item"><a class="page-link" asp-action="Index" asp-all-route-data="Model.TaoRouteData(Model.TongTrang)">@Model.TongTrang</a></li>
+                }
+
+                <li class="page-item @(Model.TrangHienTai >= Model.TongTrang ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-all-route-data="Model.TaoRouteData(Model.TrangHienTai + 1)">Sau ›</a>
+                </li>
+            </ul>
+            <small class="text-muted">Đang xem trang <strong>@Model.TrangHienTai</strong> / @Model.TongTrang · @Model.KichThuocTrang sân mỗi trang</small>
+        </nav>
+    }
+</div>
