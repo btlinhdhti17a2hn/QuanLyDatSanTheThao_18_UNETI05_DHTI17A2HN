@@ -32,10 +32,21 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
         // ==========================================================
         // 1. TẠO ĐẶT SÂN - GET
-        // Hiển thị form cho khách hàng chọn sân, chọn ngày giờ thuê
+        // Hỗ trợ cả 2 Action 'Create' (do các thành viên khác gọi) và 'TaoMoi' (tiếng Việt)
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> TaoMoi(int? maSan)
+        {
+            return await XuLyGiaoDienDatSan(maSan);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Create(int? maSan)
+        {
+            return await XuLyGiaoDienDatSan(maSan);
+        }
+
+        private async Task<IActionResult> XuLyGiaoDienDatSan(int? maSan)
         {
             var khachHang = await LayKhachHangHienTaiAsync();
             if (khachHang == null)
@@ -76,16 +87,28 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 }
             }
 
-            return View(model);
+            return View("TaoMoi", model);
         }
 
         // ==========================================================
         // 2. TẠO ĐẶT SÂN - POST
-        // Xử lý các ràng buộc nghiệp vụ (Mục 7 & 8 đề bài) bằng LINQ
+        // Hỗ trợ cả 2 Action 'Create' và 'TaoMoi'
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> TaoMoi(DatSanViewModel model)
+        {
+            return await XuLyLuuDatSan(model);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(DatSanViewModel model)
+        {
+            return await XuLyLuuDatSan(model);
+        }
+
+        private async Task<IActionResult> XuLyLuuDatSan(DatSanViewModel model)
         {
             var khachHang = await LayKhachHangHienTaiAsync();
             if (khachHang == null)
@@ -103,7 +126,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             if (!ModelState.IsValid)
             {
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // 1. Kiểm tra đối tượng sân thể thao tồn tại và đang hoạt động
@@ -111,7 +134,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (san == null || !san.TrangThai)
             {
                 ModelState.AddModelError("MaSan", "Sân thể thao được chọn hiện không tồn tại hoặc đã ngừng hoạt động!");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // 2. Tính toán mốc thời gian bắt đầu và kết thúc
@@ -122,14 +145,14 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (dtBatDau < DateTime.Now)
             {
                 ModelState.AddModelError("GioBatDau", "Thời gian bắt đầu đặt sân phải từ thời điểm hiện tại trở đi!");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // Ràng buộc thời gian: Giờ kết thúc phải sau giờ bắt đầu
             if (dtKetThuc <= dtBatDau)
             {
                 ModelState.AddModelError("GioKetThuc", "Giờ kết thúc phải sau giờ bắt đầu!");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // Ràng buộc thời lượng: Tối thiểu 30 phút
@@ -137,14 +160,14 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (soGio < 0.5)
             {
                 ModelState.AddModelError("GioKetThuc", "Thời lượng thuê sân tối thiểu là 30 phút!");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // Ràng buộc Mục 8.3: Chỉ được đặt trong khung giờ mở/đóng cửa của sân
             if (model.GioBatDau < san.GioMoCua || model.GioKetThuc > san.GioDongCua)
             {
                 ModelState.AddModelError("", $"Sân chỉ hoạt động trong khung giờ mở cửa từ {san.GioMoCua:hh\\:mm} đến {san.GioDongCua:hh\\:mm}!");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // Ràng buộc Mục 8.3 & 15: KIỂM TRA TRÙNG LỊCH BẰNG LINQ
@@ -158,7 +181,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (daBiTrungLich)
             {
                 ModelState.AddModelError("", "Sân đã có người đặt trong khoảng thời gian này! Vui lòng chọn khung giờ hoặc sân khác.");
-                return View(model);
+                return View("TaoMoi", model);
             }
 
             // 3. Tính toán chi phí: Tổng tiền dự kiến và Tiền cọc (30% tổng tiền, không vượt tổng tiền dự kiến theo Mục 8.3)
