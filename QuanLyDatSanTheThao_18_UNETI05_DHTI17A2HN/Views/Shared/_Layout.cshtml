@@ -5,11 +5,11 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - QLDatSanTheThao</title>
+    <title>@ViewData["Title"] - QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN</title>
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/QLDatSanTheThao.styles.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.styles.css" asp-append-version="true" />
 
     <style>
         /* ===== CHUNG ===== */
@@ -257,6 +257,9 @@
                                 <a class="nav-link admin-link @hoatDongController("LoaiSan")" asp-controller="LoaiSan" asp-action="Index">Quản lý loại sân</a>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link admin-link @hoatDongController("DichVu")" asp-controller="DichVu" asp-action="Index">Quản lý dịch vụ</a>
+                            </li>
+                            <li class="nav-item">
                                 <a class="nav-link admin-link @(controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan" ? "active" : "")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a>
                             </li>
                         }
@@ -362,7 +365,7 @@
         <div class="footer-bottom">
             <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <div>
-                    &copy; 2026 - QLDatSanTheThao &middot;
+                    &copy; 2026 - QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN &middot;
                     <a asp-area="" asp-controller="Home" asp-action="Privacy">Giới thiệu</a>
                     &middot; Bài tập lớn .NET - Đề 18 (UNETI)
                 </div>
