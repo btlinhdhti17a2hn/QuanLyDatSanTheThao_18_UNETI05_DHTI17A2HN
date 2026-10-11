@@ -1,0 +1,392 @@
+@* Họ và tên: Tạ Đình Kim
+   Mã sinh viên: 23103100315
+   Nội dung thực hiện: Quản lý dịch vụ (Xem chi tiết & Sửa dạng Modal - Admin). *@
+@model List<QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.DichVu>
+@{
+    ViewData["Title"] = "Quản lý dịch vụ";
+    bool laAdmin = ViewBag.LaAdmin;
+    int trang = ViewBag.Trang;
+    int tongTrang = ViewBag.TongTrang;
+    int tongSo = ViewBag.TongSo;
+    int soHoatDong = ViewBag.SoHoatDong != null ? (int)ViewBag.SoHoatDong : Model.Count(x => x.TrangThai);
+    int soNgung = tongSo - soHoatDong;
+
+    string LayIcon(string ten)
+    {
+        var t = (ten ?? "").ToLower();
+
+        if (t.Contains("giày") || t.Contains("giầy") || t.Contains("giay")) return "👟";
+        if (t.Contains("cầu lông") || t.Contains("vợt")) return "🏸";
+        if (t.Contains("tennis")) return "🎾";
+        if (t.Contains("bóng rổ")) return "🏀";
+        if (t.Contains("bóng")) return "⚽";
+        if (t.Contains("áo") || t.Contains("bib")) return "👕";
+        if (t.Contains("tăng lực") || t.Contains("redbull")) return "⚡";
+        if (t.Contains("nước")) return "🥤";
+        if (t.Contains("trọng tài")) return "🏁";
+        if (t.Contains("khăn")) return "🧣";
+        return "🏷️";
+    }
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+<style>
+    .dv-banner {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        color: #fff;
+        background: linear-gradient(120deg, #14532d 0%, #16a34a 55%, #65a30d 100%);
+        box-shadow: 0 12px 30px rgba(22,163,74,.22);
+    }
+
+        .dv-banner::after {
+            content: "🛎️";
+            position: absolute;
+            right: 230px;
+            bottom: -20px;
+            font-size: 8rem;
+            line-height: 1;
+            opacity: .15;
+            filter: grayscale(1) brightness(2);
+            pointer-events: none;
+        }
+
+        .dv-banner > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .dv-banner h2 {
+            letter-spacing: .02em;
+        }
+
+    .btn-white {
+        background: #fff;
+        color: #15803d;
+        border: 0;
+    }
+
+        .btn-white:hover {
+            background: #f0fdf4;
+            color: #14532d;
+        }
+
+    .dv-strip {
+        background: #fff;
+        border: 1px solid #e5ece8;
+        border-radius: 12px;
+    }
+
+    .dv-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .dv-card {
+        background: #fff;
+        border: 1px solid #e5ece8;
+        border-radius: 16px;
+        transition: .2s;
+    }
+
+        .dv-card:hover {
+            box-shadow: 0 8px 22px rgba(22,101,52,.12);
+            transform: translateY(-3px);
+        }
+
+        .dv-card.off {
+            background: #fafafa;
+        }
+
+            .dv-card.off .dv-body {
+                opacity: .6;
+            }
+
+    .dv-ico {
+        width: 52px;
+        height: 52px;
+        flex: none;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.7rem;
+        line-height: 1;
+    }
+
+    .dv-card.off .dv-ico {
+        background: #f1f5f9;
+        filter: grayscale(1);
+    }
+
+    .dv-desc {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        min-height: 2.6em;
+        font-size: .875rem;
+        color: #64748b;
+    }
+
+    .dv-price {
+        font-size: 1.35rem;
+        font-weight: 800;
+        color: #14532d;
+    }
+
+        .dv-price small {
+            font-size: .8rem;
+            font-weight: 600;
+            color: #64748b;
+        }
+
+    .dv-foot {
+        border-top: 1px dashed #dbe5df;
+    }
+
+    .btn-mini {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition: .15s;
+    }
+
+        .btn-mini.edit {
+            color: #d97706;
+        }
+
+            .btn-mini.edit:hover {
+                background: #fff7e0;
+            }
+
+        .btn-mini.del {
+            color: #dc2626;
+        }
+
+            .btn-mini.del:hover {
+                background: #fee2e2;
+            }
+
+    .btn-green {
+        background: #16a34a;
+        color: #fff;
+        border: 0;
+    }
+
+        .btn-green:hover {
+            background: #15803d;
+            color: #fff;
+        }
+
+    .form-switch .form-check-input:checked {
+        background-color: #16a34a;
+        border-color: #16a34a;
+    }
+
+    @@media (max-width: 767.98px) {
+        .dv-banner::after {
+            right: -10px;
+        }
+    }
+</style>
+
+<div class="container-fluid px-4 py-4">
+
+    <!-- Banner -->
+    <div class="dv-banner px-4 py-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="bi bi-box-seam me-2"></i>QUẢN LÝ DỊCH VỤ</h2>
+            <div class="opacity-75">Quản lý danh sách, đơn giá và trạng thái các dịch vụ đi kèm sân thể thao</div>
+        </div>
+        @if (laAdmin)
+        {
+            <a class="btn btn-white fw-semibold px-4 py-2 rounded-pill shadow-sm" asp-action="Create">
+                <i class="bi bi-plus-lg me-1"></i> Thêm dịch vụ mới
+            </a>
+        }
+    </div>
+
+    <!-- Thanh số liệu gọn -->
+    <div class="dv-strip d-flex flex-wrap gap-4 px-3 py-2 mb-3 small">
+        <span><b class="fs-6">@tongSo</b> <span class="text-muted">dịch vụ</span></span>
+        <span><span class="dv-dot bg-success me-1"></span><b class="fs-6">@soHoatDong</b> <span class="text-muted">đang hoạt động</span></span>
+        <span><span class="dv-dot bg-secondary me-1"></span><b class="fs-6">@soNgung</b> <span class="text-muted">ngừng cung cấp</span></span>
+    </div>
+
+    <partial name="_ThongBaoDichVu" />
+
+    <!-- Lưới thẻ dịch vụ -->
+    <div class="row g-3">
+        @if (!Model.Any())
+        {
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-inbox display-4 opacity-50 d-block mb-2"></i>Chưa có dịch vụ nào.
+            </div>
+        }
+        @foreach (var d in Model)
+        {
+            <div class="col-12 col-md-6 col-xl-3">
+                <div class="dv-card h-100 p-3 d-flex flex-column @(d.TrangThai ? "" : "off")">
+                    <div class="dv-body">
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            <div class="dv-ico">@LayIcon(d.TenDichVu)</div>
+                            <div class="fw-bold text-dark lh-sm">@d.TenDichVu</div>
+                        </div>
+                        <div class="dv-desc mb-2" title="@d.MoTa">
+                            @(string.IsNullOrWhiteSpace(d.MoTa) ? "Chưa có mô tả" : d.MoTa)
+                        </div>
+                        <div class="dv-price mb-3">@d.DonGia.ToString("N0") đ <small>/ lượt</small></div>
+                    </div>
+
+                    <div class="dv-foot pt-3 mt-auto d-flex justify-content-between align-items-center">
+                        @if (laAdmin)
+                        {
+                            <form asp-action="DoiTrangThai" asp-route-id="@d.MaDichVu" method="post" class="m-0">
+                                <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                    <input class="form-check-input m-0 shadow-none" type="checkbox" role="switch"
+                                           id="sw-@d.MaDichVu" @(d.TrangThai ? "checked" : "") onchange="this.form.submit()" />
+                                    <label class="form-check-label small fw-semibold @(d.TrangThai ? "text-success" : "text-secondary")" for="sw-@d.MaDichVu">
+                                        @(d.TrangThai ? "Hoạt động" : "Tạm ngừng")
+                                    </label>
+                                </div>
+                            </form>
+                            <div class="d-flex gap-1">
+                                <button type="button" class="btn-mini edit" data-bs-toggle="modal"
+                                        data-bs-target="#editModal-@d.MaDichVu" title="Chỉnh sửa">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button type="button" class="btn-mini del" title="Xóa dịch vụ"
+                                        onclick='xacNhanXoa(@d.MaDichVu, @Json.Serialize(d.TenDichVu))'>
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="small fw-semibold @(d.TrangThai ? "text-success" : "text-secondary")">
+                                <span class="dv-dot @(d.TrangThai ? "bg-success" : "bg-secondary") me-1"></span>
+                                @(d.TrangThai ? "Hoạt động" : "Ngừng cung cấp")
+                            </span>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Phân trang -->
+    @if (tongTrang > 1)
+    {
+        <nav class="mt-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="text-muted small">Trang <b class="text-dark">@trang</b> / <b class="text-dark">@tongTrang</b></div>
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item @(trang == 1 ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-trang="@(trang - 1)"><i class="bi bi-chevron-left"></i> Trước</a>
+                </li>
+                @for (int i = 1; i <= tongTrang; i++)
+                {
+                    <li class="page-item @(i == trang ? "active" : "")">
+                        <a class="page-link" asp-action="Index" asp-route-trang="@i">@i</a>
+                    </li>
+                }
+                <li class="page-item @(trang == tongTrang ? "disabled" : "")">
+                    <a class="page-link" asp-action="Index" asp-route-trang="@(trang + 1)">Sau <i class="bi bi-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>
+
+@* Modal sửa *@
+@if (laAdmin)
+{
+    foreach (var d in Model)
+    {
+        <div class="modal fade" id="editModal-@d.MaDichVu" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                    <div class="modal-header bg-light py-3 px-4">
+                        <h5 class="modal-title fw-bold">Chỉnh sửa dịch vụ</h5>
+                        <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form asp-action="Edit" asp-route-id="@d.MaDichVu" method="post">
+                        <div class="modal-body p-4">
+                            <input type="hidden" name="MaDichVu" value="@d.MaDichVu" />
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-secondary small text-uppercase">Tên dịch vụ <span class="text-danger">*</span></label>
+                                <input type="text" name="TenDichVu" value="@d.TenDichVu" class="form-control rounded-3 shadow-none" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-secondary small text-uppercase">Đơn giá <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <input type="number" name="DonGia" value="@d.DonGia" min="0" step="1000" class="form-control rounded-start-3 shadow-none" required />
+                                    <span class="input-group-text bg-light text-muted fw-semibold rounded-end-3">VNĐ</span>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold text-secondary small text-uppercase">Mô tả</label>
+                                <textarea name="MoTa" class="form-control rounded-3 shadow-none" rows="3">@d.MoTa</textarea>
+                            </div>
+                            <div class="bg-light rounded-3 p-3">
+                                <div class="form-check form-switch ps-0 d-flex justify-content-between align-items-center mb-0">
+                                    <label class="form-check-label fw-semibold" for="trangThaiSwitch-@d.MaDichVu">Trạng thái hoạt động</label>
+                                    <input class="form-check-input fs-5 ms-3 shadow-none" type="checkbox" role="switch"
+                                           id="trangThaiSwitch-@d.MaDichVu" name="TrangThai" value="true" @(d.TrangThai ? "checked" : "") />
+                                    <input type="hidden" name="TrangThai" value="false" />
+                                </div>
+                                <small class="text-muted">Bật để khách hàng có thể chọn dịch vụ này khi đặt sân.</small>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-light py-3 px-4">
+                            <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Hủy bỏ</button>
+                            <button type="submit" class="btn btn-green px-4">Lưu thay đổi</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function xacNhanXoa(id, tenDichVu) {
+        Swal.fire({
+        title: 'Xác nhận xóa dịch vụ?',
+        html: 'Bạn có chắc muốn xóa dịch vụ <b></b> không?<br>Hành động này không thể hoàn tác!',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Xóa',
+        cancelButtonText: 'Hủy',
+        reverseButtons: true,
+        customClass: { popup: 'rounded-4' },
+        didOpen: function (popup) { popup.querySelector('b').textContent = '"' + tenDichVu + '"'; }
+        }).then(function (result) {
+        if (!result.isConfirmed) return;
+        var form = document.createElement('form');
+        form.method = 'post';
+        form.action = '@Url.Action("Delete", "DichVu")/' + id;
+        var token = document.querySelector('input[name="__RequestVerificationToken"]');
+        if (token) form.appendChild(token.cloneNode(true));
+        document.body.appendChild(form);
+        form.submit();
+        });
+        }
+    </script>
+}

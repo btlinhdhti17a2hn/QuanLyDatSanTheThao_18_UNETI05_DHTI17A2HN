@@ -1,0 +1,80 @@
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.DichVu
+@{
+    ViewData["Title"] = "Xóa dịch vụ";
+    bool daSuDung = ViewBag.DaSuDung ?? false;
+}
+
+<div class="container-fluid px-4 py-3">
+    <!-- Tiêu đề trang gọn gàng -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <h2 class="text-dark fw-bold mb-0"><i class="bi bi-trash3 me-2 text-danger"></i>Quản lý dịch vụ</h2>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-0">
+                <li class="breadcrumb-item"><a asp-action="Index">Danh sách</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Xóa dịch vụ</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Bố cục Card tập trung ở giữa với viền bóng đẹp mắt -->
+    <div class="card shadow border-0 col-lg-7 mx-auto rounded-3 overflow-hidden">
+        <div class="card-header bg-danger text-white py-3 px-4">
+            <h5 class="mb-0 fw-semibold"><i class="bi bi-exclamation-octagon me-2"></i> Xác nhận xóa dịch vụ</h5>
+        </div>
+        <div class="card-body p-4">
+
+            <!-- Phần thông báo trực quan, bo tròn gọn gàng -->
+            @if (daSuDung)
+            {
+                <div class="alert alert-warning border-0 shadow-sm d-flex align-items-start p-3 mb-4 rounded-3" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill fs-4 text-warning me-3 mt-1"></i>
+                    <div>
+                        <h6 class="alert-heading fw-bold mb-1">Không thể xóa dịch vụ này!</h6>
+                        <p class="mb-0 text-muted small">
+                            Dịch vụ này đã được sử dụng trong các đơn đặt sân trước đó.
+                            Vui lòng chuyển sang trạng thái <strong>ngừng cung cấp</strong> thay vì xóa vĩnh viễn.
+                        </p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-danger border-0 shadow-sm d-flex align-items-start p-3 mb-4 rounded-3" role="alert">
+                    <i class="bi bi-shield-exclamation fs-4 text-danger me-3 mt-1"></i>
+                    <div>
+                        <h6 class="alert-heading fw-bold mb-1">Cảnh báo xóa dữ liệu!</h6>
+                        <p class="mb-0 text-muted small">Bạn có chắc chắn muốn xóa dịch vụ này không? Hành động này sẽ loại bỏ hoàn toàn khỏi hệ thống và không thể hoàn tác.</p>
+                    </div>
+                </div>
+            }
+
+            <!-- Khung hiển thị thông tin chi tiết dịch vụ dạng bảng tóm tắt gọn gàng -->
+            <div class="card bg-light border-0 p-3 mb-4 rounded-3">
+                <dl class="row mb-0 gy-2">
+                    <dt class="col-sm-4 text-secondary fw-normal">Tên dịch vụ:</dt>
+                    <dd class="col-sm-8 fw-bold text-dark mb-0">@Model.TenDichVu</dd>
+
+                    <dt class="col-sm-4 text-secondary fw-normal">Đơn giá:</dt>
+                    <dd class="col-sm-8 fw-bold text-success mb-0">@Model.DonGia.ToString("N0") đ</dd>
+                </dl>
+            </div>
+
+            <!-- Khu vực nút bấm điều hướng căn chỉnh cân đối -->
+            <form asp-action="Delete" method="post" class="d-flex justify-content-between align-items-center pt-2">
+                <input type="hidden" asp-for="MaDichVu" />
+
+                <a asp-action="Index" class="btn btn-outline-secondary px-4 rounded-pill">
+                    <i class="bi bi-arrow-left me-1"></i> Quay lại
+                </a>
+
+                @if (!daSuDung)
+                {
+                    <button type="submit" class="btn btn-danger px-4 rounded-pill shadow-sm">
+                        <i class="bi bi-trash me-1"></i> Xác nhận xóa
+                    </button>
+                }
+            </form>
+
+        </div>
+    </div>
+</div>

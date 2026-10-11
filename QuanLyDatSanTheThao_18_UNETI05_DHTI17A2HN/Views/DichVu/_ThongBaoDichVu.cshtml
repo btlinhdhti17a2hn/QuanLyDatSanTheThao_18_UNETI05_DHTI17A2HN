@@ -1,0 +1,13 @@
+@* Họ và tên: Tạ Đình Kim 
+   Mã sinh viên: 23103100315
+   Nội dung thực hiện: Partial hiển thị thông báo thành công / lỗi (TempData). *@
+@if (TempData["ThanhCong"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">@TempData["ThanhCong"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
+@if (TempData["Loi"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">@TempData["Loi"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+}
