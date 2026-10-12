@@ -1,0 +1,221 @@
+@*
+// Họ và tên: Nguyễn Thị Lan Nhi
+// Mã sinh viên: 23103100104
+// Nội dung thực hiện: Module 3 - Giao diện Danh sách khách hàng (Quản lý) - Tìm kiếm, lọc, phân trang và trạng thái
+*@
+
+@model IEnumerable<QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.KhachHang>
+
+@{
+    ViewData["Title"] = "Quản lý khách hàng";
+    int trangHienTai = ViewBag.TrangHienTai ?? 1;
+    int tongSoTrang = ViewBag.TongSoTrang ?? 1;
+    int tongSoBanGhi = ViewBag.TongSoBanGhi ?? 0;
+    string? tuKhoa = ViewBag.TuKhoa as string;
+    string? trangThai = ViewBag.TrangThai as string;
+}
+
+<div class="container-fluid py-4">
+    <!-- Tiêu đề và breadcrumb -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-success mb-1">👥 Quản lý danh sách khách hàng</h3>
+            <p class="text-muted small mb-0">Xem danh sách, tìm kiếm, lọc và quản lý trạng thái khách hàng</p>
+        </div>
+        <div>
+            <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 rounded-pill">
+                Tổng cộng: <strong>@tongSoBanGhi</strong> khách hàng
+            </span>
+        </div>
+    </div>
+
+    <!-- Thông báo kết quả -->
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-3" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-3" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Khung Tìm kiếm và Lọc dữ liệu -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-3 p-md-4">
+            <form asp-controller="KhachHang" asp-action="Index" method="get" class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold text-secondary small">Từ khóa tìm kiếm</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">🔍</span>
+                        <input type="text" name="tuKhoa" value="@tuKhoa" class="form-control border-start-0" placeholder="Nhập tên, số điện thoại, email..." />
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold text-secondary small">Trạng thái hoạt động</label>
+                    <select name="trangThai" class="form-select">
+                        <option value="">-- Tất cả trạng thái --</option>
+                        <option value="HoatDong" selected="@(trangThai == "HoatDong")">Đang hoạt động</option>
+                        <option value="BiKhoa" selected="@(trangThai == "BiKhoa")">Bị khóa</option>
+                    </select>
+                </div>
+
+                <div class="col-md-4 d-flex gap-2">
+                    <button type="submit" class="btn btn-success fw-semibold px-4 rounded-pill flex-grow-1" style="background: linear-gradient(135deg, #16a34a, #22c55e); border: none;">
+                        Tìm kiếm
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-3" title="Xóa bộ lọc">
+                        Làm mới
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bảng danh sách khách hàng -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary small text-uppercase">
+                    <tr>
+                        <th class="ps-4">Mã KH</th>
+                        <th>Họ và tên</th>
+                        <th>Tài khoản</th>
+                        <th>Số điện thoại</th>
+                        <th>Email</th>
+                        <th>Ngày đăng ký</th>
+                        <th class="text-center">Điểm</th>
+                        <th class="text-center">Trạng thái</th>
+                        <th class="text-center pe-4">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model != null && Model.Any())
+                    {
+                        foreach (var kh in Model)
+                        {
+                            <tr>
+                                <td class="ps-4 fw-bold text-muted">#@kh.MaKhachHang</td>
+                                <td>
+                                    <div class="fw-semibold text-dark">@kh.HoTen</div>
+                                    <small class="text-muted">@(kh.GioiTinh ?? "Chưa xác định")</small>
+                                </td>
+                                <td>
+                                    @if (kh.TaiKhoan != null)
+                                    {
+                                        <span class="badge bg-light text-dark border">@@@kh.TaiKhoan.TenDangNhap</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small fst-italic">Chưa liên kết</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a href="tel:@kh.SoDienThoai" class="text-decoration-none text-dark fw-semibold">@kh.SoDienThoai</a>
+                                </td>
+                                <td>
+                                    <span class="text-muted small">@(kh.Email ?? "—")</span>
+                                </td>
+                                <td>
+                                    <small class="text-muted">@kh.NgayDangKy.ToString("dd/MM/yyyy")</small>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-warning text-dark px-2 py-1 rounded-pill">⭐ @kh.DiemTichLuy</span>
+                                </td>
+                                <td class="text-center">
+                                    @if (kh.TrangThai)
+                                    {
+                                        <span class="badge bg-success-subtle text-success px-3 py-1 rounded-pill">Hoạt động</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger-subtle text-danger px-3 py-1 rounded-pill">Bị khóa</span>
+                                    }
+                                </td>
+                                <td class="text-center pe-4">
+                                    <div class="d-inline-flex gap-2">
+                                        <!-- Xem chi tiết -->
+                                        <a asp-action="ChiTiet" asp-route-id="@kh.MaKhachHang" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Xem chi tiết">
+                                            Chi tiết
+                                        </a>
+
+                                        <!-- Khóa / Mở khóa -->
+                                        <form asp-action="ThayDoiTrangThai" asp-route-id="@kh.MaKhachHang" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc chắn muốn @(kh.TrangThai ? "khóa" : "mở khóa") khách hàng này không?');">
+                                            @Html.AntiForgeryToken()
+                                            @if (kh.TrangThai)
+                                            {
+                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Khóa tài khoản">
+                                                    Khóa
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3" title="Mở khóa tài khoản">
+                                                    Mở khóa
+                                                </button>
+                                            }
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <div class="fs-1 mb-2">🔍</div>
+                                <p class="mb-0 fw-semibold">Không tìm thấy khách hàng nào phù hợp với điều kiện tìm kiếm!</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Phân trang (Giữ nguyên điều kiện tìm kiếm và lọc khi chuyển trang theo Mục 6.6 & 15) -->
+        @if (tongSoTrang > 1)
+        {
+            <div class="card-footer bg-white border-0 py-3 d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                    Trang <strong>@trangHienTai</strong> / <strong>@tongSoTrang</strong>
+                </small>
+
+                <nav aria-label="Page navigation">
+                    <ul class="pagination pagination-sm mb-0">
+                        <!-- Trang trước -->
+                        <li class="page-item @(trangHienTai <= 1 ? "disabled" : "")">
+                            <a class="page-link" asp-action="Index" asp-route-trang="@(trangHienTai - 1)" asp-route-tuKhoa="@tuKhoa" asp-route-trangThai="@trangThai">
+                                &laquo; Trước
+                            </a>
+                        </li>
+
+                        <!-- Danh sách các trang -->
+                        @for (int i = 1; i <= tongSoTrang; i++)
+                        {
+                            <li class="page-item @(i == trangHienTai ? "active" : "")">
+                                <a class="page-link @(i == trangHienTai ? "bg-success border-success" : "")" asp-action="Index" asp-route-trang="@i" asp-route-tuKhoa="@tuKhoa" asp-route-trangThai="@trangThai">
+                                    @i
+                                </a>
+                            </li>
+                        }
+
+                        <!-- Trang sau -->
+                        <li class="page-item @(trangHienTai >= tongSoTrang ? "disabled" : "")">
+                            <a class="page-link" asp-action="Index" asp-route-trang="@(trangHienTai + 1)" asp-route-tuKhoa="@tuKhoa" asp-route-trangThai="@trangThai">
+                                Sau &raquo;
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        }
+    </div>
+</div>
