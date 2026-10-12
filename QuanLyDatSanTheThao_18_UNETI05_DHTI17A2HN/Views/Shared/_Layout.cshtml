@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Http
+@using Microsoft.AspNetCore.Http
 @inject IHttpContextAccessor HttpContextAccessor
 <!DOCTYPE html>
 <html lang="vi">
@@ -263,6 +263,13 @@
                                 <a class="nav-link admin-link @(controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan" ? "active" : "")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a>
                             </li>
                         }
+
+                        @if (!string.IsNullOrEmpty(tenNguoiDung))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link @hoatDong("DatSan", "LichSuDatSan")" asp-controller="DatSan" asp-action="LichSuDatSan">Lịch sử đặt sân</a>
+                            </li>
+                        }
                     </ul>
 
                     <!-- CỤM MENU BÊN PHẢI: HIỂN THỊ TRẠNG THÁI ĐĂNG NHẬP -->
@@ -281,7 +288,8 @@
                                     <span>Xin chào: @tenNguoiDung</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="#">👤 Thông tin cá nhân</a></li>
+                                    <li><a class="dropdown-item" asp-controller="KhachHang" asp-action="HoSo">👤 Thông tin cá nhân</a></li>
+                                    <li><a class="dropdown-item" asp-controller="DatSan" asp-action="LichSuDatSan">📅 Lịch sử đặt sân</a></li>
                                     @if (vaiTro == "Admin" || vaiTro == "NhanVien")
                                     {
                                         <li><a class="dropdown-item" href="#">📊 Trang quản trị (Dashboard)</a></li>
