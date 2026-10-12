@@ -19,6 +19,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // Số đơn hiển thị trên 1 trang
         private const int KichThuocTrang = 10;
 
+        // Số lượng tối đa của 1 dịch vụ trong 1 đơn
+        private const int SoLuongDichVuToiDa = 99;
+
         // Mục 8.5: Giới hạn số lượt đặt (chưa hủy) của 1 sân trong 1 ngày
         private const int GioiHanLuotMoiNgay = 8;
 
@@ -238,6 +241,21 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.TienDichVu = don.ChiTietDatSans.Sum(ct => ct.ThanhTien);
             vm.TongTien = vm.TienSan + vm.TienDichVu;
 
+            // Tổng tiền khách còn phải thanh toán (đã trừ tiền cọc)
+            vm.ConPhaiThanhToan = Math.Max(vm.TongTien - don.TienCoc, 0);
+
+            // Thêm / sửa dịch vụ chỉ khi đơn chưa kết thúc
+            vm.CoTheSuaDichVu = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
+            if (vm.CoTheSuaDichVu)
+            {
+                var daCo = don.ChiTietDatSans.Select(ct => ct.MaDichVu).ToList();
+                vm.DanhSachDichVu = await _context.DichVus
+                    .AsNoTracking()
+                    .Where(dv => dv.TrangThai || daCo.Contains(dv.MaDichVu))
+                    .OrderBy(dv => dv.TenDichVu)
+                    .ToListAsync();
+            }
+
             // Chỉ phân tích điều kiện khi đơn còn đang chờ xác nhận
             if (don.TrangThai == ChoXuLy)
             {
@@ -247,8 +265,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Nút thao tác phải phù hợp với trạng thái hiện tại
             vm.CoTheXacNhan = don.TrangThai == ChoXuLy && !vm.KetQua.Loi.Any();
             vm.CoTheHoanThanh = don.TrangThai == DangXuLy && don.GioBatDau <= now;
-            vm.CoTheHuy = don.TrangThai == ChoXuLy
-                          || (don.TrangThai == DangXuLy && don.GioBatDau > now);
+
+            // Đơn Chờ xử lý hoặc Đang xử lý đều có thể hủy / từ chối,
+            // kể cả khi sân đang được sử dụng (Hoàn thành / Đã hủy là trạng thái cuối)
+            vm.CoTheHuy = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
 
             return View(vm);
         }
@@ -284,6 +304,93 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         {
             return DoiTrangThaiAsync(id, DaHuy, quayLai,
                 "Đã hủy đơn đặt sân #{0}. Khung giờ này được trả lại cho khách khác đặt.");
+        }
+
+        // ==========================================================
+        // 6. TẠM LƯU DỊCH VỤ: thêm / sửa / bỏ dịch vụ của đơn mà KHÔNG đổi trạng thái
+        // Dữ liệu được ghi xuống CSDL nên nhân viên thoát trang rồi quay lại vẫn còn nguyên.
+        // ==========================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> LuuDichVu(int id, List<DichVuChonInput>? dichVu)
+        {
+            var chan = KiemTraQuyen();
+            if (chan != null) return chan;
+
+            var don = await _context.DatSans
+                .Include(d => d.ChiTietDatSans)
+                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+
+            if (don == null) return NotFound();
+
+            if (don.TrangThai != ChoXuLy && don.TrangThai != DangXuLy)
+            {
+                TempData["Error"] = $"Đơn #{id} đang ở trạng thái '{don.TrangThai}' nên không thể thay đổi dịch vụ.";
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            dichVu ??= new List<DichVuChonInput>();
+
+            if (dichVu.Any(x => x.SoLuong < 0 || x.SoLuong > SoLuongDichVuToiDa))
+            {
+                TempData["Error"] = $"Số lượng mỗi dịch vụ phải từ 0 đến {SoLuongDichVuToiDa}.";
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            // Gộp các dòng trùng dịch vụ, bỏ dòng có số lượng 0
+            var chon = dichVu
+                .Where(x => x.SoLuong > 0)
+                .GroupBy(x => x.MaDichVu)
+                .ToDictionary(g => g.Key, g => Math.Min(g.Sum(x => x.SoLuong), SoLuongDichVuToiDa));
+
+            // 1. Dòng đang có trong đơn: bỏ nếu không còn được chọn, cập nhật số lượng nếu còn
+            var daCo = new HashSet<int>();
+            foreach (var ct in don.ChiTietDatSans.ToList())
+            {
+                if (!chon.TryGetValue(ct.MaDichVu, out int soLuong) || !daCo.Add(ct.MaDichVu))
+                {
+                    _context.ChiTietDatSans.Remove(ct);
+                    continue;
+                }
+
+                ct.SoLuong = soLuong;
+                ct.ThanhTien = ct.DonGia * soLuong; // giữ nguyên đơn giá đã áp dụng cho dòng này
+            }
+
+            // 2. Dịch vụ mới: lấy đơn giá hiện hành, chỉ nhận dịch vụ đang kinh doanh
+            var maMoi = chon.Keys.Where(k => !daCo.Contains(k)).ToList();
+            if (maMoi.Any())
+            {
+                var dsDichVu = await _context.DichVus
+                    .Where(dv => maMoi.Contains(dv.MaDichVu))
+                    .ToDictionaryAsync(dv => dv.MaDichVu);
+
+                foreach (var ma in maMoi)
+                {
+                    if (!dsDichVu.TryGetValue(ma, out var dv) || !dv.TrangThai)
+                    {
+                        TempData["Error"] = "Có dịch vụ không tồn tại hoặc đã ngừng cung cấp. Vui lòng tải lại trang và chọn lại.";
+                        return RedirectToAction(nameof(ChiTiet), new { id });
+                    }
+
+                    int soLuong = chon[ma];
+                    don.ChiTietDatSans.Add(new ChiTietDatSan
+                    {
+                        MaDichVu = dv.MaDichVu,
+                        SoLuong = soLuong,
+                        DonGia = dv.DonGia,
+                        ThanhTien = dv.DonGia * soLuong,
+                        TrangThai = "Đã thêm"
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = chon.Count == 0
+                ? $"Đã tạm lưu đơn #{id}: hiện chưa có dịch vụ nào được chọn."
+                : $"Đã tạm lưu {chon.Count} dịch vụ cho đơn #{id}. Bạn có thể tiếp tục chỉnh sửa hoặc xử lý đơn sau.";
+            return RedirectToAction(nameof(ChiTiet), new { id });
         }
 
         // ==========================================================
@@ -349,11 +456,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     break;
 
                 case DaHuy:
-                    // Đơn đã xác nhận mà đã đến/quá giờ sử dụng thì không được hủy tùy ý
-                    if (don.TrangThai == DangXuLy && don.GioBatDau <= now)
-                    {
-                        return $"Đơn #{don.MaDatSan} đã đến hoặc quá giờ sử dụng sân nên không thể hủy. Hãy cập nhật sang 'Hoàn thành'.";
-                    }
+                    // Cho phép hủy / từ chối đơn Chờ xử lý hoặc Đang xử lý,
+                    // kể cả khi sân đang được sử dụng (luồng trạng thái đã được kiểm tra ở trên)
                     break;
             }
 
