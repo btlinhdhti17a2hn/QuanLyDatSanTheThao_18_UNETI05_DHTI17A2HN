@@ -250,7 +250,12 @@
                         <li class="nav-item">
                             <a class="nav-link @hoatDongController("SanTheThao")" asp-area="" asp-controller="SanTheThao" asp-action="Index">Danh sách sân</a>
                         </li>
-
+                        @if (vaiTroMenu == "Admin" || vaiTroMenu == "NhanVien")
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link admin-link @hoatDongController("TiepNhanDatSan")" asp-controller="TiepNhanDatSan" asp-action="Index">Tiếp nhận đặt sân</a>
+                            </li>
+                        }
                         @if (vaiTroMenu == "Admin")
                         {
                             <li class="nav-item">
