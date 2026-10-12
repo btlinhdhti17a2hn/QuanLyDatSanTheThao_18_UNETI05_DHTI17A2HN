@@ -1,5 +1,5 @@
-﻿// Họ và tên: Vũ Anh Ngọc
-// Mã sinh viên: <ĐIỀN MÃ SINH VIÊN CỦA BẠN VÀO ĐÂY>
+﻿// Họ và tên: Vũ Ánh Ngọc
+// Mã sinh viên: 23103100106
 // Nội dung thực hiện: Module 4 - ViewModel Tiếp nhận đặt sân (danh sách xử lý có tìm kiếm/lọc/sắp xếp/phân trang,
 //                     chi tiết đơn kèm kết quả kiểm tra điều kiện trước khi xử lý).
 
