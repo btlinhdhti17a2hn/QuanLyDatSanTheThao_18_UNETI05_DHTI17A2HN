@@ -1,0 +1,276 @@
+@*
+// Họ và tên: Nguyễn Thị Lan Nhi
+// Mã sinh viên: 23103100104
+// Nội dung thực hiện: Module 3 - Giao diện Đặt sân thể thao (Chọn sân, ngày giờ, tự động tính tiền và kiểm tra trùng lịch)
+*@
+
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.DatSanViewModel
+
+@{
+    ViewData["Title"] = "Đặt sân thể thao";
+    var danhSachSan = ViewBag.DanhSachSan as List<QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.SanTheThao>;
+}
+
+<div class="container py-4">
+    <!-- Breadcrumb điều hướng -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none text-success">Trang chủ</a></li>
+            <li class="breadcrumb-item"><a asp-action="LichSuDatSan" class="text-decoration-none text-success">Lịch sử đặt sân</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Đặt sân mới</li>
+        </ol>
+    </nav>
+
+    <!-- Thông báo lỗi tổng quát nếu có -->
+    @if (!ViewData.ModelState.IsValid && ViewData.ModelState[""]?.Errors.Count > 0)
+    {
+        <div class="alert alert-danger shadow-sm rounded-4 mb-4">
+            <div class="d-flex align-items-center mb-1 fw-bold">
+                <span class="me-2">⚠️</span> Không thể hoàn tất đặt sân:
+            </div>
+            <ul class="mb-0 ps-4">
+                @foreach (var err in ViewData.ModelState[""]!.Errors)
+                {
+                    <li>@err.ErrorMessage</li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Cột trái: Form nhập thông tin đặt sân -->
+        <div class="col-lg-7">
+            <div class="card border-0 shadow-sm rounded-4 p-4 p-md-5">
+                <div class="border-bottom pb-3 mb-4">
+                    <h4 class="fw-bold text-success mb-1">🏟️ Đăng ký đặt sân thể thao</h4>
+                    <p class="text-muted small mb-0">Chọn sân và khung giờ phù hợp với kế hoạch luyện tập của bạn</p>
+                </div>
+
+                <form asp-action="TaoMoi" method="post" id="formDatSan">
+                    @Html.AntiForgeryToken()
+
+                    <!-- Chọn sân thể thao -->
+                    <div class="mb-4">
+                        <label asp-for="MaSan" class="form-label fw-bold text-secondary">
+                            Chọn sân thể thao <span class="text-danger">*</span>
+                        </label>
+                        <select asp-for="MaSan" class="form-select form-select-lg rounded-3" id="selectSan">
+                            <option value="">-- Vui lòng chọn sân --</option>
+                            @if (danhSachSan != null)
+                            {
+                                foreach (var s in danhSachSan)
+                                {
+                                    <option value="@s.MaSan" 
+                                            data-dongia="@s.DonGia" 
+                                            data-tensan="@s.TenSan"
+                                            data-loaisan="@(s.LoaiSan?.TenLoai ?? "")"
+                                            data-giomo="@s.GioMoCua.ToString(@"hh\:mm")"
+                                            data-giodong="@s.GioDongCua.ToString(@"hh\:mm")"
+                                            selected="@(Model.MaSan == s.MaSan)">
+                                        @s.TenSan - @(s.LoaiSan?.TenLoai) (@s.DonGia.ToString("N0") đ/h)
+                                    </option>
+                                }
+                            }
+                        </select>
+                        <span asp-validation-for="MaSan" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Ngày sử dụng sân -->
+                    <div class="mb-4">
+                        <label asp-for="NgaySuDung" class="form-label fw-bold text-secondary">
+                            Ngày sử dụng sân <span class="text-danger">*</span>
+                        </label>
+                        <input asp-for="NgaySuDung" type="date" class="form-control rounded-3" id="inputNgay" min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                        <span asp-validation-for="NgaySuDung" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Khung giờ bắt đầu & kết thúc -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="GioBatDau" class="form-label fw-bold text-secondary">
+                                Giờ bắt đầu <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="GioBatDau" type="time" class="form-control rounded-3" id="inputGioBatDau" />
+                            <span asp-validation-for="GioBatDau" class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label asp-for="GioKetThuc" class="form-label fw-bold text-secondary">
+                                Giờ kết thúc <span class="text-danger">*</span>
+                            </label>
+                            <input asp-for="GioKetThuc" type="time" class="form-control rounded-3" id="inputGioKetThuc" />
+                            <span asp-validation-for="GioKetThuc" class="text-danger small"></span>
+                        </div>
+                    </div>
+
+                    <!-- Ghi chú thêm (Mục 14 đề bài: Sử dụng textarea cho ghi chú) -->
+                    <div class="mb-4">
+                        <label asp-for="GhiChu" class="form-label fw-bold text-secondary">Ghi chú thêm</label>
+                        <textarea asp-for="GhiChu" class="form-control rounded-3" rows="3" placeholder="Yêu cầu thêm về dụng cụ, nước uống hoặc bóng thi đấu..."></textarea>
+                        <span asp-validation-for="GhiChu" class="text-danger small"></span>
+                    </div>
+
+                    <!-- Nút xác nhận -->
+                    <div class="d-flex gap-2 justify-content-end pt-3 border-top">
+                        <a asp-action="LichSuDatSan" class="btn btn-outline-secondary px-4 rounded-pill">Quay lại</a>
+                        <button type="submit" class="btn btn-success px-5 rounded-pill fw-bold shadow-sm" style="background: linear-gradient(135deg, #16a34a, #22c55e); border: none;">
+                            ✅ Xác nhận đặt sân
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Cột phải: Bảng tóm tắt chi phí dự kiến -->
+        <div class="col-lg-5">
+            <div class="card border-0 shadow-sm rounded-4 p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3">📋 Tóm tắt thông tin đặt sân</h5>
+
+                <div class="p-3 bg-light rounded-3 mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Sân đã chọn:</span>
+                        <strong class="text-dark" id="txtTenSan">—</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Loại sân:</span>
+                        <span class="text-dark" id="txtLoaiSan">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted small">Giờ hoạt động của sân:</span>
+                        <span class="badge bg-secondary-subtle text-secondary" id="txtGioHoatDong">—</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Đơn giá thuê:</span>
+                        <span class="fw-semibold text-success" id="txtDonGia">0 đ/giờ</span>
+                    </div>
+                </div>
+
+                <div class="border-top border-bottom py-3 mb-3">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Thời lượng thuê dự kiến:</span>
+                        <strong class="text-dark" id="txtSoGio">0 giờ</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Tổng tiền dự kiến:</span>
+                        <span class="fw-bold text-primary fs-5" id="txtTongTien">0 VNĐ</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Tiền cọc tối thiểu (30%):</span>
+                        <span class="fw-bold text-danger fs-5" id="txtTienCoc">0 VNĐ</span>
+                    </div>
+                </div>
+
+                <div id="boxThongBaoAjax" class="d-none alert alert-warning small rounded-3 mb-3">
+                    <span id="txtThongBaoAjax"></span>
+                </div>
+
+                <div class="small text-muted">
+                    <p class="fw-bold text-dark mb-1">📌 Lưu ý khi đặt sân:</p>
+                    <ul class="ps-3 mb-0 text-secondary">
+                        <li>Đơn sau khi tạo sẽ ở trạng thái <strong>"Chờ xử lý"</strong>.</li>
+                        <li>Quý khách vui lòng thanh toán tiền cọc trong vòng 2 giờ để nhân viên xác nhận lịch.</li>
+                        <li>Chỉ có thể hủy đơn đặt sân khi đơn đang ở trạng thái <em>Chờ xử lý</em>.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const selectSan = document.getElementById("selectSan");
+            const inputNgay = document.getElementById("inputNgay");
+            const inputBatDau = document.getElementById("inputGioBatDau");
+            const inputKetThuc = document.getElementById("inputGioKetThuc");
+
+            const txtTenSan = document.getElementById("txtTenSan");
+            const txtLoaiSan = document.getElementById("txtLoaiSan");
+            const txtGioHoatDong = document.getElementById("txtGioHoatDong");
+            const txtDonGia = document.getElementById("txtDonGia");
+            const txtSoGio = document.getElementById("txtSoGio");
+            const txtTongTien = document.getElementById("txtTongTien");
+            const txtTienCoc = document.getElementById("txtTienCoc");
+            const boxAjax = document.getElementById("boxThongBaoAjax");
+            const txtAjax = document.getElementById("txtThongBaoAjax");
+
+            function capNhatTinhTien() {
+                const opt = selectSan.options[selectSan.selectedIndex];
+                if (!opt || !opt.value) {
+                    txtTenSan.textContent = "—";
+                    txtLoaiSan.textContent = "—";
+                    txtGioHoatDong.textContent = "—";
+                    txtDonGia.textContent = "0 đ/giờ";
+                    txtSoGio.textContent = "0 giờ";
+                    txtTongTien.textContent = "0 VNĐ";
+                    txtTienCoc.textContent = "0 VNĐ";
+                    boxAjax.classList.add("d-none");
+                    return;
+                }
+
+                txtTenSan.textContent = opt.dataset.tensan || "—";
+                txtLoaiSan.textContent = opt.dataset.loaisan || "—";
+                txtGioHoatDong.textContent = `${opt.dataset.giomo} - ${opt.dataset.giodong}`;
+                
+                const donGia = parseFloat(opt.dataset.dongia) || 0;
+                txtDonGia.textContent = donGia.toLocaleString('vi-VN') + " đ/giờ";
+
+                const gioBatDau = inputBatDau.value;
+                const gioKetThuc = inputKetThuc.value;
+                const ngay = inputNgay.value;
+
+                if (gioBatDau && gioKetThuc) {
+                    const [h1, m1] = gioBatDau.split(':').map(Number);
+                    const [h2, m2] = gioKetThuc.split(':').map(Number);
+                    const diffMinutes = (h2 * 60 + m2) - (h1 * 60 + m1);
+
+                    if (diffMinutes > 0) {
+                        const soGio = diffMinutes / 60;
+                        const tongTien = Math.round(soGio * donGia);
+                        const tienCoc = Math.round(tongTien * 0.3);
+
+                        txtSoGio.textContent = soGio.toFixed(1) + " giờ";
+                        txtTongTien.textContent = tongTien.toLocaleString('vi-VN') + " VNĐ";
+                        txtTienCoc.textContent = tienCoc.toLocaleString('vi-VN') + " VNĐ";
+
+                        // Gọi API kiểm tra trùng lịch và giờ mở cửa tức thì
+                        if (ngay) {
+                            fetch(`/DatSan/KiemTraGiaVaTrungLich?maSan=${opt.value}&ngay=${ngay}&gioBatDau=${gioBatDau}&gioKetThuc=${gioKetThuc}`)
+                                .then(res => res.json())
+                                .then(data => {
+                                    if (!data.hopLe) {
+                                        boxAjax.classList.remove("d-none", "alert-success");
+                                        boxAjax.classList.add("alert-warning");
+                                        txtAjax.textContent = "⚠️ " + data.thongBao;
+                                    } else {
+                                        boxAjax.classList.remove("d-none", "alert-warning");
+                                        boxAjax.classList.add("alert-success");
+                                        txtAjax.textContent = "✓ Khung giờ hợp lệ và sân đang còn trống!";
+                                    }
+                                })
+                                .catch(() => { boxAjax.classList.add("d-none"); });
+                        }
+                    } else {
+                        txtSoGio.textContent = "Không hợp lệ";
+                        txtTongTien.textContent = "0 VNĐ";
+                        txtTienCoc.textContent = "0 VNĐ";
+                        boxAjax.classList.remove("d-none");
+                        boxAjax.classList.add("alert-warning");
+                        txtAjax.textContent = "⚠️ Giờ kết thúc phải sau giờ bắt đầu!";
+                    }
+                }
+            }
+
+            selectSan.addEventListener("change", capNhatTinhTien);
+            inputNgay.addEventListener("change", capNhatTinhTien);
+            inputBatDau.addEventListener("input", capNhatTinhTien);
+            inputKetThuc.addEventListener("input", capNhatTinhTien);
+
+            // Chạy khởi tạo lúc ban đầu
+            capNhatTinhTien();
+        });
+    </script>
+}
