@@ -25,9 +25,32 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             int? maTaiKhoan = HttpContext.Session.GetInt32("MaTaiKhoan");
             if (maTaiKhoan == null) return null;
 
-            return await _context.KhachHangs
+            var kh = await _context.KhachHangs
                 .Include(k => k.TaiKhoan)
                 .FirstOrDefaultAsync(k => k.MaTaiKhoan == maTaiKhoan);
+
+            // Nếu tài khoản (kể cả Admin/Nhân viên) chưa có hồ sơ Khách hàng thì tự khởi tạo hồ sơ để họ có thể tự đặt sân và xem lịch sử của mình
+            if (kh == null)
+            {
+                var tk = await _context.TaiKhoans.FindAsync(maTaiKhoan);
+                if (tk != null)
+                {
+                    kh = new KhachHang
+                    {
+                        MaTaiKhoan = tk.MaTaiKhoan,
+                        HoTen = tk.HoTen,
+                        SoDienThoai = "0987000000",
+                        Email = tk.Email,
+                        NgayDangKy = DateTime.Now,
+                        DiemTichLuy = 0,
+                        TrangThai = true
+                    };
+                    _context.KhachHangs.Add(kh);
+                    await _context.SaveChangesAsync();
+                }
+            }
+
+            return kh;
         }
 
         // ==========================================================
@@ -210,8 +233,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // 3. THEO DÕI LỊCH ĐẶT SÂN (LỊCH SỬ ĐẶT SÂN CỦA KHÁCH HÀNG)
-        // Mục 7.5: Chỉ được xem dữ liệu của chính mình
+        // 3. THEO DÕI LỊCH ĐẶT SÂN CỦA BẢN THÂN (MỤC 7.5 ĐỀ BÀI)
+        // Cả Quản trị viên và Khách hàng chỉ xem đúng các đơn do chính mình đặt
+        // Toàn bộ chức năng tiếp nhận/duyệt đơn của hệ thống thuộc phạm vi của SV4
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> LichSuDatSan(string? trangThai, int trang = 1, int kichThuocTrang = 8)
@@ -223,7 +247,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return RedirectToAction("DangNhap", "TaiKhoan");
             }
 
-            // LINQ: Truy vấn danh sách giao dịch thuộc chính khách hàng này
+            // Chỉ truy vấn các đơn đặt do chính mình tạo ra
             var query = _context.DatSans
                 .Include(d => d.SanTheThao)
                     .ThenInclude(s => s.LoaiSan)
