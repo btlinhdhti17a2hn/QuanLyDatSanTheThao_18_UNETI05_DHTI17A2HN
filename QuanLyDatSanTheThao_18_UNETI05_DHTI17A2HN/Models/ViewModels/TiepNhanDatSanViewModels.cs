@@ -72,6 +72,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public decimal TienDichVu { get; set; }
         public decimal TongTien { get; set; }
 
+        // Số tiền khách còn phải thanh toán = Tổng cộng - Tiền cọc (không âm)
+        public decimal ConPhaiThanhToan { get; set; }
+
+        // Cho phép thêm / sửa dịch vụ khi đơn chưa kết thúc (Chờ xử lý, Đang xử lý)
+        public bool CoTheSuaDichVu { get; set; }
+
+        // Danh sách dịch vụ để chọn (dịch vụ đang kinh doanh + dịch vụ đã có sẵn trong đơn)
+        public List<DichVu> DanhSachDichVu { get; set; } = new();
+
         public KetQuaKiemTraDonDat KetQua { get; set; } = new();
         public int GioiHanLuotMoiNgay { get; set; }
 
@@ -79,5 +88,14 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public bool CoTheXacNhan { get; set; }
         public bool CoTheHoanThanh { get; set; }
         public bool CoTheHuy { get; set; }
+    }
+
+    // ==========================================================
+    // 4. DỮ LIỆU DỊCH VỤ NHÂN VIÊN CHỌN KHI BẤM "TẠM LƯU"
+    // ==========================================================
+    public class DichVuChonInput
+    {
+        public int MaDichVu { get; set; }
+        public int SoLuong { get; set; }
     }
 }
