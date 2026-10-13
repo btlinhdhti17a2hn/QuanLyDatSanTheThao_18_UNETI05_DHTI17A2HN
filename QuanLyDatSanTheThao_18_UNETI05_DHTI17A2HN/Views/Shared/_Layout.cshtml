@@ -264,6 +264,20 @@
                             <li class="nav-item">
                                 <a class="nav-link admin-link @hoatDongController("DichVu")" asp-controller="DichVu" asp-action="Index">Quản lý dịch vụ</a>
                             </li>
+                            <li class="nav-item dropdown">
+                                <a class="nav-link admin-link dropdown-toggle @hoatDongController("ThongKe")" href="#" role="button"
+                                   data-bs-toggle="dropdown" aria-expanded="false">
+                                    Thống kê
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" asp-area="" asp-controller="ThongKe" asp-action="Index">Tổng quan</a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-area="" asp-controller="ThongKe" asp-action="ThongKe">Chi tiết</a>
+                                    </li>
+                                </ul>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link admin-link @(controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan" ? "active" : "")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a>
                             </li>

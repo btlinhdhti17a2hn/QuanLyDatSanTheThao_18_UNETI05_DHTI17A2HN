@@ -1,0 +1,2637 @@
+@* Họ và tên: [Điền tên SV 5]
+   Mã sinh viên: [Điền mã SV 5]
+   Nội dung thực hiện: Trang thống kê nâng cao bằng LINQ (GroupBy, Sum, Count) - doanh thu theo kỳ,
+   loại sân ưa thích, dịch vụ phổ biến, khung giờ cao điểm. Có bộ lọc thời gian, so sánh kỳ trước
+   và xem nhanh danh sách đơn hủy.
+   Trang Thống kê là trung tâm báo cáo chuyên sâu (Doanh thu / Hiệu suất sân / Dịch vụ);
+   phần "Tổng quan" điều hành hằng ngày thuộc về trang chủ Dashboard.
+   Quy ước chữ: tiêu đề khối 16px, nội dung 14px, chú thích 13px, tối thiểu 12px. Khoảng cách khối 20px. *@
+@using System.Globalization
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
+@model ThongKeViewModel
+@{
+    ViewData["Title"] = "Thống kê";
+    var inv = CultureInfo.InvariantCulture;
+    Func<DateTime, string> f = d => d.ToString("dd/MM/yyyy", inv);
+
+    // ===== Tỷ lệ hủy =====
+    double tyLeHuy = Convert.ToDouble(Model.TyLeHuy, inv);
+    string huyMau = tyLeHuy < 10 ? "#16a34a" : (tyLeHuy < 20 ? "#d97706" : "#dc2626");
+    string huyNhan = tyLeHuy < 10 ? "Ở mức tốt" : (tyLeHuy < 20 ? "Cần theo dõi" : "Tỷ lệ cao");
+    string huyLop = tyLeHuy < 10 ? "good" : (tyLeHuy < 20 ? "warn" : "bad");
+    string huyIcon = tyLeHuy < 10 ? "✔" : "⚠";
+    string huyRong = Math.Min(100, tyLeHuy).ToString("0.##", inv);
+
+    // ===== Bộ lọc thời gian =====
+    string kieu = string.IsNullOrEmpty(Model.Kieu) ? "nam" : Model.Kieu;
+    DateTime tu = Model.TuNgay == default(DateTime) ? new DateTime(Model.Nam, 1, 1) : Model.TuNgay.Date;
+    DateTime den = Model.DenNgay == default(DateTime) ? new DateTime(Model.Nam, 12, 31) : Model.DenNgay.Date;
+
+    string nhan;
+    switch (kieu)
+    {
+        case "homnay": nhan = "hôm nay (" + f(tu) + ")"; break;
+        case "tuannay": nhan = "tuần này (" + f(tu) + " - " + f(den) + ")"; break;
+        case "thangnay": nhan = "tháng " + tu.ToString("MM/yyyy", inv); break;
+        case "quynay": nhan = "quý " + ((tu.Month - 1) / 3 + 1) + "/" + tu.Year; break;
+        case "tuychon": nhan = f(tu) + " - " + f(den); break;
+        default: nhan = "năm " + tu.Year; break;
+    }
+
+    var presets = new[]
+    {
+        new { Key = "homnay",   Text = "Hôm nay" },
+        new { Key = "tuannay",  Text = "Tuần này" },
+        new { Key = "thangnay", Text = "Tháng này" },
+        new { Key = "quynay",   Text = "Quý này" },
+        new { Key = "nam",      Text = "Năm" },
+        new { Key = "tuychon",  Text = "Tùy chọn" }
+    };
+
+    bool coDuLieu = Model.TongLuotDat > 0;
+
+    // ===== So sánh với kỳ trước: trả về [lớp CSS, chữ hiển thị] =====
+    Func<decimal, decimal, string[]> delta = (cur, prev) =>
+    {
+        if (prev == 0) return cur == 0 ? new[] { "flat", "–" } : new[] { "new", "Chưa có dữ liệu kỳ trước" };
+        decimal pct = Math.Round((cur - prev) / prev * 100m, 1);
+        if (pct == 0) return new[] { "flat", "= 0%" };
+        return new[] { pct > 0 ? "up" : "down", (pct > 0 ? "▲ " : "▼ ") + Math.Abs(pct).ToString("0.#") + "%" };
+    };
+    string kyTruocTip = "So với " + f(Model.TuNgayTruoc) + " - " + f(Model.DenNgayTruoc);
+
+    // Nhãn kỳ trước theo bộ lọc đang chọn (hôm qua / tuần trước / tháng trước / quý trước / năm trước)
+    string kyTruocNhan;
+    switch (kieu)
+    {
+        case "homnay": kyTruocNhan = "so với hôm qua"; break;
+        case "tuannay": kyTruocNhan = "so với tuần trước"; break;
+        case "thangnay": kyTruocNhan = "so với tháng trước"; break;
+        case "quynay": kyTruocNhan = "so với quý trước"; break;
+        case "nam": kyTruocNhan = "so với năm trước"; break;
+        default: kyTruocNhan = "so với kỳ trước"; break;
+    }
+    string kyTruocKhoang = f(Model.TuNgayTruoc) + " - " + f(Model.DenNgayTruoc);
+
+    // Tiền thất thoát do đơn hủy (cộng từ danh sách đơn hủy; nếu danh sách bị cắt thì chỉ là mức tối thiểu)
+    decimal tienHuy = Model.DonHuy.Sum(x => x.DonGia);
+    bool tienHuyTruncated = Model.SoLuotHuy > Model.DonHuy.Count;
+
+    // Tổng doanh thu dịch vụ để tính tỷ trọng đóng góp
+    decimal tongDichVu = Model.DichVuPhoBien.Sum(x => x.GiaTri);
+
+    var dtDelta = delta(Model.TongDoanhThuNam, Model.DoanhThuKyTruoc);
+    var luotDelta = delta(Model.TongLuotDat, Model.LuotDatKyTruoc);
+    decimal trungBinh = Model.SoDonHoanThanh > 0 ? Math.Round(Model.TongDoanhThuNam / Model.SoDonHoanThanh, 0) : 0;
+
+    string moTaBieuDo = Model.DonViBieuDo == "tuần"
+        ? "Mỗi cột = 1 tuần (nhãn là ngày bắt đầu). Cột đậm là mốc cao nhất."
+        : "Mỗi cột = 1 " + Model.DonViBieuDo + ". Cột đậm là mốc cao nhất.";
+
+    // ===== Nhận định khung giờ =====
+    var kg = Model.KhungGio;
+    var kgCao = Model.KhungGioCaoDiem;
+    var kgThap = kg.Count > 1 ? kg.OrderBy(x => x.SoLuong).First() : null;
+
+    // ===== Doanh thu theo loại sân: gộp lượt đặt + doanh thu, dùng cho biểu đồ tròn và bảng =====
+    var tienTheoLoai = Model.DoanhThuTheoLoai.ToDictionary(x => x.Ten, x => x.GiaTri);
+    var loaiRows = Model.LuotDatTheoLoai
+        .Select(x => new { x.Ten, Luot = x.SoLuong, Tien = tienTheoLoai.GetValueOrDefault(x.Ten) })
+        .OrderByDescending(x => x.Tien).ThenByDescending(x => x.Luot).ThenBy(x => x.Ten)
+        .ToList();
+    decimal tongTienLoai = loaiRows.Sum(x => x.Tien);
+    string[] mau = { "#14532d", "#16a34a", "#4ade80", "#0ea5e9", "#f59e0b", "#94a3b8" };
+
+    const double chuVi = 2 * Math.PI * 44;   // bán kính vòng tròn = 44
+    int soPhanCoTien = loaiRows.Count(x => x.Tien > 0);
+    var donut = new List<(string Mau, string Day, string Lech, int Idx)>();
+    double daDung = 0;
+    for (int idx = 0; idx < loaiRows.Count; idx++)
+    {
+        if (tongTienLoai <= 0 || loaiRows[idx].Tien <= 0) continue;
+        double dai = (double)(loaiRows[idx].Tien / tongTienLoai) * chuVi;
+        double hien = soPhanCoTien > 1 ? Math.Max(dai - 1.5, 0.5) : dai;   // chừa khe nhỏ giữa các phần
+        donut.Add((mau[idx % mau.Length],
+                   hien.ToString("0.###", inv) + " " + (chuVi - hien).ToString("0.###", inv),
+                   (-daDung).ToString("0.###", inv), idx));
+        daDung += dai;
+    }
+
+    // Số tiền gọn cho giữa biểu đồ tròn
+    Func<decimal, string> gon = v => v >= 1000000000m ? (v / 1000000000m).ToString("0.##") + " tỷ"
+                                   : v >= 1000000m ? (v / 1000000m).ToString("0.##") + " tr"
+                                   : v.ToString("N0") + " đ";
+
+    // ===== Biểu đồ cột theo giờ (mặc định 6h - 22h, tự mở rộng nếu có đơn ngoài khoảng này) =====
+    var gioMap = new Dictionary<int, ThongKeItem>();
+    foreach (var mucGio in Model.KhungGio)
+    {
+        if (mucGio.Ten.Length >= 2 && int.TryParse(mucGio.Ten.Substring(0, 2), out var gioSo)) gioMap[gioSo] = mucGio;
+    }
+    int gioDau = gioMap.Count > 0 ? Math.Min(6, gioMap.Keys.Min()) : 6;
+    int gioCuoi = gioMap.Count > 0 ? Math.Max(22, gioMap.Keys.Max()) : 22;
+    int gioMax = gioMap.Count > 0 ? gioMap.Values.Max(x => x.SoLuong) : 0;
+    int gioCaoDiem = -1;
+    if (kgCao != null && kgCao.Ten.Length >= 2 && int.TryParse(kgCao.Ten.Substring(0, 2), out var gioCao)) gioCaoDiem = gioCao;
+
+    // Thu hẹp trục giờ về vùng có dữ liệu (±2 giờ), tối thiểu 8 cột, để không lãng phí chỗ khi đơn dồn vào vài giờ
+    if (gioMap.Count > 0)
+    {
+        int gA = Math.Max(0, gioMap.Keys.Min() - 2);
+        int gB = Math.Min(23, gioMap.Keys.Max() + 2);
+        while (gB - gA + 1 < 8 && (gA > 0 || gB < 23))
+        {
+            if (gA > 0) gA--;
+            if (gB - gA + 1 < 8 && gB < 23) gB++;
+        }
+        gioDau = gA;
+        gioCuoi = gB;
+    }
+
+    // Gom khung giờ theo buổi: Sáng (< 12h), Chiều (12h - 18h), Tối (từ 18h)
+    var buoiRows = new[]
+    {
+        new { Ten = "Sáng",  Mo = "trước 12:00",  Luot = gioMap.Where(x => x.Key < 12).Sum(x => x.Value.SoLuong) },
+        new { Ten = "Chiều", Mo = "12:00 - 18:00", Luot = gioMap.Where(x => x.Key >= 12 && x.Key < 18).Sum(x => x.Value.SoLuong) },
+        new { Ten = "Tối",   Mo = "từ 18:00",      Luot = gioMap.Where(x => x.Key >= 18).Sum(x => x.Value.SoLuong) }
+    };
+    int buoiMax = buoiRows.Max(x => x.Luot);
+    int buoiTong = buoiRows.Sum(x => x.Luot);
+
+    // ===== Xếp hạng sân =====
+    int tongLuotSan = Model.LuotDatTheoSan.Sum(x => x.SoLuong);
+    var topSan = Model.LuotDatTheoSan.Take(5).ToList();
+    Func<int, int> hangSan = so => 1 + Model.LuotDatTheoSan.Count(x => x.SoLuong > so);   // đồng hạng cùng thứ tự
+    Func<int, int, string> tyLeStr = (so, tong) => tong == 0 ? "0%" : (so * 100.0 / tong).ToString("0.#") + "%";
+    var sanIt = Model.SanItKhach.Take(5).ToList();
+
+    // Xếp hạng sân: cùng số lượt thì sắp theo tên để thứ tự cố định, và gắn nhãn "Đồng hạng"
+    var topSanRows = Model.LuotDatTheoSan.OrderByDescending(x => x.SoLuong).ThenBy(x => x.Ten).Take(5).ToList();
+
+    // Chỉ số khai thác sân (ước lượng từ lượt đặt, chưa cần giờ mở cửa)
+    var luotTheoLoai = Model.LuotDatTheoLoai.GroupBy(x => x.Ten).ToDictionary(g => g.Key, g => g.Sum(x => x.SoLuong));
+    int tongSan = Model.SanTheoLoai.Sum(x => x.SoLuong);
+    int sanCoDat = Model.LuotDatTheoSan.Count(x => x.SoLuong > 0);
+    double luotTbSan = tongSan > 0 ? (double)tongLuotSan / tongSan : 0;
+    var sanLoaiRows = Model.SanTheoLoai
+        .Select(x => new { x.Ten, SoSan = x.SoLuong, Luot = luotTheoLoai.GetValueOrDefault(x.Ten) })
+        .Select(x => new { x.Ten, x.SoSan, x.Luot, TbSan = x.SoSan > 0 ? (double)x.Luot / x.SoSan : 0.0 })
+        .ToList();
+    double sanLoaiMax = sanLoaiRows.Count == 0 ? 0 : sanLoaiRows.Max(x => x.TbSan);
+
+    // ===== Báo cáo khi in / lưu PDF: tiêu đề theo kỳ đang xem + phân tích tự động =====
+    string loaiBaoCao;
+    switch (kieu)
+    {
+        case "homnay": loaiBaoCao = "ngày"; break;
+        case "tuannay": loaiBaoCao = "tuần"; break;
+        case "thangnay": loaiBaoCao = "tháng"; break;
+        case "quynay": loaiBaoCao = "quý"; break;
+        case "nam": loaiBaoCao = "năm"; break;
+        default: loaiBaoCao = null; break;
+    }
+    string tieuDeBaoCao = loaiBaoCao != null ? "Báo cáo " + loaiBaoCao : "Báo cáo thống kê";
+    string kyBaoCao = kieu == "homnay" ? f(tu) : f(tu) + " - " + f(den);
+    string tieuDeTrang = tieuDeBaoCao + " " + kyBaoCao.Replace("/", "-");   // thành tên file khi "Lưu thành PDF"
+    Func<decimal, string> tien = v => v.ToString("N0") + " đ";
+
+    var phanTich = new List<string>();
+    if (Model.DoanhThuKyTruoc > 0)
+    {
+        decimal pctDt = Math.Round((Model.TongDoanhThuNam - Model.DoanhThuKyTruoc) / Model.DoanhThuKyTruoc * 100m, 1);
+        phanTich.Add("Doanh thu đạt " + tien(Model.TongDoanhThuNam) + ", " + (pctDt >= 0 ? "tăng " : "giảm ") + Math.Abs(pctDt).ToString("0.#") + "% " + kyTruocNhan + " (" + tien(Model.DoanhThuKyTruoc) + ").");
+    }
+    else
+    {
+        phanTich.Add("Doanh thu đạt " + tien(Model.TongDoanhThuNam) + "; kỳ trước (" + kyTruocKhoang + ") chưa có dữ liệu để so sánh.");
+    }
+    phanTich.Add("Có " + Model.TongLuotDat + " lượt đặt, trong đó " + Model.SoDonHoanThanh + " đơn hoàn thành; giá trị trung bình " + tien(trungBinh) + " mỗi đơn.");
+    phanTich.Add("Tỷ lệ hủy đơn " + Model.TyLeHuy + "% (" + Model.SoLuotHuy + "/" + Model.TongLuotDat + " đơn) - " + huyNhan.ToLower()
+                 + (Model.SoLuotHuy > 0 ? ", thất thoát " + (tienHuyTruncated ? "tối thiểu " : "") + tien(tienHuy) + "." : "."));
+    var loaiTop = loaiRows.FirstOrDefault();
+    if (loaiTop != null && loaiTop.Tien > 0 && tongTienLoai > 0)
+    {
+        phanTich.Add(loaiTop.Ten + " mang lại doanh thu cao nhất: " + tien(loaiTop.Tien) + " (" + (loaiTop.Tien / tongTienLoai * 100m).ToString("0.#") + "% doanh thu theo loại sân).");
+    }
+    if (kgCao != null)
+    {
+        phanTich.Add("Khung giờ cao điểm là " + kgCao.Ten + " với " + kgCao.SoLuong + " lượt (" + kgCao.TyLe.ToString("0.#") + "% tổng lượt đặt).");
+    }
+    if (buoiTong > 0)
+    {
+        var buoiTop = buoiRows.OrderByDescending(x => x.Luot).First();
+        phanTich.Add("Buổi " + buoiTop.Ten.ToLower() + " có nhiều lượt đặt nhất (" + tyLeStr(buoiTop.Luot, buoiTong) + ").");
+    }
+    if (kgThap != null && kgCao != null && kgThap.Ten != kgCao.Ten)
+    {
+        phanTich.Add("Khung giờ vắng nhất là " + kgThap.Ten + " (" + kgThap.SoLuong + " lượt); có thể cân nhắc ưu đãi để kích cầu.");
+    }
+    if (topSanRows.Count > 0)
+    {
+        var sanTop = topSanRows[0];
+        int cungLuotDau = Model.LuotDatTheoSan.Count(x => x.SoLuong == sanTop.SoLuong);
+        phanTich.Add(cungLuotDau > 1
+            ? cungLuotDau + " sân cùng dẫn đầu với " + sanTop.SoLuong + " lượt đặt mỗi sân."
+            : sanTop.Ten + " được đặt nhiều nhất với " + sanTop.SoLuong + " lượt.");
+    }
+    if (tongSan > 0 && sanCoDat < tongSan)
+    {
+        phanTich.Add((tongSan - sanCoDat) + "/" + tongSan + " sân chưa có lượt đặt nào trong kỳ.");
+    }
+    if (Model.DichVuPhoBien.Count > 0)
+    {
+        var dvTop = Model.DichVuPhoBien[0];
+        phanTich.Add("Dịch vụ bán chạy nhất là " + dvTop.Ten + " (" + dvTop.SoLuong + " lượt sử dụng, " + tien(dvTop.GiaTri) + ").");
+    }
+    if (tyLeHuy >= 20)
+    {
+        phanTich.Add("Tỷ lệ hủy đang ở mức cao, nên rà soát nguyên nhân hủy (chính sách đặt cọc, nhắc lịch) để giảm thất thoát.");
+    }
+}
+
+<style>
+    .tk {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e5e7eb;
+        --pitch: #14532d;
+        --pitch-2: #166534;
+        --brand: #16a34a;
+        --brand-soft: #4ade80;
+        --brand-deep: #15803d;
+    }
+
+    /* ===== Khối nội dung chung: padding 20px, bo 12px ===== */
+    .tk-panel {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin: 0;
+        box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    }
+
+    .tk-panel-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--ink);
+        line-height: 1.3;
+    }
+
+    .tk-panel-sub {
+        color: var(--muted);
+        font-size: .8125rem;
+        margin-bottom: .75rem;
+        min-height: .4rem;
+    }
+
+    .tk-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: .4rem;
+        color: #94a3b8;
+        padding: 1.5rem 0 1rem;
+        font-size: .875rem;
+    }
+
+    .tk-note {
+        color: var(--muted);
+        font-size: .8125rem;
+        margin-top: .5rem;
+    }
+
+    .tk-stack {
+        display: grid;
+        gap: 1.25rem;
+        min-width: 0;
+        align-content: start;
+    }
+
+    /* ===== THANH TRÊN CÙNG: Tiêu đề | Tabs | Bộ lọc (1 hàng) ===== */
+    .tk-top {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .4rem .75rem;
+        margin-bottom: 1rem;
+    }
+
+    .tk-title {
+        line-height: 1.2;
+        margin-right: .25rem;
+    }
+
+        .tk-title h2 {
+            font-size: 1.4rem;
+            margin: 0;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .tk-title .sub {
+            color: var(--muted);
+            font-size: .8125rem;
+            white-space: nowrap;
+        }
+
+            .tk-title .sub b {
+                color: var(--pitch-2);
+            }
+
+    .tk-tabs {
+        display: flex;
+        gap: .25rem;
+        overflow-x: auto;
+        white-space: nowrap;
+        flex: 1 1 auto;
+        min-width: 0;
+        scrollbar-width: none;
+    }
+
+        .tk-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+    .tk-tab {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: .875rem;
+        padding: .35rem .75rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: color .15s, background .15s;
+    }
+
+        .tk-tab:hover {
+            color: var(--ink);
+            background: #f1f5f9;
+        }
+
+        .tk-tab.active {
+            color: var(--pitch-2);
+            background: #dcfce7;
+        }
+
+    .tk-filter {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .5rem;
+        margin: 0 0 0 auto;
+    }
+
+    .tk-sub {
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+        font-size: .8125rem;
+        color: var(--muted);
+    }
+
+        .tk-sub[hidden] {
+            display: none;
+        }
+
+        .tk-sub .form-select,
+        .tk-sub .form-control {
+            width: auto;
+            padding-top: .25rem;
+            padding-bottom: .25rem;
+            font-size: .875rem;
+        }
+
+    .tk-apply {
+        border: 0;
+        background: var(--pitch-2);
+        color: #fff;
+        font-weight: 600;
+        font-size: .8125rem;
+        padding: .3rem .9rem;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+        .tk-apply:hover {
+            background: var(--pitch);
+        }
+
+    .tk-pane[hidden] {
+        display: none;
+    }
+
+    .tk-pane:not([hidden]) {
+        animation: tkFade .2s ease;
+    }
+
+    @@keyframes tkFade {
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: none;
+        }
+    }
+
+    /* ===== 4 THẺ CHỈ SỐ: cùng nền trắng, icon bên phải, badge ngay dưới số ===== */
+    .tk-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .tk-kpi {
+        display: block;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: .7rem 1rem;
+        box-shadow: 0 1px 2px rgba(15,23,42,.04);
+        text-align: left;
+        font: inherit;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .tk-kpi-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .5rem;
+    }
+
+    .tk-kpi-label {
+        font-size: .75rem;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        line-height: 1.3;
+    }
+
+    .tk-kpi-val {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--ink);
+        margin: .15rem 0 .3rem;
+        white-space: nowrap;
+    }
+
+        .tk-kpi-val small {
+            font-size: .8125rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-left: .4rem;
+        }
+
+    .tk-kpi-foot {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .2rem .5rem;
+        font-size: .8125rem;
+        color: var(--muted);
+    }
+
+    .tk-loss {
+        font-size: .8125rem;
+        color: #b91c1c;
+        white-space: nowrap;
+    }
+
+        .tk-loss b {
+            font-weight: 700;
+        }
+
+    .tk-ico {
+        flex: none;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: #f0fdf4;
+        color: var(--brand-deep);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .tk-ico.red {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+    .tk-share {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        font-size: .8125rem;
+        color: var(--muted);
+    }
+
+        .tk-share > span {
+            min-width: 2.8rem;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+    .tk-svc-total {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .5rem;
+        font-size: .875rem;
+        color: var(--ink);
+        background: #f8fafc;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: .5rem .75rem;
+        margin-bottom: .75rem;
+    }
+
+    .tk-tools {
+        display: flex;
+        gap: .35rem;
+    }
+
+    .tk-tool {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+        .tk-tool:hover {
+            background: #f1f5f9;
+            color: var(--ink);
+        }
+
+    /* ===== Bản in: chỉ in "báo cáo" riêng, không in giao diện thao tác ===== */
+    .tk-report {
+        display: none;
+    }
+
+    @@page {
+        size: A4;
+        margin: 14mm 12mm;
+    }
+
+    @@media print {
+        nav, header, footer, aside, .tk-top, .tk-pane, .tk-dialog, .tk-tools {
+            display: none !important;
+        }
+
+        body {
+            background: #fff !important;
+        }
+
+        .tk-report {
+            display: block !important;
+            color: #0f172a;
+            font-size: 10.5pt;
+            line-height: 1.45;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .rp-head {
+            text-align: center;
+            border-bottom: 2px solid #166534;
+            padding-bottom: 8px;
+            margin-bottom: 14px;
+        }
+
+        .rp-org {
+            font-size: 10pt;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .rp-title {
+            font-size: 20pt;
+            font-weight: 700;
+            color: #14532d;
+            text-transform: uppercase;
+            margin: 2px 0;
+        }
+
+        .rp-meta {
+            font-size: 10pt;
+            color: #475569;
+        }
+
+        .rp-sec {
+            margin-bottom: 14px;
+        }
+
+            .rp-sec h3 {
+                font-size: 12pt;
+                font-weight: 700;
+                color: #166534;
+                border-bottom: 1px solid #cbd5e1;
+                padding-bottom: 3px;
+                margin: 0 0 6px;
+                break-after: avoid;
+            }
+
+            .rp-sec h4 {
+                font-size: 10.5pt;
+                font-weight: 700;
+                margin: 8px 0 4px;
+                break-after: avoid;
+            }
+
+        .rp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+            break-inside: auto;
+        }
+
+            .rp-table th {
+                background: #e8f5ec;
+                text-align: left;
+                font-size: 9.5pt;
+                padding: 4px 6px;
+                border: 1px solid #cbd5e1;
+            }
+
+            .rp-table td {
+                font-size: 10pt;
+                padding: 4px 6px;
+                border: 1px solid #e2e8f0;
+            }
+
+            .rp-table tr {
+                break-inside: avoid;
+            }
+
+            .rp-table .r {
+                text-align: right;
+                white-space: nowrap;
+            }
+
+            .rp-table tfoot td {
+                font-weight: 700;
+                background: #f8fafc;
+            }
+
+        .rp-bar {
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 99px;
+            overflow: hidden;
+            margin-top: 3px;
+        }
+
+            .rp-bar > span {
+                display: block;
+                height: 100%;
+                background: #16a34a;
+            }
+
+        .rp-note {
+            font-size: 9.5pt;
+            color: #64748b;
+            margin: 2px 0 0;
+        }
+
+        .rp-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+            .rp-list li {
+                margin-bottom: 4px;
+            }
+
+        .rp-foot {
+            margin-top: 16px;
+            padding-top: 6px;
+            border-top: 1px solid #cbd5e1;
+            font-size: 9pt;
+            color: #64748b;
+            display: flex;
+            justify-content: space-between;
+        }
+    }
+
+    .tk-kpi.bad {
+        border-left: 3px solid #dc2626;
+    }
+
+    /* Donut <-> bảng loại sân: rê chuột / bấm để làm nổi bật */
+    .tk-arc {
+        cursor: pointer;
+        transition: opacity .15s, stroke-width .15s;
+    }
+
+    #tk-donut.has-hl .tk-arc:not(.hl) {
+        opacity: .3;
+    }
+
+    #tk-donut .tk-arc.hl {
+        stroke-width: 21;
+    }
+
+    .tk-lrow {
+        cursor: pointer;
+        transition: background .15s;
+    }
+
+        .tk-lrow.hl td {
+            background: #f0fdf4;
+        }
+
+    .tk-sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+
+        .tk-sortable:hover {
+            color: var(--ink);
+        }
+
+        .tk-sortable::after {
+            content: " \2195";
+            opacity: .45;
+        }
+
+        .tk-sortable.asc::after {
+            content: " \25B2";
+            opacity: 1;
+            color: var(--pitch-2);
+        }
+
+        .tk-sortable.desc::after {
+            content: " \25BC";
+            opacity: 1;
+            color: var(--pitch-2);
+        }
+
+    /* Hàng chỉ số nhỏ của tab Hiệu suất sân */
+    .tk-mstats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .tk-mstat {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: .75rem;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: .6rem 1rem;
+        min-width: 0;
+    }
+
+        .tk-mstat .l {
+            font-size: .8125rem;
+            color: var(--muted);
+        }
+
+        .tk-mstat .v {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--ink);
+            white-space: nowrap;
+        }
+
+            .tk-mstat .v small {
+                font-size: .8125rem;
+                font-weight: 600;
+                color: var(--muted);
+                margin-left: .35rem;
+            }
+
+    .tk-tag {
+        display: inline-block;
+        margin-left: .5rem;
+        padding: 0 .45rem;
+        border-radius: 99px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: .75rem;
+        font-weight: 600;
+        line-height: 1.5;
+        vertical-align: 1px;
+    }
+
+    /* Hai cột cùng chiều cao: khối cuối của mỗi cột giãn ra cho thẳng hàng đáy */
+    .tk-body.eq {
+        align-items: stretch;
+    }
+
+        .tk-body.eq > .tk-stack {
+            grid-template-rows: auto 1fr;
+            align-content: stretch;
+        }
+
+    #tk-rk-top[hidden], #tk-rk-low[hidden] {
+        display: none;
+    }
+
+    .tk-badge {
+        display: inline-block;
+        padding: .1rem .55rem;
+        border-radius: 99px;
+        font-size: .8125rem;
+        font-weight: 600;
+        white-space: nowrap;
+        line-height: 1.5;
+    }
+
+        .tk-badge.up, .tk-badge.good {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tk-badge.down, .tk-badge.bad {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+        .tk-badge.warn {
+            background: #fef3c7;
+            color: #b45309;
+        }
+
+        .tk-badge.flat, .tk-badge.new {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+    .tk-click {
+        cursor: pointer;
+        transition: border-color .15s, box-shadow .15s, transform .1s;
+    }
+
+        .tk-click:hover:not(:disabled) {
+            border-color: #fca5a5;
+            box-shadow: 0 2px 8px rgba(220,38,38,.12);
+        }
+
+        .tk-click:active:not(:disabled) {
+            transform: scale(.99);
+        }
+
+        .tk-click:disabled {
+            cursor: default;
+        }
+
+        .tk-click .go {
+            color: #dc2626;
+            font-weight: 600;
+        }
+
+    .tk-meter {
+        height: 5px;
+        border-radius: 99px;
+        background: #e2e8f0;
+        overflow: hidden;
+        margin-top: .5rem;
+    }
+
+        .tk-meter > span {
+            display: block;
+            height: 100%;
+            border-radius: 99px;
+        }
+
+    /* ===== Lưới thân trang ===== */
+    .tk-body {
+        display: grid;
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); /* 60% - 40% */
+        gap: 1.25rem;
+        align-items: start;
+    }
+
+        .tk-body > * {
+            min-width: 0;
+        }
+
+    /* ===== Bảng dữ liệu gọn: chữ 14px, tiêu đề cột 12px ===== */
+    .tk-tbl {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .tk-tbl th {
+            font-size: .75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+            color: var(--muted);
+            padding: .4rem .5rem;
+            border-bottom: 1px solid var(--line);
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .tk-tbl td {
+            font-size: .875rem;
+            color: var(--ink);
+            padding: .6rem .5rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .tk-tbl tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .tk-tbl .r {
+            text-align: right;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tk-tbl .rk {
+            width: 2.2rem;
+            color: var(--muted);
+            font-weight: 700;
+            font-size: .8125rem;
+        }
+
+        .tk-tbl tr.top td {
+            font-weight: 600;
+        }
+
+        .tk-tbl tr.top .rk {
+            color: var(--pitch-2);
+        }
+
+    .tk-dot {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: .5rem;
+        vertical-align: -1px;
+    }
+
+    /* Thanh tiến độ nhỏ dưới tên loại sân */
+    .tk-mini {
+        height: 4px;
+        border-radius: 99px;
+        background: #eef2f6;
+        overflow: hidden;
+        margin: .3rem 0 0 1.35rem;
+    }
+
+        .tk-mini > span {
+            display: block;
+            height: 100%;
+            border-radius: 99px;
+        }
+
+    /* Chuyển Giờ / Buổi + biểu đồ theo buổi */
+    .tk-head-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+
+    .tk-buoi {
+        display: grid;
+        gap: .85rem;
+        padding-top: .25rem;
+    }
+
+        .tk-buoi[hidden], .tk-hplot[hidden] {
+            display: none;
+        }
+
+    .tk-buoi-row {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr) 5.5rem;
+        align-items: center;
+        gap: .75rem;
+        font-size: .875rem;
+    }
+
+        .tk-buoi-row .n b {
+            display: block;
+            color: var(--ink);
+        }
+
+        .tk-buoi-row .n span {
+            color: var(--muted);
+            font-size: .8125rem;
+        }
+
+        .tk-buoi-row .tr {
+            height: 18px;
+            background: #eef2f6;
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+            .tk-buoi-row .tr > span {
+                display: block;
+                height: 100%;
+                border-radius: 99px;
+                background: var(--brand-soft);
+            }
+
+        .tk-buoi-row.top .tr > span {
+            background: var(--brand-deep);
+        }
+
+        .tk-buoi-row .v {
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+            .tk-buoi-row .v small {
+                color: var(--muted);
+                font-weight: 500;
+                margin-left: .25rem;
+            }
+
+    /* ===== Biểu đồ tròn (donut) ===== */
+    .tk-donut {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        margin: 0 auto .75rem;
+    }
+
+        .tk-donut svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+    .tk-donut-c {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.25;
+    }
+
+        .tk-donut-c .l {
+            font-size: .75rem;
+            color: var(--muted);
+        }
+
+        .tk-donut-c .v {
+            font-size: .95rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+    /* ===== Biểu đồ cột theo giờ ===== */
+    .tk-hplot {
+        display: flex;
+        gap: .4rem;
+        height: 210px;
+    }
+
+    .tk-hcol {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tk-htrack {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        padding-top: 24px;
+        border-bottom: 1px solid var(--line);
+    }
+
+    .tk-hbar {
+        position: relative;
+        width: 100%;
+        max-width: 36px;
+        min-height: 3px;
+        border-radius: 6px 6px 0 0;
+        background: var(--brand-soft);
+        transition: background .15s;
+    }
+
+        .tk-hbar.zero {
+            background: #e2e8f0;
+        }
+
+    .tk-hcol:hover .tk-hbar:not(.zero) {
+        background: #22c55e;
+    }
+
+    .tk-hcol.top .tk-hbar {
+        background: var(--brand-deep);
+    }
+
+    .tk-hval {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-bottom: 3px;
+        font-size: .8125rem;
+        font-weight: 600;
+        color: var(--ink);
+    }
+
+    .tk-hlab {
+        text-align: center;
+        font-size: .8125rem;
+        color: var(--muted);
+        padding-top: .35rem;
+        white-space: nowrap;
+    }
+
+    .tk-hcol.top .tk-hlab {
+        color: var(--pitch-2);
+        font-weight: 700;
+    }
+
+    /* ===== Thẻ nhận định ===== */
+    .tk-insight-card {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+    }
+
+    .tk-insights {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: grid;
+        gap: .6rem;
+        font-size: .875rem;
+        line-height: 1.6;
+        color: var(--ink);
+    }
+
+        .tk-insights li {
+            padding-left: 1.1rem;
+            position: relative;
+        }
+
+            .tk-insights li::before {
+                content: "";
+                position: absolute;
+                left: 0;
+                top: .65em;
+                width: 7px;
+                height: 7px;
+                border-radius: 50%;
+                background: var(--brand);
+            }
+
+        .tk-insights .muted {
+            color: var(--muted);
+            font-size: .8125rem;
+        }
+
+    /* ===== Biểu đồ cột doanh thu (do partial _BieuDoCot vẽ) ===== */
+    .tk-chart-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+
+    .tk-seg {
+        display: inline-flex;
+        background: #e8edf3;
+        border-radius: 9px;
+        padding: 2px;
+        gap: 2px;
+    }
+
+        .tk-seg button {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            font-size: .8125rem;
+            font-weight: 600;
+            padding: .28rem .75rem;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: background .2s ease, color .2s ease, box-shadow .2s ease, transform .1s ease;
+        }
+
+            .tk-seg button:hover:not(.on) {
+                background: #d5dde7;
+                color: var(--ink);
+            }
+
+            .tk-seg button:active {
+                transform: scale(.97);
+            }
+
+            .tk-seg button.on {
+                background: var(--pitch-2);
+                color: #fff;
+                box-shadow: 0 1px 3px rgba(20,83,45,.35);
+            }
+
+    /* Chiều cao vùng vẽ tự co theo màn hình: 170px - 290px */
+    .tk-plot {
+        --h: clamp(170px, calc(100vh - 480px), 290px);
+        --pad: 36px;
+        display: grid;
+        grid-template-columns: 78px 1fr;
+    }
+
+    .tk-axis {
+        position: relative;
+        height: var(--h);
+        margin-top: var(--pad);
+    }
+
+        .tk-axis span {
+            position: absolute;
+            right: 10px;
+            transform: translateY(-50%);
+            font-size: .8125rem;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+    .tk-area {
+        position: relative;
+        padding-top: var(--pad);
+        min-width: 0;
+    }
+
+        .tk-area::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: var(--pad);
+            height: var(--h);
+            background: linear-gradient(to bottom, var(--line) 1px, transparent 1px) 0 0 / 100% calc(var(--h) / 4);
+            pointer-events: none;
+        }
+
+    .tk-cols {
+        position: relative;
+        display: flex;
+        gap: .5rem;
+    }
+
+        .tk-cols.dense {
+            gap: .25rem;
+        }
+
+    .tk-col {
+        flex: 1 1 0;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+        .tk-col .track {
+            height: var(--h);
+            width: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .tk-col .bar {
+            position: relative;
+            width: 100%;
+            max-width: 48px;
+            border-radius: 8px 8px 0 0;
+            background: var(--brand-soft);
+            min-height: 3px;
+            transition: background .15s, height .25s ease;
+        }
+
+    .tk-cols.dense .tk-col .bar {
+        border-radius: 4px 4px 0 0;
+    }
+
+    .tk-col:hover .bar {
+        background: #22c55e;
+    }
+
+    .tk-col.top .bar {
+        background: var(--brand-deep);
+    }
+
+    .tk-col.zero .bar {
+        background: #cbd5e1;
+    }
+
+    .tk-col .pill {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-bottom: 6px;
+        white-space: nowrap;
+        background: var(--ink);
+        color: #fff;
+        font-size: .8125rem;
+        font-weight: 600;
+        padding: .15rem .55rem;
+        border-radius: 6px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .15s;
+        z-index: 2;
+    }
+
+    .tk-col.top .pill {
+        background: var(--pitch);
+        opacity: 1;
+    }
+
+    .tk-col:hover .pill {
+        opacity: 1;
+        z-index: 3;
+    }
+
+    /* Nhãn cột 13px; cột hẹp thì tự xuống dòng thay vì đè lên nhau */
+    .tk-col .m {
+        width: 100%;
+        min-height: 1.6rem;
+        text-align: center;
+        font-size: .8125rem;
+        line-height: 1.25;
+        color: var(--muted);
+        border-top: 1px solid var(--line);
+        padding-top: .4rem;
+        white-space: normal;
+    }
+
+    .tk-col.top .m {
+        color: var(--pitch-2);
+        font-weight: 700;
+    }
+
+    /* ===== Cửa sổ danh sách đơn hủy ===== */
+    .tk-dialog {
+        border: 0;
+        border-radius: 14px;
+        padding: 0;
+        width: min(760px, 94vw);
+        box-shadow: 0 20px 50px rgba(15,23,42,.3);
+    }
+
+        .tk-dialog::backdrop {
+            background: rgba(15,23,42,.45);
+        }
+
+    .tk-dialog-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: .9rem 1.25rem;
+        border-bottom: 1px solid var(--line);
+    }
+
+        .tk-dialog-head button {
+            border: 0;
+            background: #f1f5f9;
+            border-radius: 8px;
+            width: 32px;
+            height: 32px;
+            font-size: 1.1rem;
+            line-height: 1;
+            cursor: pointer;
+            color: var(--muted);
+        }
+
+            .tk-dialog-head button:hover {
+                background: #e2e8f0;
+                color: var(--ink);
+            }
+
+    .tk-dialog-body {
+        padding: .75rem 1.25rem 1.1rem;
+    }
+
+    .tk-scroll {
+        max-height: 55vh;
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+    }
+
+    .tk-table thead th {
+        position: sticky;
+        top: 0;
+        background: #f8fafc;
+        font-size: .8125rem;
+        color: var(--muted);
+        z-index: 1;
+    }
+
+    .tk-table td {
+        font-size: .875rem;
+    }
+
+    /* ===== Trạng thái chưa có dữ liệu (giữa trang) ===== */
+    .tk-void {
+        min-height: 45vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: .35rem;
+        background: #fff;
+        border: 1px dashed #cbd5e1;
+        border-radius: 12px;
+        padding: 1.5rem 1rem;
+    }
+
+        .tk-void .ico {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #f0fdf4;
+            color: var(--brand);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: .3rem;
+        }
+
+        .tk-void .t {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .tk-void .s {
+            color: var(--muted);
+            font-size: .9rem;
+        }
+
+        .tk-void a {
+            margin-top: .5rem;
+            display: inline-block;
+            padding: .4rem 1rem;
+            border-radius: 99px;
+            background: var(--pitch-2);
+            color: #fff;
+            font-weight: 600;
+            font-size: .875rem;
+            text-decoration: none;
+        }
+
+            .tk-void a:hover {
+                background: var(--pitch);
+            }
+
+    /* ===== Responsive ===== */
+    @@media (max-width: 1100px) {
+        .tk-kpis {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 992px) {
+        .tk-body {
+            grid-template-columns: 1fr;
+        }
+
+        .tk-filter {
+            margin-left: 0;
+        }
+
+        .tk-tabs {
+            flex-basis: 100%;
+            order: 3;
+        }
+    }
+
+    @@media (max-width: 760px) {
+        .tk-mstats {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .tk-kpis {
+            grid-template-columns: 1fr;
+        }
+
+        .tk-plot {
+            grid-template-columns: 58px 1fr;
+        }
+
+        .tk-hplot {
+            gap: .15rem;
+        }
+
+        .tk-hlab,
+        .tk-hval {
+            font-size: .75rem;
+        }
+
+        .tk-cols {
+            gap: .25rem;
+        }
+    }
+</style>
+
+<div class="tk">
+
+    @* ===== THANH TRÊN CÙNG (1 hàng): Tiêu đề | Tabs | Bộ lọc thời gian ===== *@
+    <div class="tk-top">
+        <div class="tk-title">
+            <h2>Thống kê</h2>
+            <div class="sub">Đang xem: <b>@nhan</b></div>
+        </div>
+
+        @if (coDuLieu)
+        {
+            <div class="tk-tabs" role="tablist">
+                <button type="button" class="tk-tab active" role="tab" data-tab="doanh-thu" aria-selected="true">Doanh thu</button>
+                <button type="button" class="tk-tab" role="tab" data-tab="hieu-suat" aria-selected="false">Hiệu suất sân</button>
+                <button type="button" class="tk-tab" role="tab" data-tab="dich-vu" aria-selected="false">Dịch vụ</button>
+            </div>
+        }
+        else
+        {
+            <div class="tk-tabs"></div>
+        }
+
+        <form method="get" id="tk-form" class="tk-filter">
+            <input type="hidden" name="kieu" id="tk-kieu" value="@kieu" />
+
+            <div class="tk-seg" role="group" aria-label="Khoảng thời gian">
+                @foreach (var p in presets)
+                {
+                    <button type="button" class="@(kieu == p.Key ? "on" : "")" data-kieu="@p.Key">@p.Text</button>
+                }
+            </div>
+
+            <div class="tk-sub" id="tk-sub-nam" hidden="@(kieu != "nam")">
+                <select id="nam" name="nam" class="form-select" aria-label="Năm thống kê">
+                    @foreach (var n in Model.DanhSachNam)
+                    {
+                        <option value="@n" selected="@(n == Model.Nam)">@n</option>
+                    }
+                </select>
+            </div>
+
+            <div class="tk-sub" id="tk-sub-tuychon" hidden="@(kieu != "tuychon")">
+                <label for="tk-tu" class="mb-0">Từ</label>
+                <input type="date" id="tk-tu" name="tu" class="form-control" value="@tu.ToString("yyyy-MM-dd", inv)" />
+                <label for="tk-den" class="mb-0">đến</label>
+                <input type="date" id="tk-den" name="den" class="form-control" value="@den.ToString("yyyy-MM-dd", inv)" />
+                <button type="submit" class="tk-apply">Áp dụng</button>
+            </div>
+        </form>
+
+        @if (coDuLieu)
+        {
+            <div class="tk-tools">
+                <button type="button" class="tk-tool" id="tk-export-csv" title="Xuất Excel (.xlsx)" aria-label="Xuất Excel (.xlsx)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </button>
+                <button type="button" class="tk-tool" id="tk-export-pdf" title="In / Lưu PDF" aria-label="In / Lưu PDF">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                </button>
+            </div>
+        }
+    </div>
+
+    @if (!coDuLieu)
+    {
+        @* ===== Chưa có dữ liệu: hiện giữa trang ===== *@
+        <div class="tk-void">
+            <div class="ico">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+            </div>
+            <div class="t">Chưa có dữ liệu</div>
+            <div class="s">Không có đơn đặt sân nào trong khoảng thời gian này.</div>
+            <a href="?kieu=nam&nam=@DateTime.Today.Year">Xem cả năm @DateTime.Today.Year</a>
+        </div>
+    }
+    else
+    {
+        @* ===== Tab 1: Doanh thu - biểu đồ cột (60%) + biểu đồ tròn theo loại sân (40%) ===== *@
+        <section class="tk-pane" data-pane="doanh-thu" role="tabpanel">
+            @* ===== 4 thẻ chỉ số của kỳ đang xem: chỉ nằm trong tab Doanh thu ===== *@
+            <div class="tk-kpis">
+                <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.DoanhThuKyTruoc.ToString("N0") đ">
+                    <div class="tk-kpi-top">
+                        <span class="tk-kpi-label">Doanh thu</span>
+                        <div class="tk-ico" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        </div>
+                    </div>
+                    <div class="tk-kpi-val">@Model.TongDoanhThuNam.ToString("N0") đ</div>
+                    <div class="tk-kpi-foot">
+                        <span class="tk-badge @dtDelta[0]">@dtDelta[1]</span>
+                        <span>@kyTruocNhan</span>
+                    </div>
+                </div>
+
+                <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.LuotDatKyTruoc.ToString("N0") lượt">
+                    <div class="tk-kpi-top">
+                        <span class="tk-kpi-label">Lượt đặt</span>
+                        <div class="tk-ico" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                        </div>
+                    </div>
+                    <div class="tk-kpi-val">@Model.TongLuotDat.ToString("N0")</div>
+                    <div class="tk-kpi-foot">
+                        <span class="tk-badge @luotDelta[0]">@luotDelta[1]</span>
+                        <span>@kyTruocNhan</span>
+                    </div>
+                </div>
+
+                <div class="tk-kpi">
+                    <div class="tk-kpi-top">
+                        <span class="tk-kpi-label">Giá trị TB / đơn</span>
+                        <div class="tk-ico" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                        </div>
+                    </div>
+                    <div class="tk-kpi-val">@trungBinh.ToString("N0") đ</div>
+                    <div class="tk-kpi-foot">
+                        <span>Trên @Model.SoDonHoanThanh đơn hoàn thành</span>
+                    </div>
+                </div>
+
+                <button type="button" class="tk-kpi tk-click@(huyLop == "bad" ? " bad" : "")" id="tk-open-huy" disabled="@(Model.SoLuotHuy == 0)">
+                    <div class="tk-kpi-top">
+                        <span class="tk-kpi-label">Tỷ lệ hủy đơn</span>
+                        <div class="tk-ico red" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                        </div>
+                    </div>
+                    <div class="tk-kpi-val" style="color:@huyMau">@Model.TyLeHuy%<small>(@Model.SoLuotHuy / @Model.TongLuotDat đơn)</small></div>
+                    <div class="tk-kpi-foot">
+                        <span class="tk-badge @huyLop">@huyIcon @huyNhan</span>
+                        @if (Model.SoLuotHuy > 0)
+                        {
+                            <span class="tk-loss">Thất thoát <b>@(tienHuyTruncated ? "≥ " : "")@tienHuy.ToString("N0") đ</b></span>
+                            <span class="go">Xem ›</span>
+                        }
+                    </div>
+                    <div class="tk-meter"><span style="width:@(huyRong)%; background:@huyMau"></span></div>
+                </button>
+            </div>
+
+            <div class="tk-body">
+                <div>
+                    <partial name="_BieuDoCot" model='new BangThongKe { TieuDe = "Doanh thu theo " + Model.DonViBieuDo, MoTa = moTaBieuDo, DonVi = "đ", LaTien = true, Items = Model.DoanhThuTheoThang }' />
+                </div>
+
+                <div class="tk-panel">
+                    <div class="tk-panel-title">Cơ cấu doanh thu theo loại sân</div>
+                    <div class="tk-panel-sub">Chỉ tính đơn hoàn thành · lượt đặt không tính đơn hủy</div>
+
+                    @if (loaiRows.Count == 0)
+                    {
+                        <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                    }
+                    else
+                    {
+                        <div class="tk-donut" id="tk-donut">
+                            <svg viewBox="0 0 120 120" aria-hidden="true">
+                                <circle cx="60" cy="60" r="44" fill="none" stroke="#e8edf3" stroke-width="18"></circle>
+                                @foreach (var seg in donut)
+                                {
+                                    <circle cx="60" cy="60" r="44" fill="none" stroke="@seg.Mau" stroke-width="18" class="tk-arc" data-idx="@seg.Idx"
+                                            stroke-dasharray="@seg.Day" stroke-dashoffset="@seg.Lech" transform="rotate(-90 60 60)"></circle>
+                                }
+                            </svg>
+                            <div class="tk-donut-c">
+                                <span class="l">Tổng</span>
+                                <span class="v">@gon(tongTienLoai)</span>
+                            </div>
+                        </div>
+
+                        <table class="tk-tbl">
+                            <thead>
+                                <tr>
+                                    <th>Loại sân</th>
+                                    <th class="r">Lượt đặt</th>
+                                    <th class="r">Doanh thu</th>
+                                    <th class="r">Tỷ lệ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int idx = 0; idx < loaiRows.Count; idx++)
+                                {
+                                    var dong = loaiRows[idx];
+                                    string mauDot = dong.Tien > 0 ? mau[idx % mau.Length] : "#cbd5e1";
+                                    string tyLeLoai = tongTienLoai > 0 ? (dong.Tien / tongTienLoai * 100m).ToString("0.#") + "%" : "–";
+                                    string rongLoai = tongTienLoai > 0 ? (dong.Tien / tongTienLoai * 100m).ToString("0.##", inv) : "0";
+                                    <tr class="tk-lrow @(idx == 0 && dong.Tien > 0 ? "top" : "")" data-idx="@idx">
+                                        <td>
+                                            <span class="tk-dot" style="background:@mauDot"></span>@dong.Ten
+                                            <div class="tk-mini"><span style="width:@(rongLoai)%; background:@mauDot"></span></div>
+                                        </td>
+                                        <td class="r">@dong.Luot</td>
+                                        <td class="r">@dong.Tien.ToString("N0") đ</td>
+                                        <td class="r">@tyLeLoai</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* ===== Tab 2: Hiệu suất sân - khung giờ + loại sân (trái) | nhận định + xếp hạng dạng tab (phải) ===== *@
+        <section class="tk-pane" data-pane="hieu-suat" role="tabpanel" hidden>
+            <div class="tk-mstats">
+                <div class="tk-mstat">
+                    <span class="l">Sân có lượt đặt</span>
+                    <span class="v">@sanCoDat / @tongSan<small>@tyLeStr(sanCoDat, tongSan)</small></span>
+                </div>
+                <div class="tk-mstat">
+                    <span class="l">Lượt đặt TB / sân</span>
+                    <span class="v">@luotTbSan.ToString("0.#")<small>lượt</small></span>
+                </div>
+                <div class="tk-mstat">
+                    <span class="l">Khung giờ cao điểm</span>
+                    <span class="v">@(kgCao != null ? kgCao.Ten : "–")</span>
+                </div>
+            </div>
+
+            <div class="tk-body eq">
+                <div class="tk-stack">
+                    <div class="tk-panel">
+                        <div class="tk-head-row">
+                            <div>
+                                <div class="tk-panel-title">Khung giờ khách đặt nhiều nhất</div>
+                                <div class="tk-panel-sub">Số lượt đặt theo giờ bắt đầu, không tính đơn hủy</div>
+                            </div>
+                            @if (gioMap.Count > 0)
+                            {
+                                <div class="tk-seg" id="tk-gio-mode" role="group" aria-label="Cách nhóm khung giờ">
+                                    <button type="button" class="on" data-gio="gio" aria-pressed="true">Theo giờ</button>
+                                    <button type="button" data-gio="buoi" aria-pressed="false">Theo buổi</button>
+                                </div>
+                            }
+                        </div>
+
+                        @if (gioMap.Count == 0)
+                        {
+                            <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                        }
+                        else
+                        {
+                            <div class="tk-buoi" id="tk-buoi" hidden>
+                                @foreach (var buoi in buoiRows)
+                                {
+                                    string rongBuoi = buoiMax == 0 ? "0" : (buoi.Luot * 100.0 / buoiMax).ToString("0.##", inv);
+                                    bool buoiDau = buoiMax > 0 && buoi.Luot == buoiMax && buoiRows.Count(x => x.Luot == buoiMax) == 1;
+                                    <div class="tk-buoi-row@(buoiDau ? " top" : "")">
+                                        <div class="n"><b>@buoi.Ten</b><span>@buoi.Mo</span></div>
+                                        <div class="tr"><span style="width:@(rongBuoi)%"></span></div>
+                                        <div class="v">@buoi.Luot<small>@tyLeStr(buoi.Luot, buoiTong)</small></div>
+                                    </div>
+                                }
+                            </div>
+                            <div class="tk-hplot" id="tk-hplot">
+                                @for (int gio = gioDau; gio <= gioCuoi; gio++)
+                                {
+                                    var mucGioNay = gioMap.GetValueOrDefault(gio);
+                                    int luotGio = mucGioNay?.SoLuong ?? 0;
+                                    double phanTram = gioMax == 0 ? 0 : luotGio * 100.0 / gioMax;
+                                    string lopCot = gio == gioCaoDiem ? "tk-hcol top" : "tk-hcol";
+                                    string lopThanh = luotGio == 0 ? "tk-hbar zero" : "tk-hbar";
+                                    string goiY = gio.ToString("00") + ":00 - " + (gio + 1).ToString("00") + ":00 · " + luotGio + " lượt"
+                                                  + (mucGioNay != null ? " (" + mucGioNay.TyLe.ToString("0.#") + "%)" : "");
+                                    <div class="@lopCot" title="@goiY">
+                                        <div class="tk-htrack">
+                                            <div class="@lopThanh" style="height:@(phanTram.ToString("0.##", inv))%">
+                                                @if (luotGio > 0)
+                                                {
+                                                    <span class="tk-hval">@luotGio</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="tk-hlab">@(gio)h</div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="tk-panel">
+                        <div class="tk-panel-title">Khai thác theo loại sân</div>
+                        <div class="tk-panel-sub">Tổng cộng @tongSan sân · thanh thể hiện số lượt đặt trung bình mỗi sân</div>
+                        @if (sanLoaiRows.Count == 0)
+                        {
+                            <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                        }
+                        else
+                        {
+                            <table class="tk-tbl">
+                                <thead>
+                                    <tr>
+                                        <th>Loại sân</th>
+                                        <th class="r">Số sân</th>
+                                        <th class="r">Lượt đặt</th>
+                                        <th class="r">Lượt / sân</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var lr in sanLoaiRows)
+                                    {
+                                        string rongLr = sanLoaiMax > 0 ? (lr.TbSan / sanLoaiMax * 100).ToString("0.##", inv) : "0";
+                                        <tr>
+                                            <td>
+                                                @lr.Ten
+                                                <div class="tk-mini" style="margin:.3rem 0 0"><span style="width:@(rongLr)%; background:var(--brand)"></span></div>
+                                            </td>
+                                            <td class="r">@lr.SoSan</td>
+                                            <td class="r">@lr.Luot</td>
+                                            <td class="r">@lr.TbSan.ToString("0.#")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                    </div>
+                </div>
+
+                <div class="tk-stack">
+                    <div class="tk-panel tk-insight-card">
+                        <div class="tk-panel-title">Nhận định nhanh</div>
+                        <div class="tk-panel-sub">Dựa trên giờ bắt đầu của các đơn không bị hủy</div>
+                        @if (kgCao == null)
+                        {
+                            <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                        }
+                        else
+                        {
+                            <ul class="tk-insights">
+                                <li>Cao điểm: <b>@kgCao.Ten</b> với @kgCao.SoLuong lượt (@kgCao.TyLe.ToString("0.#")% tổng lượt đặt).</li>
+                                @if (kgThap != null && kgThap.Ten != kgCao.Ten)
+                                {
+                                    <li>Vắng nhất: <b>@kgThap.Ten</b>, chỉ @kgThap.SoLuong lượt. <span class="muted">Có thể cân nhắc ưu đãi cho giờ thấp điểm.</span></li>
+                                }
+                                @if (kg.Count == 1)
+                                {
+                                    <li>Toàn bộ lượt đặt tập trung vào một khung giờ duy nhất.</li>
+                                }
+                            </ul>
+                        }
+                    </div>
+
+                    <div class="tk-panel">
+                        <div class="tk-head-row">
+                            <div>
+                                <div class="tk-panel-title">Xếp hạng sân</div>
+                                <div class="tk-panel-sub">Tối đa 5 sân · không tính đơn hủy</div>
+                            </div>
+                            <div class="tk-seg" id="tk-rk-mode" role="group" aria-label="Loại xếp hạng">
+                                <button type="button" class="on" data-rk="top" aria-pressed="true">Đắt khách</button>
+                                <button type="button" data-rk="low" aria-pressed="false">Ít khách</button>
+                            </div>
+                        </div>
+
+                        <div id="tk-rk-top">
+                            @if (topSanRows.Count == 0)
+                            {
+                                <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                            }
+                            else
+                            {
+                                <table class="tk-tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Sân đặt nhiều nhất</th>
+                                            <th class="r">Lượt đặt</th>
+                                            <th class="r">Tỷ lệ</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (int i = 0; i < topSanRows.Count; i++)
+                                        {
+                                            var san = topSanRows[i];
+                                            int cungLuot = Model.LuotDatTheoSan.Count(x => x.SoLuong == san.SoLuong);
+                                            <tr class="@(i == 0 ? "top" : "")">
+                                                <td class="rk">#@(i + 1)</td>
+                                                <td>
+                                                    @san.Ten
+                                                    @if (cungLuot > 1)
+                                                    {
+                                                        <span class="tk-tag" title="@cungLuot sân cùng @san.SoLuong lượt">Đồng hạng</span>
+                                                    }
+                                                </td>
+                                                <td class="r">@san.SoLuong</td>
+                                                <td class="r">@tyLeStr(san.SoLuong, tongLuotSan)</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                int dongHangNhat = Model.LuotDatTheoSan.Count(x => x.SoLuong == topSanRows[0].SoLuong);
+                                if (dongHangNhat > 1)
+                                {
+                                    <div class="tk-note">@dongHangNhat sân cùng dẫn đầu @topSanRows[0].SoLuong lượt; tạm xếp theo tên sân. Cần doanh thu theo sân để phân định.</div>
+                                }
+                            }
+                        </div>
+
+                        <div id="tk-rk-low" hidden>
+                            @if (sanIt.Count == 0)
+                            {
+                                <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                            }
+                            else
+                            {
+                                <table class="tk-tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Sân ít khách nhất</th>
+                                            <th class="r">Lượt đặt</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @for (int i = 0; i < sanIt.Count; i++)
+                                        {
+                                            <tr>
+                                                <td class="rk">#@(i + 1)</td>
+                                                <td>@sanIt[i].Ten</td>
+                                                <td class="r">@sanIt[i].SoLuong</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <div class="tk-note">Gồm cả sân chưa có lượt đặt nào trong kỳ. Có thể cân nhắc ưu đãi kích cầu.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        @* ===== Tab 3: Dịch vụ ===== *@
+        <section class="tk-pane" data-pane="dich-vu" role="tabpanel" hidden>
+            <div class="tk-panel">
+                <div class="tk-panel-title">Dịch vụ bán chạy</div>
+                <div class="tk-panel-sub">Top 10 theo số lượng sử dụng trong kỳ, không tính đơn hủy</div>
+                @if (Model.DichVuPhoBien.Count > 0)
+                {
+                    <div class="tk-svc-total">
+                        Tổng doanh thu dịch vụ (top 10): <b>@tongDichVu.ToString("N0") đ</b>
+                        @if (Model.TongDoanhThuNam > 0 && tongDichVu <= Model.TongDoanhThuNam)
+                        {
+                            <span class="tk-badge flat">@((tongDichVu / Model.TongDoanhThuNam * 100m).ToString("0.#"))% tổng doanh thu kỳ</span>
+                        }
+                    </div>
+                }
+                @if (Model.DichVuPhoBien.Count == 0)
+                {
+                    <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                }
+                else
+                {
+                    <table class="tk-tbl" id="tk-dv-tbl">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Dịch vụ</th>
+                                <th class="r tk-sortable" data-sort="q" title="Bấm để sắp xếp">Số lượng</th>
+                                <th class="r tk-sortable" data-sort="v" title="Bấm để sắp xếp">Doanh thu</th>
+                                <th style="width:28%">Đóng góp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int thuTu = 0; thuTu < Model.DichVuPhoBien.Count; thuTu++)
+                            {
+                                var dv = Model.DichVuPhoBien[thuTu];
+                                decimal dongGop = tongDichVu > 0 ? dv.GiaTri / tongDichVu * 100m : 0m;
+                                <tr class="@(thuTu == 0 ? "top" : "")" data-q="@dv.SoLuong" data-v="@dv.GiaTri.ToString("0.##", inv)">
+                                    <td class="rk">#@(thuTu + 1)</td>
+                                    <td>@dv.Ten</td>
+                                    <td class="r">@dv.SoLuong.ToString("N0")</td>
+                                    <td class="r">@dv.GiaTri.ToString("N0") đ</td>
+                                    <td>
+                                        <div class="tk-share">
+                                            <div class="tk-mini" style="margin:0;flex:1"><span style="width:@(dongGop.ToString("0.##", inv))%; background:var(--brand)"></span></div>
+                                            <span>@dongGop.ToString("0.#")%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <div class="tk-note">Đóng góp = tỷ trọng doanh thu của dịch vụ trong top 10. Lợi nhuận gộp cần có giá vốn dịch vụ trong dữ liệu.</div>
+                }
+            </div>
+        </section>
+
+        @* ===== Báo cáo để in / lưu PDF (ẩn trên màn hình, chỉ hiện khi in) ===== *@
+        <div class="tk-report" id="tk-report" data-title="@tieuDeTrang">
+            <div class="rp-head">
+                <div class="rp-org">Hệ thống quản lý đặt sân thể thao</div>
+                <div class="rp-title">@tieuDeBaoCao</div>
+                <div class="rp-meta">Kỳ báo cáo: <b>@kyBaoCao</b> · So sánh với kỳ trước: @kyTruocKhoang</div>
+            </div>
+
+            <div class="rp-sec">
+                <h3>1. Dữ liệu tổng quan</h3>
+                <table class="rp-table">
+                    <thead><tr><th>Chỉ số</th><th class="r">Giá trị</th><th>So với kỳ trước</th></tr></thead>
+                    <tbody>
+                        <tr><td>Doanh thu (đơn hoàn thành)</td><td class="r">@tien(Model.TongDoanhThuNam)</td><td>@dtDelta[1] (kỳ trước: @tien(Model.DoanhThuKyTruoc))</td></tr>
+                        <tr><td>Tổng lượt đặt</td><td class="r">@Model.TongLuotDat.ToString("N0")</td><td>@luotDelta[1] (kỳ trước: @Model.LuotDatKyTruoc.ToString("N0"))</td></tr>
+                        <tr><td>Số đơn hoàn thành</td><td class="r">@Model.SoDonHoanThanh.ToString("N0")</td><td></td></tr>
+                        <tr><td>Giá trị trung bình / đơn</td><td class="r">@tien(trungBinh)</td><td></td></tr>
+                        <tr><td>Đơn bị hủy</td><td class="r">@Model.SoLuotHuy.ToString("N0") (@Model.TyLeHuy%)</td><td>@huyNhan</td></tr>
+                        @if (Model.SoLuotHuy > 0)
+                        {
+                            <tr><td>Thất thoát do hủy đơn</td><td class="r">@(tienHuyTruncated ? "≥ " : "")@tien(tienHuy)</td><td></td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="rp-sec">
+                <h3>2. Doanh thu theo @Model.DonViBieuDo</h3>
+                @{
+                    var kyCoSo = Model.DoanhThuTheoThang.Where(x => x.GiaTri > 0 || x.SoLuong > 0).ToList();
+                    decimal tongKy = kyCoSo.Sum(x => x.GiaTri);
+                }
+                @if (kyCoSo.Count == 0)
+                {
+                    <div class="rp-note">Chưa có đơn hoàn thành trong kỳ này.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>Kỳ</th><th class="r">Doanh thu</th><th class="r">Đơn hoàn thành</th><th style="width:30%">Tỷ trọng</th></tr></thead>
+                        <tbody>
+                            @foreach (var ky in kyCoSo)
+                            {
+                                string tyKy = tongKy > 0 ? (ky.GiaTri / tongKy * 100m).ToString("0.#") : "0";
+                                string rongKy = tongKy > 0 ? (ky.GiaTri / tongKy * 100m).ToString("0.##", inv) : "0";
+                                <tr>
+                                    <td>@ky.Ten</td>
+                                    <td class="r">@tien(ky.GiaTri)</td>
+                                    <td class="r">@ky.SoLuong.ToString("N0")</td>
+                                    <td>@(tyKy)%<div class="rp-bar"><span style="width:@(rongKy)%"></span></div></td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr><td>Tổng</td><td class="r">@tien(tongKy)</td><td class="r">@kyCoSo.Sum(x => x.SoLuong).ToString("N0")</td><td></td></tr>
+                        </tfoot>
+                    </table>
+                    <div class="rp-note">Chỉ liệt kê các kỳ có phát sinh.</div>
+                }
+            </div>
+
+            <div class="rp-sec">
+                <h3>3. Cơ cấu doanh thu theo loại sân</h3>
+                @if (loaiRows.Count == 0)
+                {
+                    <div class="rp-note">Chưa có dữ liệu.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>Loại sân</th><th class="r">Lượt đặt</th><th class="r">Doanh thu</th><th style="width:30%">Tỷ lệ</th></tr></thead>
+                        <tbody>
+                            @foreach (var lo in loaiRows)
+                            {
+                                string tyLo = tongTienLoai > 0 ? (lo.Tien / tongTienLoai * 100m).ToString("0.#") : "0";
+                                string rongLo = tongTienLoai > 0 ? (lo.Tien / tongTienLoai * 100m).ToString("0.##", inv) : "0";
+                                <tr>
+                                    <td>@lo.Ten</td>
+                                    <td class="r">@lo.Luot</td>
+                                    <td class="r">@tien(lo.Tien)</td>
+                                    <td>@(tyLo)%<div class="rp-bar"><span style="width:@(rongLo)%"></span></div></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <div class="rp-sec">
+                <h3>4. Hiệu suất sân</h3>
+                <h4>Khung giờ đặt sân (theo buổi)</h4>
+                <table class="rp-table">
+                    <thead><tr><th>Buổi</th><th>Khoảng giờ</th><th class="r">Lượt đặt</th><th class="r">Tỷ lệ</th></tr></thead>
+                    <tbody>
+                        @foreach (var bu in buoiRows)
+                        {
+                            <tr><td>@bu.Ten</td><td>@bu.Mo</td><td class="r">@bu.Luot</td><td class="r">@tyLeStr(bu.Luot, buoiTong)</td></tr>
+                        }
+                    </tbody>
+                </table>
+                @if (kgCao != null)
+                {
+                    <div class="rp-note">Khung giờ cao điểm: @kgCao.Ten (@kgCao.SoLuong lượt, @kgCao.TyLe.ToString("0.#")%).</div>
+                }
+
+                <h4>Sân được đặt nhiều nhất</h4>
+                @if (topSanRows.Count == 0)
+                {
+                    <div class="rp-note">Chưa có dữ liệu.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>#</th><th>Sân</th><th class="r">Lượt đặt</th><th class="r">Tỷ lệ</th></tr></thead>
+                        <tbody>
+                            @for (int ri = 0; ri < topSanRows.Count; ri++)
+                            {
+                                var sr = topSanRows[ri];
+                                bool dongH = Model.LuotDatTheoSan.Count(x => x.SoLuong == sr.SoLuong) > 1;
+                                <tr><td>@(ri + 1)</td><td>@(sr.Ten + (dongH ? " (đồng hạng)" : ""))</td><td class="r">@sr.SoLuong</td><td class="r">@tyLeStr(sr.SoLuong, tongLuotSan)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <h4>Sân ít khách nhất</h4>
+                @if (sanIt.Count == 0)
+                {
+                    <div class="rp-note">Chưa có dữ liệu.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>#</th><th>Sân</th><th class="r">Lượt đặt</th></tr></thead>
+                        <tbody>
+                            @for (int ri = 0; ri < sanIt.Count; ri++)
+                            {
+                                <tr><td>@(ri + 1)</td><td>@sanIt[ri].Ten</td><td class="r">@sanIt[ri].SoLuong</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                <h4>Khai thác theo loại sân</h4>
+                @if (sanLoaiRows.Count == 0)
+                {
+                    <div class="rp-note">Chưa có dữ liệu.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>Loại sân</th><th class="r">Số sân</th><th class="r">Lượt đặt</th><th class="r">Lượt / sân</th></tr></thead>
+                        <tbody>
+                            @foreach (var lk in sanLoaiRows)
+                            {
+                                <tr><td>@lk.Ten</td><td class="r">@lk.SoSan</td><td class="r">@lk.Luot</td><td class="r">@lk.TbSan.ToString("0.#")</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <div class="rp-sec">
+                <h3>5. Dịch vụ bán chạy</h3>
+                @if (Model.DichVuPhoBien.Count == 0)
+                {
+                    <div class="rp-note">Chưa có dữ liệu.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>#</th><th>Dịch vụ</th><th class="r">Số lượng</th><th class="r">Doanh thu</th><th class="r">Đóng góp</th></tr></thead>
+                        <tbody>
+                            @for (int ri = 0; ri < Model.DichVuPhoBien.Count; ri++)
+                            {
+                                var dvr = Model.DichVuPhoBien[ri];
+                                <tr>
+                                    <td>@(ri + 1)</td>
+                                    <td>@dvr.Ten</td>
+                                    <td class="r">@dvr.SoLuong.ToString("N0")</td>
+                                    <td class="r">@tien(dvr.GiaTri)</td>
+                                    <td class="r">@(tongDichVu > 0 ? (dvr.GiaTri / tongDichVu * 100m).ToString("0.#") + "%" : "–")</td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot><tr><td></td><td>Tổng (top @Model.DichVuPhoBien.Count)</td><td class="r"></td><td class="r">@tien(tongDichVu)</td><td></td></tr></tfoot>
+                    </table>
+                }
+            </div>
+
+            <div class="rp-sec">
+                <h3>6. Phân tích &amp; nhận định</h3>
+                <ul class="rp-list">
+                    @foreach (var y in phanTich)
+                    {
+                        <li>@y</li>
+                    }
+                </ul>
+            </div>
+
+            <div class="rp-foot">
+                <span>Doanh thu chỉ tính đơn hoàn thành; lượt đặt theo khung giờ và theo sân không tính đơn hủy.</span>
+                <span>Lập lúc @DateTime.Now.ToString("HH:mm dd/MM/yyyy", inv)</span>
+            </div>
+        </div>
+
+        @* ===== Cửa sổ: danh sách đơn bị hủy ===== *@
+        <dialog id="tk-huy" class="tk-dialog">
+            <div class="tk-dialog-head">
+                <div>
+                    <div class="fw-bold">Đơn bị hủy</div>
+                    <div class="text-secondary small">@Model.SoLuotHuy đơn trong @nhan</div>
+                </div>
+                <button type="button" data-close aria-label="Đóng">&times;</button>
+            </div>
+            <div class="tk-dialog-body">
+                <div class="tk-scroll">
+                    <table class="table table-sm tk-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Mã đơn</th>
+                                <th>Sân</th>
+                                <th>Ngày đặt</th>
+                                <th>Giờ thuê</th>
+                                <th class="text-end">Đơn giá</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var donHuy in Model.DonHuy)
+                            {
+                                <tr>
+                                    <td>#@donHuy.MaDatSan</td>
+                                    <td>@donHuy.TenSan</td>
+                                    <td>@f(donHuy.NgayDat)</td>
+                                    <td>@donHuy.GioBatDau.ToString("HH:mm", inv) - @donHuy.GioKetThuc.ToString("HH:mm", inv) <span class="text-secondary">(@donHuy.GioBatDau.ToString("dd/MM", inv))</span></td>
+                                    <td class="text-end">@donHuy.DonGia.ToString("N0") đ</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                @if (Model.SoLuotHuy > Model.DonHuy.Count)
+                {
+                    <div class="text-secondary small mt-2">Chỉ hiện @Model.DonHuy.Count đơn mới nhất.</div>
+                }
+            </div>
+        </dialog>
+    }
+
+</div>
+
+<script>
+    (function () {
+        var form = document.getElementById('tk-form');
+        var kieuInp = document.getElementById('tk-kieu');
+        var subNam = document.getElementById('tk-sub-nam');
+        var subCustom = document.getElementById('tk-sub-tuychon');
+        var current = 'doanh-thu';
+
+        // ----- Tabs (chỉ có khi đã có dữ liệu) -----
+        var tabs = [].slice.call(document.querySelectorAll('.tk-tab'));
+        var panes = [].slice.call(document.querySelectorAll('.tk-pane'));
+
+        if (tabs.length) {
+            current = tabs[0].dataset.tab;
+
+            var show = function (name) {
+                if (!tabs.some(function (t) { return t.dataset.tab === name; })) name = tabs[0].dataset.tab;
+                current = name;
+                tabs.forEach(function (t) {
+                    var on = t.dataset.tab === name;
+                    t.classList.toggle('active', on);
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                });
+                panes.forEach(function (p) { p.hidden = p.dataset.pane !== name; });
+                // Cho biểu đồ (đường xu hướng) tính lại kích thước sau khi tab hiện ra
+                window.dispatchEvent(new Event('resize'));
+            };
+
+            tabs.forEach(function (t) {
+                t.addEventListener('click', function () {
+                    show(t.dataset.tab);
+                    history.replaceState(null, '', '#' + t.dataset.tab);
+                });
+            });
+
+            show(location.hash.replace('#', ''));
+        }
+
+        // Giữ nguyên tab đang xem khi đổi bộ lọc
+        form.addEventListener('submit', function () {
+            if (tabs.length) form.action = location.pathname + '#' + current;
+        });
+
+        // ----- Bộ lọc thời gian -----
+        var presetBtns = [].slice.call(form.querySelectorAll('[data-kieu]'));
+
+        presetBtns.forEach(function (b) {
+            b.addEventListener('click', function () {
+                var k = b.dataset.kieu;
+                kieuInp.value = k;
+
+                if (k === 'tuychon') {
+                    // Chỉ hiện ô chọn ngày, bấm "Áp dụng" để xem
+                    presetBtns.forEach(function (x) { x.classList.toggle('on', x === b); });
+                    subNam.hidden = true;
+                    subCustom.hidden = false;
+                    document.getElementById('tk-tu').focus();
+                    return;
+                }
+                form.requestSubmit();
+            });
+        });
+
+        document.getElementById('nam').addEventListener('change', function () {
+            kieuInp.value = 'nam';
+            form.requestSubmit();
+        });
+
+        // Đảo ngày nếu người dùng chọn "đến" nhỏ hơn "từ"
+        var tuInp = document.getElementById('tk-tu');
+        var denInp = document.getElementById('tk-den');
+        form.addEventListener('submit', function () {
+            if (kieuInp.value === 'tuychon' && tuInp.value && denInp.value && denInp.value < tuInp.value) {
+                var tmp = tuInp.value; tuInp.value = denInp.value; denInp.value = tmp;
+            }
+        });
+
+        // ----- Chuyển khung giờ: theo giờ / theo buổi -----
+        var gioBtns = [].slice.call(document.querySelectorAll('#tk-gio-mode [data-gio]'));
+        var gioPlot = document.getElementById('tk-hplot');
+        var buoiBox = document.getElementById('tk-buoi');
+        gioBtns.forEach(function (b) {
+            b.addEventListener('click', function () {
+                var theoBuoi = b.dataset.gio === 'buoi';
+                if (gioPlot) gioPlot.hidden = theoBuoi;
+                if (buoiBox) buoiBox.hidden = !theoBuoi;
+                gioBtns.forEach(function (x) {
+                    var on = x === b;
+                    x.classList.toggle('on', on);
+                    x.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+            });
+        });
+
+        // ----- Xếp hạng sân: đắt khách / ít khách -----
+        var rkBtns = [].slice.call(document.querySelectorAll('#tk-rk-mode [data-rk]'));
+        var rkTop = document.getElementById('tk-rk-top');
+        var rkLow = document.getElementById('tk-rk-low');
+        rkBtns.forEach(function (b) {
+            b.addEventListener('click', function () {
+                var low = b.dataset.rk === 'low';
+                if (rkTop) rkTop.hidden = low;
+                if (rkLow) rkLow.hidden = !low;
+                rkBtns.forEach(function (x) {
+                    var on = x === b;
+                    x.classList.toggle('on', on);
+                    x.setAttribute('aria-pressed', on ? 'true' : 'false');
+                });
+            });
+        });
+
+        // ----- Xuất báo cáo -----
+        var pdfBtn = document.getElementById('tk-export-pdf');
+        if (pdfBtn) pdfBtn.addEventListener('click', function () { window.print(); });
+
+        // Khi in / lưu PDF: tiêu đề trình duyệt (và tên file PDF) là "Báo cáo tuần ..." thay vì tên trang
+        var goc = document.title;
+        window.addEventListener('beforeprint', function () {
+            var r = document.getElementById('tk-report');
+            if (r && r.dataset.title) document.title = r.dataset.title;
+        });
+        window.addEventListener('afterprint', function () { document.title = goc; });
+
+        // ----- Xuất Excel (.xlsx): tạo file ngay trên trình duyệt, không cần thư viện -----
+        // XLSX-BEGIN
+        var crcTable = (function () {
+            var t = [], c;
+            for (var n = 0; n < 256; n++) {
+                c = n;
+                for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                t[n] = c >>> 0;
+            }
+            return t;
+        })();
+
+        function crc32(b) {
+            var c = 0xFFFFFFFF;
+            for (var i = 0; i < b.length; i++) c = crcTable[(c ^ b[i]) & 255] ^ (c >>> 8);
+            return (c ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        // Đóng gói zip kiểu "store" (không nén) - đủ để Excel mở được
+        function zipFiles(files) {
+            var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+            files.forEach(function (f) {
+                var name = enc.encode(f.name), data = enc.encode(f.text);
+                var crc = crc32(data), size = data.length;
+
+                var lh = new DataView(new ArrayBuffer(30));
+                lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+                lh.setUint16(8, 0, true); lh.setUint16(10, 0, true); lh.setUint16(12, 0x21, true);
+                lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true);
+                lh.setUint16(26, name.length, true); lh.setUint16(28, 0, true);
+                parts.push(new Uint8Array(lh.buffer), name, data);
+
+                var ch = new DataView(new ArrayBuffer(46));
+                ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+                ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true); ch.setUint16(12, 0, true); ch.setUint16(14, 0x21, true);
+                ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true);
+                ch.setUint16(28, name.length, true); ch.setUint16(30, 0, true); ch.setUint16(32, 0, true);
+                ch.setUint16(34, 0, true); ch.setUint16(36, 0, true); ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+                central.push(new Uint8Array(ch.buffer), name);
+
+                offset += 30 + name.length + size;
+            });
+            var cdSize = 0;
+            central.forEach(function (p) { cdSize += p.length; });
+            var end = new DataView(new ArrayBuffer(22));
+            end.setUint32(0, 0x06054b50, true); end.setUint16(4, 0, true); end.setUint16(6, 0, true);
+            end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+            end.setUint32(12, cdSize, true); end.setUint32(16, offset, true); end.setUint16(20, 0, true);
+            return parts.concat(central, [new Uint8Array(end.buffer)]);
+        }
+
+        function colName(i) {
+            var s = '';
+            i++;
+            while (i > 0) {
+                var m = (i - 1) % 26;
+                s = String.fromCharCode(65 + m) + s;
+                i = Math.floor((i - 1) / 26);
+            }
+            return s;
+        }
+
+        function xmlEsc(x) {
+            return String(x).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // rows: mảng các dòng; mỗi ô là { v, t: 's' | 'n', s: chỉ số kiểu }
+        function buildXlsx(rows) {
+            var NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+            var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+            var sheetData = rows.map(function (r, ri) {
+                if (!r.length) return '<row r="' + (ri + 1) + '"/>';
+                return '<row r="' + (ri + 1) + '">' + r.map(function (c, ci) {
+                    var ref = colName(ci) + (ri + 1);
+                    if (c.t === 'n') return '<c r="' + ref + '" s="' + c.s + '"><v>' + c.v + '</v></c>';
+                    return '<c r="' + ref + '" s="' + c.s + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(c.v) + '</t></is></c>';
+                }).join('') + '</row>';
+            }).join('');
+
+            var sheet = head + '<worksheet xmlns="' + NS + '"><cols>'
+                + '<col min="1" max="1" width="44" customWidth="1"/>'
+                + '<col min="2" max="6" width="20" customWidth="1"/></cols>'
+                + '<sheetData>' + sheetData + '</sheetData></worksheet>';
+
+            var styles = head + '<styleSheet xmlns="' + NS + '">'
+                + '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0&quot; đ&quot;"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="0.0"/></numFmts>'
+                + '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>'
+                + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+                + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+                + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+                + '<cellXfs count="7">'
+                + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+                + '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+                + '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+                + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+                + '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+                + '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
+                + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+                + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+
+            return zipFiles([
+                { name: '[Content_Types].xml', text: head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+                { name: '_rels/.rels', text: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+                { name: 'xl/workbook.xml', text: head + '<workbook xmlns="' + NS + '" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Thống kê" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+                { name: 'xl/_rels/workbook.xml.rels', text: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+                { name: 'xl/styles.xml', text: styles },
+                { name: 'xl/worksheets/sheet1.xml', text: sheet }
+            ]);
+        }
+        // XLSX-END
+
+        function cellText(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); }
+        function strCell(v, st) { return { v: v, t: 's', s: st || 0 }; }
+
+        // Chữ hiển thị trên trang (1.200.000 đ, 32,4%, 7...) -> ô số thật để Excel tính toán được
+        function parseCell(text) {
+            var t = text.trim(), m;
+            if (t === '' || t === '–' || /^#\d+$/.test(t)) return strCell(t);
+            if ((m = t.match(/^(\d+(?:[.,]\d+)?)\s*%$/))) return { v: parseFloat(m[1].replace(',', '.')) / 100, t: 'n', s: 4 };
+            if ((m = t.match(/^([\d.,\s]+)\s*đ$/))) return { v: parseInt(m[1].replace(/\D/g, ''), 10), t: 'n', s: 3 };
+            if (/^\d{1,3}([.,]\d{3})+$/.test(t)) return { v: parseInt(t.replace(/\D/g, ''), 10), t: 'n', s: 2 };
+            if (/^\d+$/.test(t)) return { v: parseInt(t, 10), t: 'n', s: 2 };
+            if (/^\d+[.,]\d+$/.test(t)) return { v: parseFloat(t.replace(',', '.')), t: 'n', s: 5 };
+            return strCell(t);
+        }
+
+        function tableRows(tbl, rows) {
+            [].slice.call(tbl.querySelectorAll('tr')).forEach(function (tr) {
+                var isHead = !!tr.closest('thead');
+                rows.push([].slice.call(tr.children).map(function (c) {
+                    return isHead ? strCell(cellText(c), 1) : parseCell(cellText(c));
+                }));
+            });
+            rows.push([]);
+        }
+
+        var xlsxBtn = document.getElementById('tk-export-csv');
+        if (xlsxBtn) xlsxBtn.addEventListener('click', function () {
+            var rows = [];
+            var sub = document.querySelector('.tk-title .sub');
+            rows.push([strCell('Thống kê đặt sân', 6)]);
+            rows.push([strCell(sub ? cellText(sub) : '')]);
+            rows.push([strCell('Xuất lúc ' + new Date().toLocaleString('vi-VN'))]);
+            rows.push([]);
+
+            // 4 thẻ chỉ số tổng quan
+            var kpis = [].slice.call(document.querySelectorAll('.tk-kpi'));
+            if (kpis.length) {
+                rows.push([strCell('Chỉ số tổng quan', 1)]);
+                rows.push([strCell('Chỉ số', 1), strCell('Giá trị', 1), strCell('Ghi chú', 1)]);
+                kpis.forEach(function (k) {
+                    var lab = k.querySelector('.tk-kpi-label');
+                    var val = k.querySelector('.tk-kpi-val');
+                    var foot = k.querySelector('.tk-kpi-foot');
+                    var small = val ? val.querySelector('small') : null;
+                    var note = ((small ? cellText(small) : '') + ' ' + (foot ? cellText(foot) : '')).trim();
+                    rows.push([strCell(lab ? cellText(lab) : ''), parseCell(val && val.firstChild ? val.firstChild.textContent : ''), strCell(note)]);
+                });
+                rows.push([]);
+            }
+
+            // Mọi bảng số liệu trong 3 tab (kể cả tab đang ẩn)
+            [].slice.call(document.querySelectorAll('.tk-pane .tk-tbl')).forEach(function (tbl) {
+                var panel = tbl.closest('.tk-panel');
+                var ti = panel ? panel.querySelector('.tk-panel-title') : null;
+                var title = ti ? cellText(ti) : 'Bảng số liệu';
+                if (tbl.closest('#tk-rk-low')) title += ' - Ít khách';
+                else if (tbl.closest('#tk-rk-top')) title += ' - Đắt khách';
+                rows.push([strCell(title, 1)]);
+                tableRows(tbl, rows);
+            });
+
+            // Danh sách đơn hủy (nếu có)
+            var huyTbl = document.querySelector('#tk-huy table');
+            if (huyTbl) {
+                rows.push([strCell('Đơn bị hủy', 1)]);
+                tableRows(huyTbl, rows);
+            }
+
+            var blob = new Blob(buildXlsx(rows), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'thong-ke-' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        });
+
+        // ----- Cửa sổ danh sách đơn hủy -----
+        var dlg = document.getElementById('tk-huy');
+        var openBtn = document.getElementById('tk-open-huy');
+        if (dlg && openBtn) {
+            openBtn.addEventListener('click', function () { dlg.showModal(); });
+            dlg.querySelector('[data-close]').addEventListener('click', function () { dlg.close(); });
+            dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+        }
+    })();
+</script>

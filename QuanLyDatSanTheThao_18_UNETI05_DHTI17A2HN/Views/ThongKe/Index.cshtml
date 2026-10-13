@@ -1,0 +1,455 @@
+@* Họ và tên: [Điền tên SV 5]
+   Mã sinh viên: [Điền mã SV 5]
+   Nội dung thực hiện: Dashboard quản trị - tổng quan sân, khách hàng, đơn đặt sân, doanh thu. *@
+@using System.Globalization
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard quản trị";
+
+    var inv = CultureInfo.InvariantCulture;
+
+    double Pct(double part, double total) => total <= 0 ? 0 : Math.Round(part * 100.0 / total, 1);
+    string Css(double v) => v.ToString("0.##", inv);
+
+    // Đơn đặt sân
+    int tong = Model.TongDatSan;
+    int cho = Model.DonChoXuLy;
+    int dang = Model.DonDangXuLy;
+    int xong = Model.DonHoanThanh;
+    int khac = Math.Max(0, tong - cho - dang - xong);   // đã hủy / trạng thái khác
+
+    double pCho = Pct(cho, tong);
+    double pDang = Pct(dang, tong);
+    double pXong = Pct(xong, tong);
+    double pKhac = Math.Max(0, 100 - pCho - pDang - pXong);
+
+    double a = pCho;
+    double b = a + pDang;
+    double c = b + pXong;
+
+    string donut = tong == 0
+        ? "conic-gradient(#e2e8f0 0 100%)"
+        : $"conic-gradient(#f59e0b 0 {Css(a)}%, #2563eb {Css(a)}% {Css(b)}%, #16a34a {Css(b)}% {Css(c)}%, #cbd5e1 {Css(c)}% 100%)";
+
+    // Sân
+    int sanKhongKhaDung = Math.Max(0, Model.TongSan - Model.SanKhaDung);
+    double pKhaDung = Pct(Model.SanKhaDung, Model.TongSan);
+
+    // Trung bình mỗi đơn hoàn thành
+    var tbMoiDon = Model.DonHoanThanh > 0 ? Model.DoanhThuHoanThanh / Model.DonHoanThanh : 0;
+}
+
+<style>
+    .dash-wrap {
+        --ink: #0f172a;
+        --muted: #64748b;
+        --line: #e2e8f0;
+        --pitch: #14532d;
+        --pitch-2: #166534;
+    }
+
+        .dash-wrap .panel {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 1.25rem 1.4rem;
+            height: 100%;
+        }
+
+        .dash-wrap .panel-title {
+            font-weight: 700;
+            color: var(--ink);
+            margin-bottom: .15rem;
+        }
+
+        .dash-wrap .panel-sub {
+            color: var(--muted);
+            font-size: .85rem;
+            margin-bottom: 1rem;
+        }
+
+    /* Hero doanh thu */
+    .revenue-hero {
+        background: linear-gradient(135deg, var(--pitch) 0%, var(--pitch-2) 100%);
+        color: #fff;
+        border-radius: 14px;
+        padding: 1.5rem 1.75rem;
+        height: 100%;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .revenue-hero::after {
+            content: "";
+            position: absolute;
+            right: -40px;
+            top: -40px;
+            width: 180px;
+            height: 180px;
+            border: 2px solid rgba(255,255,255,.12);
+            border-radius: 50%;
+        }
+
+        .revenue-hero::before {
+            content: "";
+            position: absolute;
+            right: 49px;
+            top: -40px;
+            width: 2px;
+            height: 180px;
+            background: rgba(255,255,255,.12);
+        }
+
+        .revenue-hero .label {
+            opacity: .8;
+            font-size: .9rem;
+        }
+
+        .revenue-hero .big {
+            font-size: 2.4rem;
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -.5px;
+        }
+
+        .revenue-hero .divider {
+            height: 1px;
+            background: rgba(255,255,255,.2);
+            margin: 1rem 0;
+        }
+
+        .revenue-hero .mini {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .revenue-hero .hint {
+            opacity: .7;
+            font-size: .8rem;
+        }
+
+    /* Số liệu nhanh */
+    .kpi {
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 1.1rem 1.25rem;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+        .kpi .ico {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: grid;
+            place-items: center;
+            font-size: 1.35rem;
+            flex: none;
+        }
+
+        .kpi .num {
+            font-size: 1.75rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--ink);
+        }
+
+        .kpi .txt {
+            color: var(--muted);
+            font-size: .88rem;
+        }
+
+    .ico-green {
+        background: #dcfce7;
+    }
+
+    .ico-blue {
+        background: #dbeafe;
+    }
+
+    .ico-amber {
+        background: #fef3c7;
+    }
+
+    .ico-slate {
+        background: #e2e8f0;
+    }
+
+    /* Biểu đồ tròn trạng thái đơn */
+    .donut {
+        width: 190px;
+        height: 190px;
+        border-radius: 50%;
+        position: relative;
+        flex: none;
+    }
+
+        .donut::after {
+            content: "";
+            position: absolute;
+            inset: 28px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+    .donut-center {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-content: center;
+        text-align: center;
+        z-index: 1;
+    }
+
+        .donut-center .n {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--ink);
+            line-height: 1;
+        }
+
+        .donut-center .t {
+            font-size: .8rem;
+            color: var(--muted);
+        }
+
+    .legend-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .55rem 0;
+        border-bottom: 1px dashed var(--line);
+    }
+
+        .legend-row:last-child {
+            border-bottom: 0;
+        }
+
+        .legend-row .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: .6rem;
+        }
+
+        .legend-row .cnt {
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .legend-row .pc {
+            color: var(--muted);
+            font-size: .85rem;
+            margin-left: .5rem;
+            min-width: 48px;
+            display: inline-block;
+            text-align: right;
+        }
+
+    /* Tình trạng sân */
+    .court-bar {
+        height: 14px;
+        border-radius: 99px;
+        background: #e2e8f0;
+        overflow: hidden;
+    }
+
+        .court-bar > span {
+            display: block;
+            height: 100%;
+            background: linear-gradient(90deg, #22c55e, #16a34a);
+            border-radius: 99px;
+        }
+
+    /* Cảnh báo cần xử lý */
+    .todo {
+        border-radius: 14px;
+        padding: .9rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .todo-warn {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+
+    .todo-ok {
+        background: #f0fdf4;
+        border: 1px solid #86efac;
+        color: #166534;
+    }
+</style>
+
+<div class="dash-wrap">
+
+    <div class="mb-3">
+        <h2 class="mb-0 fw-bold">Dashboard quản trị</h2>
+        <div class="text-secondary">Tình hình hoạt động tính đến @DateTime.Now.ToString("HH:mm, dd/MM/yyyy")</div>
+    </div>
+
+    @if (TempData["Loi"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Loi"]</div>
+    }
+
+    @* ===== Việc cần làm ngay ===== *@
+    @if (cho > 0)
+    {
+        <div class="todo todo-warn mb-4">
+            <div>
+                <strong>Có @cho đơn đặt sân đang chờ xử lý.</strong>
+                <span class="ms-1">Khách đang chờ xác nhận, hãy xử lý sớm.</span>
+            </div>
+            <a class="btn btn-warning btn-sm fw-semibold" asp-controller="XuLyDatSan" asp-action="Index">Xử lý đơn chờ</a>
+        </div>
+    }
+    else
+    {
+        <div class="todo todo-ok mb-4">
+            <div><strong>Không có đơn nào đang chờ xử lý.</strong> <span class="ms-1">Mọi đơn đặt sân đã được tiếp nhận.</span></div>
+        </div>
+    }
+
+    @* ===== Hàng 1: Doanh thu + số liệu nhanh ===== *@
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+            <div class="revenue-hero">
+                <div class="label">Tổng doanh thu đã hoàn thành</div>
+                <div class="big">@Model.DoanhThuHoanThanh.ToString("N0") đ</div>
+                <div class="hint">Chỉ tính đơn ở trạng thái "Hoàn thành"</div>
+
+                <div class="divider"></div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <div class="label">Tạm tính hôm nay</div>
+                        <div class="mini">@Model.DoanhThuTamTinhHomNay.ToString("N0") đ</div>
+                        <div class="hint">Sân + dịch vụ, chưa tính đơn hủy</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="label">Trung bình mỗi đơn</div>
+                        <div class="mini">@tbMoiDon.ToString("N0") đ</div>
+                        <div class="hint">Trên @Model.DonHoanThanh đơn hoàn thành</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="row g-3 h-100">
+                <div class="col-sm-6">
+                    <div class="kpi">
+                        <div class="ico ico-amber">📅</div>
+                        <div>
+                            <div class="num">@Model.DonHomNay</div>
+                            <div class="txt">Đơn đặt sân hôm nay</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="kpi">
+                        <div class="ico ico-blue">🧾</div>
+                        <div>
+                            <div class="num">@Model.TongDatSan</div>
+                            <div class="txt">Tổng đơn đặt sân</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="kpi">
+                        <div class="ico ico-green">👥</div>
+                        <div>
+                            <div class="num">@Model.TongKhachHang</div>
+                            <div class="txt">Tổng khách hàng</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="kpi">
+                        <div class="ico ico-slate">🏷️</div>
+                        <div>
+                            <div class="num">@Model.TongLoaiSan</div>
+                            <div class="txt">Loại sân đang quản lý</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ===== Hàng 2: Trạng thái đơn + Tình trạng sân ===== *@
+    <div class="row g-3">
+        <div class="col-lg-7">
+            <div class="panel">
+                <div class="panel-title">Trạng thái đơn đặt sân</div>
+                <div class="panel-sub">Phân bổ @tong đơn theo tình trạng xử lý</div>
+
+                <div class="d-flex align-items-center gap-4 flex-wrap justify-content-center justify-content-md-start">
+                    <div class="donut" style="background: @donut">
+                        <div class="donut-center">
+                            <div class="n">@tong</div>
+                            <div class="t">tổng đơn</div>
+                        </div>
+                    </div>
+
+                    <div class="flex-grow-1" style="min-width: 220px;">
+                        <div class="legend-row">
+                            <span><span class="dot" style="background:#f59e0b"></span>Chờ xử lý</span>
+                            <span><span class="cnt">@cho</span><span class="pc">@pCho.ToString("0.#")%</span></span>
+                        </div>
+                        <div class="legend-row">
+                            <span><span class="dot" style="background:#2563eb"></span>Đang xử lý</span>
+                            <span><span class="cnt">@dang</span><span class="pc">@pDang.ToString("0.#")%</span></span>
+                        </div>
+                        <div class="legend-row">
+                            <span><span class="dot" style="background:#16a34a"></span>Hoàn thành</span>
+                            <span><span class="cnt">@xong</span><span class="pc">@pXong.ToString("0.#")%</span></span>
+                        </div>
+                        <div class="legend-row">
+                            <span><span class="dot" style="background:#cbd5e1"></span>Đã hủy / khác</span>
+                            <span><span class="cnt">@khac</span><span class="pc">@pKhac.ToString("0.#")%</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="panel">
+                <div class="panel-title">Tình trạng sân</div>
+                <div class="panel-sub">@Model.SanKhaDung / @Model.TongSan sân sẵn sàng phục vụ</div>
+
+                <div class="d-flex align-items-end justify-content-between mb-2">
+                    <div>
+                        <span class="fs-1 fw-bold" style="color:#166534; line-height:1">@pKhaDung.ToString("0.#")%</span>
+                        <span class="text-secondary ms-1">sân khả dụng</span>
+                    </div>
+                </div>
+                <div class="court-bar mb-4"><span style="width: @(Css(pKhaDung))%"></span></div>
+
+                <div class="legend-row">
+                    <span><span class="dot" style="background:#16a34a"></span>Đang khả dụng</span>
+                    <span class="cnt">@Model.SanKhaDung sân</span>
+                </div>
+                <div class="legend-row">
+                    <span><span class="dot" style="background:#94a3b8"></span>Không khả dụng (bảo trì, tạm đóng)</span>
+                    <span class="cnt">@sanKhongKhaDung sân</span>
+                </div>
+                <div class="legend-row">
+                    <span><span class="dot" style="background:#2563eb"></span>Tổng số sân</span>
+                    <span class="cnt">@Model.TongSan sân</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

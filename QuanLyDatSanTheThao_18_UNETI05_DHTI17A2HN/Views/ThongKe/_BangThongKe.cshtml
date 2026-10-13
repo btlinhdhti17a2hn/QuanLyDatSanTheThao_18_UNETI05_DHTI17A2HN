@@ -1,0 +1,221 @@
+@using System.Globalization
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
+@model BangThongKe
+@{
+    var inv = CultureInfo.InvariantCulture;
+
+    // Giá trị dùng để xếp hạng: tiền (GiaTri) hoặc số lượt (SoLuong)
+    Func<ThongKeItem, decimal> giaTri = x => Model.LaTien ? x.GiaTri : x.SoLuong;
+
+    // Có xếp hạng thì sắp từ cao xuống thấp, không thì giữ nguyên thứ tự (vd. khung giờ)
+    var ds = Model.XepHang
+        ? Model.Items.OrderByDescending(giaTri).ToList()
+        : Model.Items.ToList();
+
+    decimal tong = ds.Sum(giaTri);
+    decimal max = ds.Count == 0 ? 0 : ds.Max(giaTri);
+    int topN = Math.Max(1, Model.TopN);
+
+    // Hạng kiểu "đồng hạng": cùng số liệu thì cùng hạng (1,1,1,4...)
+    var hang = new int[ds.Count];
+    for (int i = 0; i < ds.Count; i++)
+    {
+        hang[i] = (i > 0 && giaTri(ds[i]) == giaTri(ds[i - 1])) ? hang[i - 1] : i + 1;
+    }
+    bool coDongHang = ds.Take(topN).Select(giaTri).Distinct().Count() < Math.Min(ds.Count, topN);
+
+    // Chỉ làm nổi bật khi có ĐÚNG MỘT mục dẫn đầu
+    bool duyNhat = max > 0 && ds.Count(x => giaTri(x) == max) == 1;
+
+    string moTa = !string.IsNullOrEmpty(Model.MoTa)
+        ? Model.MoTa
+        : "Tổng cộng " + tong.ToString("N0") + (Model.LaTien ? " đ" : " " + Model.DonVi);
+
+    bool trong = ds.Count == 0 || tong == 0;
+}
+
+@* CSS của bảng xếp hạng: chỉ xuất ra 1 lần dù partial được gọi nhiều lần, nên dùng ở trang nào cũng đủ kiểu *@
+@if (Context.Items["tk-bang-css"] == null)
+{
+    Context.Items["tk-bang-css"] = true;
+    <style>
+        .tk-row {
+            display: grid;
+            grid-template-columns: minmax(110px, 38%) 1fr auto 3.4rem;
+            align-items: center;
+            gap: .75rem;
+            padding: .55rem .4rem;
+            margin: 0 -.4rem;
+            border-radius: 8px;
+            transition: background .15s;
+        }
+
+            .tk-row[hidden] {
+                display: none;
+            }
+
+            .tk-row:hover {
+                background: #f8fafc;
+            }
+
+            .tk-row .name {
+                color: var(--ink);
+                font-size: .875rem;
+                line-height: 1.35;
+            }
+
+            .tk-row.top .name {
+                font-weight: 700;
+            }
+
+        .tk-rank {
+            display: inline-block;
+            min-width: 1.9rem;
+            color: var(--muted);
+            font-size: .8125rem;
+            font-weight: 700;
+        }
+
+        .tk-row.top .tk-rank {
+            color: var(--pitch-2);
+        }
+
+        .tk-row .track {
+            height: 8px;
+            border-radius: 99px;
+            background: #e8edf3;
+            overflow: hidden;
+        }
+
+            .tk-row .track > span {
+                display: block;
+                height: 100%;
+                border-radius: 99px;
+                background: var(--brand-soft);
+            }
+
+        .tk-row.top .track > span {
+            background: var(--brand-deep);
+        }
+
+        .tk-row .num {
+            text-align: right;
+            white-space: nowrap;
+            font-weight: 700;
+            color: var(--ink);
+            font-size: .875rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tk-row .pct {
+            text-align: right;
+            color: var(--muted);
+            font-size: .8125rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .tk-more-btn {
+            width: 100%;
+            margin-top: .6rem;
+            padding: .4rem;
+            border: 1px dashed #cbd5e1;
+            background: #fff;
+            border-radius: 10px;
+            color: #15803d;
+            font-weight: 600;
+            font-size: .875rem;
+            cursor: pointer;
+            transition: background .15s;
+        }
+
+            .tk-more-btn:hover {
+                background: #f0fdf4;
+            }
+
+        @@media (max-width: 576px) {
+            .tk-row {
+                grid-template-columns: 1fr auto auto;
+            }
+
+                .tk-row .track {
+                    grid-column: 1 / -1;
+                    order: 3;
+                }
+        }
+    </style>
+}
+
+<div class="tk-panel">
+    <div class="tk-panel-title">@Model.TieuDe</div>
+
+    @if (trong)
+    {
+        <div class="tk-panel-sub">&nbsp;</div>
+        <div class="tk-empty">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="18" y1="20" x2="18" y2="10"></line>
+                <line x1="12" y1="20" x2="12" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="14"></line>
+            </svg>
+            <span>Chưa có dữ liệu</span>
+        </div>
+    }
+    else
+    {
+        <div class="tk-panel-sub">@moTa</div>
+
+        @for (int i = 0; i < ds.Count; i++)
+        {
+            var it = ds[i];
+            decimal v = giaTri(it);
+            string rong = (v / max * 100).ToString("0.##", inv);
+            string pct = (v / tong * 100).ToString("0.#") + "%";
+            bool dau = duyNhat && v == max;
+            bool an = i >= topN;
+            string lopHang = "tk-row" + (dau ? " top" : "") + (an ? " tk-extra" : "");
+            string giaTriChu = v.ToString("N0") + (Model.LaTien ? " đ" : " " + Model.DonVi);
+
+            <div class="@lopHang" hidden="@an">
+                <div class="name">
+                    @if (Model.XepHang)
+                    {
+                        <span class="tk-rank">#@hang[i]</span>
+                    }
+                    @it.Ten
+                </div>
+                <div class="track"><span style="width:@(rong)%"></span></div>
+                <div class="num">@giaTriChu</div>
+                <div class="pct">@pct</div>
+            </div>
+        }
+
+        @if (Model.XepHang && coDongHang)
+        {
+            <div class="tk-note">Các mục cùng số liệu được xếp đồng hạng.</div>
+        }
+
+        @if (ds.Count > topN)
+        {
+            <button type="button" class="tk-more-btn" data-more="Xem thêm (@(ds.Count - topN))">
+                Xem thêm (@(ds.Count - topN))
+            </button>
+        }
+    }
+</div>
+
+@* Một trình xử lý chung cho mọi nút "Xem thêm" / "Thu gọn" (chỉ gắn 1 lần) *@
+<script>
+    (function () {
+        if (window.tkMoreInit) return;
+        window.tkMoreInit = true;
+        document.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('.tk-more-btn') : null;
+            if (!b) return;
+            var panel = b.closest('.tk-panel');
+            var open = b.dataset.open === '1';
+            [].slice.call(panel.querySelectorAll('.tk-extra')).forEach(function (r) { r.hidden = open; });
+            b.dataset.open = open ? '0' : '1';
+            b.textContent = open ? b.dataset.more : 'Thu gọn';
+        });
+    })();
+</script>

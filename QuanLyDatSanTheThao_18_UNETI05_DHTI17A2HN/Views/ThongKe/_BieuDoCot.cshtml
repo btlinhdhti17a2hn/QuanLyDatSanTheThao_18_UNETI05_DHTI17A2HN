@@ -1,0 +1,242 @@
+﻿@using System.Globalization
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
+@model BangThongKe
+@{
+    var inv = CultureInfo.InvariantCulture;
+    var items = Model.Items;
+    int n = items.Count;
+    bool dense = n > 16;
+    // Khi có nhiều cột chỉ hiện nhãn cách quãng để không bị chồng chữ
+    int buoc = dense ? (int)Math.Ceiling(n / 12.0) : 1;
+    string lopCot = dense ? "tk-cols dense" : "tk-cols";
+
+    // Kỳ này chưa có đơn hoàn thành nào: báo rõ thay vì để biểu đồ trống không giải thích
+    bool chuaCoDon = n > 0 && items.All(x => x.GiaTri == 0 && x.SoLuong == 0);
+}
+
+@if (Context.Items["tk-chart-css"] == null)
+{
+    Context.Items["tk-chart-css"] = true;
+    <style>
+        /* Nhãn cột dày (theo ngày / tuần): giữ trên 1 dòng và canh giữa dưới cột, không xuống dòng giữa "05/10" */
+        #tk-chart .tk-cols.dense .m {
+            display: flex;
+            justify-content: center;
+        }
+
+            #tk-chart .tk-cols.dense .m span {
+                white-space: nowrap;
+            }
+
+        /* Đường xu hướng nối đỉnh các cột; nằm trên cột nhưng không chặn hover */
+        #tk-chart .tk-trend {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: var(--h);
+            pointer-events: none;
+            overflow: visible;
+            z-index: 1;
+        }
+
+            #tk-chart .tk-trend path {
+                fill: none;
+                stroke: #f59e0b;
+                stroke-width: 2;
+                stroke-linejoin: round;
+                stroke-linecap: round;
+            }
+
+            #tk-chart .tk-trend circle {
+                fill: #fff;
+                stroke: #f59e0b;
+                stroke-width: 2;
+            }
+
+        #tk-chart .tk-legend {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+            font-size: .8125rem;
+            color: var(--muted);
+            margin-top: .5rem;
+        }
+
+            #tk-chart .tk-legend i {
+                display: inline-block;
+                width: 18px;
+                height: 0;
+                border-top: 2px solid #f59e0b;
+            }
+    </style>
+}
+
+<div class="tk-panel" id="tk-chart">
+    <div class="tk-chart-head">
+        <div>
+            <div class="tk-panel-title">@Model.TieuDe</div>
+            <div class="tk-panel-sub">@Model.MoTa</div>
+        </div>
+        <div class="tk-seg" role="group" aria-label="Chỉ số hiển thị">
+            <button type="button" class="on" data-mode="v" aria-pressed="true">Doanh thu</button>
+            <button type="button" data-mode="c" aria-pressed="false">Đơn hoàn thành</button>
+        </div>
+    </div>
+
+    @if (n == 0)
+    {
+        <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+    }
+    else
+    {
+        <div class="tk-plot">
+            <div class="tk-axis"></div>
+            <div class="tk-area">
+                <div class="@lopCot">
+                    @for (int i = 0; i < n; i++)
+                    {
+                        var it = items[i];
+                        <div class="tk-col" data-v="@it.GiaTri.ToString("0.##", inv)" data-c="@it.SoLuong" data-t="@it.Ten">
+                            <div class="track"><div class="bar"><span class="pill"></span></div></div>
+                            <div class="m"><span>@(i % buoc == 0 ? it.Ten : "")</span></div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (chuaCoDon)
+        {
+            <div class="tk-note">Chưa có đơn hoàn thành nào trong kỳ này nên các cột đang bằng 0.</div>
+        }
+        else
+        {
+            <div class="tk-note" id="tk-hint" hidden></div>
+        }
+    }
+</div>
+
+<script>
+    (function () {
+        var root = document.getElementById('tk-chart');
+        if (!root) return;
+
+        var cols = [].slice.call(root.querySelectorAll('.tk-col'));
+        var axis = root.querySelector('.tk-axis');
+        var btns = [].slice.call(root.querySelectorAll('[data-mode]'));
+        if (!cols.length || !axis) return;
+
+        function fmt(v) { return Math.round(v).toLocaleString('vi-VN'); }
+
+        // Chia trục thành 4 khoảng "tròn" (1, 2, 2.5, 5 x 10^k)
+        function nice(max, isInt) {
+            if (max <= 0) return isInt ? 4 : 4000000;
+            var raw = max / 4;
+            if (isInt && raw <= 1) return 4;
+            var e = Math.pow(10, Math.floor(Math.log10(raw)));
+            var f = raw / e;
+            var s = f <= 1 ? 1 : (f <= 2 ? 2 : ((!isInt && f <= 2.5) ? 2.5 : (f <= 5 ? 5 : 10)));
+            return s * e * 4;
+        }
+
+        // Nhãn trục viết gọn (tr = triệu) để vừa cột trục ở cỡ chữ 13px
+        function axisMoney(v) {
+            if (v === 0) return '0';
+            if (v >= 1e9) return (Math.round(v / 1e7) / 100).toLocaleString('vi-VN') + ' tỷ';
+            if (v >= 1e6) return (Math.round(v / 1e4) / 100).toLocaleString('vi-VN') + ' tr';
+            if (v >= 1e3) return (Math.round(v / 10) / 100).toLocaleString('vi-VN') + ' nghìn';
+            return String(v);
+        }
+
+        var hint = root.querySelector('#tk-hint');
+        var colsBox = root.querySelector('.tk-cols');
+        var lastVals = null, lastTop = 1;
+
+        // Vẽ đường xu hướng nối đỉnh các cột khi có từ 2 kỳ có dữ liệu trở lên
+        function drawTrend() {
+            var boxRect = colsBox.getBoundingClientRect();
+            var track = cols[0].querySelector('.track').getBoundingClientRect();
+            if (!track.height) return;   // đang ẩn (tab khác): giữ nguyên đường cũ, vẽ lại khi hiện
+            var old = colsBox.querySelector('.tk-trend');
+            if (old) old.remove();
+            if (!lastVals) return;
+            var nonZero = lastVals.filter(function (v) { return v > 0; }).length;
+            if (nonZero < 2) return;
+
+            var h = track.height, d = '', dots = '';
+            cols.forEach(function (c, i) {
+                var r = c.querySelector('.track').getBoundingClientRect();
+                var x = r.left - boxRect.left + r.width / 2;
+                var y = h * (1 - lastVals[i] / lastTop);
+                d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+                if (cols.length <= 16) dots += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.5"/>';
+            });
+            var svg = '<svg class="tk-trend" aria-hidden="true"><path d="' + d + '"/>' + dots + '</svg>';
+            colsBox.insertAdjacentHTML('beforeend', svg);
+        }
+
+        function updateHint(vals, isInt) {
+            if (!hint) return;
+            var nonZero = [];
+            vals.forEach(function (v, i) { if (v > 0) nonZero.push(cols[i].dataset.t); });
+            if (nonZero.length === 1) {
+                hint.hidden = false;
+                hint.textContent = 'Chỉ có ' + nonZero[0] + ' phát sinh ' + (isInt ? 'đơn hoàn thành' : 'doanh thu') + '; các kỳ còn lại chưa có số liệu.';
+            } else if (nonZero.length >= 2) {
+                hint.hidden = false;
+                hint.innerHTML = '<span class="tk-legend"><i></i> Đường xu hướng nối đỉnh các cột (' + nonZero.length + '/' + vals.length + ' kỳ có số liệu)</span>';
+            } else {
+                hint.hidden = true;
+            }
+        }
+
+        window.addEventListener('resize', function () { drawTrend(); });
+
+        function render(mode) {
+            var key = mode === 'c' ? 'c' : 'v';
+            var isInt = key === 'c';
+            var vals = cols.map(function (c) { return parseFloat(c.dataset[key]) || 0; });
+            var max = Math.max.apply(null, vals.concat([0]));
+            var top = nice(max, isInt);
+            var soCotMax = vals.filter(function (v) { return v === max; }).length;
+
+            cols.forEach(function (c, i) {
+                var v = vals[i];
+                var txt = isInt ? fmt(v) + ' đơn' : fmt(v) + ' đ';
+                c.querySelector('.bar').style.height = (v / top * 100) + '%';
+                c.querySelector('.pill').textContent = txt;
+                c.title = c.dataset.t + ': ' + txt;
+                c.classList.toggle('zero', v === 0);
+                // Chỉ làm nổi bật khi có đúng một cột cao nhất
+                c.classList.toggle('top', max > 0 && v === max && soCotMax === 1);
+            });
+
+            axis.innerHTML = '';
+            for (var k = 0; k <= 4; k++) {
+                var val = top / 4 * k;
+                var s = document.createElement('span');
+                s.style.top = ((4 - k) / 4 * 100) + '%';
+                s.textContent = isInt ? String(val) : axisMoney(val);
+                axis.appendChild(s);
+            }
+
+            btns.forEach(function (b) {
+                var on = b.dataset.mode === key;
+                b.classList.toggle('on', on);
+                b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+
+            lastVals = vals;
+            lastTop = top;
+            updateHint(vals, isInt);
+            drawTrend();
+        }
+
+        btns.forEach(function (b) {
+            b.addEventListener('click', function () { render(b.dataset.mode); });
+        });
+
+        render('v');
+    })();
+</script>
