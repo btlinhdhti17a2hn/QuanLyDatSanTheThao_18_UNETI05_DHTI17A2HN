@@ -1,11 +1,10 @@
-@* Họ và tên: [Điền tên SV 5]
-   Mã sinh viên: [Điền mã SV 5]
+@* Họ và tên: Tạ Đình Kim 
+   Mã sinh viên: 23103100315
    Nội dung thực hiện: Trang thống kê nâng cao bằng LINQ (GroupBy, Sum, Count) - doanh thu theo kỳ,
    loại sân ưa thích, dịch vụ phổ biến, khung giờ cao điểm. Có bộ lọc thời gian, so sánh kỳ trước
    và xem nhanh danh sách đơn hủy.
-   Trang Thống kê là trung tâm báo cáo chuyên sâu (Doanh thu / Hiệu suất sân / Dịch vụ);
-   phần "Tổng quan" điều hành hằng ngày thuộc về trang chủ Dashboard.
-   Quy ước chữ: tiêu đề khối 16px, nội dung 14px, chú thích 13px, tối thiểu 12px. Khoảng cách khối 20px. *@
+   *@
+
 @using System.Globalization
 @using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 @model ThongKeViewModel
@@ -23,6 +22,14 @@
     string huyRong = Math.Min(100, tyLeHuy).ToString("0.##", inv);
 
     // ===== Bộ lọc thời gian =====
+    // Danh sách năm cho dropdown: gộp năm có dữ liệu + dải năm liên tục (từ 5 năm trước đến 2 năm sau hiện tại)
+    int namHienTai = DateTime.Today.Year;
+    var danhSachNam = new List<int>();
+    if (Model.DanhSachNam != null) { danhSachNam.AddRange(Model.DanhSachNam); }
+    for (int y = namHienTai - 5; y <= namHienTai + 2; y++) { danhSachNam.Add(y); }
+    danhSachNam.Add(Model.Nam);
+    danhSachNam = danhSachNam.Distinct().OrderByDescending(y => y).ToList();
+
     string kieu = string.IsNullOrEmpty(Model.Kieu) ? "nam" : Model.Kieu;
     DateTime tu = Model.TuNgay == default(DateTime) ? new DateTime(Model.Nam, 1, 1) : Model.TuNgay.Date;
     DateTime den = Model.DenNgay == default(DateTime) ? new DateTime(Model.Nam, 12, 31) : Model.DenNgay.Date;
@@ -589,13 +596,8 @@
     }
 
     @@media print {
-        nav, header, footer, aside, .tk-top, .tk-pane, .tk-dialog, .tk-tools {
-            display: none !important;
-        }
-
-        body {
-            background: #fff !important;
-        }
+        nav, header, footer, aside, .tk-top, .tk-pane, .tk-dialog, .tk-tools { display: none !important; }
+        body { background: #fff !important; }
 
         .tk-report {
             display: block !important;
@@ -918,7 +920,7 @@
     /* ===== Lưới thân trang ===== */
     .tk-body {
         display: grid;
-        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); /* 60% - 40% */
+        grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);   /* 60% - 40% */
         gap: 1.25rem;
         align-items: start;
     }
@@ -1017,9 +1019,9 @@
         padding-top: .25rem;
     }
 
-        .tk-buoi[hidden], .tk-hplot[hidden] {
-            display: none;
-        }
+    .tk-buoi[hidden], .tk-hplot[hidden] {
+        display: none;
+    }
 
     .tk-buoi-row {
         display: grid;
@@ -1600,7 +1602,7 @@
 
             <div class="tk-sub" id="tk-sub-nam" hidden="@(kieu != "nam")">
                 <select id="nam" name="nam" class="form-select" aria-label="Năm thống kê">
-                    @foreach (var n in Model.DanhSachNam)
+                    @foreach (var n in danhSachNam)
                     {
                         <option value="@n" selected="@(n == Model.Nam)">@n</option>
                     }
@@ -1650,67 +1652,67 @@
         @* ===== Tab 1: Doanh thu - biểu đồ cột (60%) + biểu đồ tròn theo loại sân (40%) ===== *@
         <section class="tk-pane" data-pane="doanh-thu" role="tabpanel">
             @* ===== 4 thẻ chỉ số của kỳ đang xem: chỉ nằm trong tab Doanh thu ===== *@
-            <div class="tk-kpis">
-                <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.DoanhThuKyTruoc.ToString("N0") đ">
-                    <div class="tk-kpi-top">
-                        <span class="tk-kpi-label">Doanh thu</span>
-                        <div class="tk-ico" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                        </div>
-                    </div>
-                    <div class="tk-kpi-val">@Model.TongDoanhThuNam.ToString("N0") đ</div>
-                    <div class="tk-kpi-foot">
-                        <span class="tk-badge @dtDelta[0]">@dtDelta[1]</span>
-                        <span>@kyTruocNhan</span>
+        <div class="tk-kpis">
+            <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.DoanhThuKyTruoc.ToString("N0") đ">
+                <div class="tk-kpi-top">
+                    <span class="tk-kpi-label">Doanh thu</span>
+                    <div class="tk-ico" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                     </div>
                 </div>
-
-                <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.LuotDatKyTruoc.ToString("N0") lượt">
-                    <div class="tk-kpi-top">
-                        <span class="tk-kpi-label">Lượt đặt</span>
-                        <div class="tk-ico" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        </div>
-                    </div>
-                    <div class="tk-kpi-val">@Model.TongLuotDat.ToString("N0")</div>
-                    <div class="tk-kpi-foot">
-                        <span class="tk-badge @luotDelta[0]">@luotDelta[1]</span>
-                        <span>@kyTruocNhan</span>
-                    </div>
+                <div class="tk-kpi-val">@Model.TongDoanhThuNam.ToString("N0") đ</div>
+                <div class="tk-kpi-foot">
+                    <span class="tk-badge @dtDelta[0]">@dtDelta[1]</span>
+                    <span>@kyTruocNhan</span>
                 </div>
-
-                <div class="tk-kpi">
-                    <div class="tk-kpi-top">
-                        <span class="tk-kpi-label">Giá trị TB / đơn</span>
-                        <div class="tk-ico" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
-                        </div>
-                    </div>
-                    <div class="tk-kpi-val">@trungBinh.ToString("N0") đ</div>
-                    <div class="tk-kpi-foot">
-                        <span>Trên @Model.SoDonHoanThanh đơn hoàn thành</span>
-                    </div>
-                </div>
-
-                <button type="button" class="tk-kpi tk-click@(huyLop == "bad" ? " bad" : "")" id="tk-open-huy" disabled="@(Model.SoLuotHuy == 0)">
-                    <div class="tk-kpi-top">
-                        <span class="tk-kpi-label">Tỷ lệ hủy đơn</span>
-                        <div class="tk-ico red" aria-hidden="true">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-                        </div>
-                    </div>
-                    <div class="tk-kpi-val" style="color:@huyMau">@Model.TyLeHuy%<small>(@Model.SoLuotHuy / @Model.TongLuotDat đơn)</small></div>
-                    <div class="tk-kpi-foot">
-                        <span class="tk-badge @huyLop">@huyIcon @huyNhan</span>
-                        @if (Model.SoLuotHuy > 0)
-                        {
-                            <span class="tk-loss">Thất thoát <b>@(tienHuyTruncated ? "≥ " : "")@tienHuy.ToString("N0") đ</b></span>
-                            <span class="go">Xem ›</span>
-                        }
-                    </div>
-                    <div class="tk-meter"><span style="width:@(huyRong)%; background:@huyMau"></span></div>
-                </button>
             </div>
+
+            <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.LuotDatKyTruoc.ToString("N0") lượt">
+                <div class="tk-kpi-top">
+                    <span class="tk-kpi-label">Lượt đặt</span>
+                    <div class="tk-ico" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </div>
+                </div>
+                <div class="tk-kpi-val">@Model.TongLuotDat.ToString("N0")</div>
+                <div class="tk-kpi-foot">
+                    <span class="tk-badge @luotDelta[0]">@luotDelta[1]</span>
+                    <span>@kyTruocNhan</span>
+                </div>
+            </div>
+
+            <div class="tk-kpi">
+                <div class="tk-kpi-top">
+                    <span class="tk-kpi-label">Giá trị TB / đơn</span>
+                    <div class="tk-ico" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+                    </div>
+                </div>
+                <div class="tk-kpi-val">@trungBinh.ToString("N0") đ</div>
+                <div class="tk-kpi-foot">
+                    <span>Trên @Model.SoDonHoanThanh đơn hoàn thành</span>
+                </div>
+            </div>
+
+            <button type="button" class="tk-kpi tk-click@(huyLop == "bad" ? " bad" : "")" id="tk-open-huy" disabled="@(Model.SoLuotHuy == 0)">
+                <div class="tk-kpi-top">
+                    <span class="tk-kpi-label">Tỷ lệ hủy đơn</span>
+                    <div class="tk-ico red" aria-hidden="true">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                    </div>
+                </div>
+                <div class="tk-kpi-val" style="color:@huyMau">@Model.TyLeHuy%<small>(@Model.SoLuotHuy / @Model.TongLuotDat đơn)</small></div>
+                <div class="tk-kpi-foot">
+                    <span class="tk-badge @huyLop">@huyIcon @huyNhan</span>
+                    @if (Model.SoLuotHuy > 0)
+                    {
+                        <span class="tk-loss">Thất thoát <b>@(tienHuyTruncated ? "≥ " : "")@tienHuy.ToString("N0") đ</b></span>
+                        <span class="go">Xem ›</span>
+                    }
+                </div>
+                <div class="tk-meter"><span style="width:@(huyRong)%; background:@huyMau"></span></div>
+            </button>
+        </div>
 
             <div class="tk-body">
                 <div>
@@ -2062,6 +2064,52 @@
         </section>
 
         @* ===== Báo cáo để in / lưu PDF (ẩn trên màn hình, chỉ hiện khi in) ===== *@
+        @* ===== Dữ liệu cho nút "Xuất Excel": số liệu thô lấy thẳng từ model (không đọc lại từ giao diện) ===== *@
+        var exportObj = new
+        {
+            nhan = nhan,
+            soVoi = kyTruocNhan,
+            ky = kyBaoCao,
+            kyTruoc = kyTruocKhoang,
+            kieu = kieu,
+            tuISO = tu.ToString("yyyy-MM-dd", inv),
+            denISO = den.ToString("yyyy-MM-dd", inv),
+            donVi = Model.DonViBieuDo,
+            doanhThu = Model.TongDoanhThuNam,
+            doanhThuTruoc = Model.DoanhThuKyTruoc,
+            luotDat = Model.TongLuotDat,
+            luotDatTruoc = Model.LuotDatKyTruoc,
+            donHoanThanh = Model.SoDonHoanThanh,
+            luotHuy = Model.SoLuotHuy,
+            thatThoat = tienHuy,
+            thatThoatCat = tienHuyTruncated,
+            theoKy = Model.DoanhThuTheoThang.Where(x => x.GiaTri > 0 || x.SoLuong > 0).Select(x => new { ten = x.Ten, tien = x.GiaTri, don = x.SoLuong }).ToList(),
+            loai = loaiRows.Select(x => new { ten = x.Ten, luot = x.Luot, tien = x.Tien }).ToList(),
+            buoi = buoiRows.Select(x => new { ten = x.Ten, mo = x.Mo, luot = x.Luot }).ToList(),
+            gio = Model.KhungGio.OrderBy(x => x.Ten, StringComparer.Ordinal).Select(x => new { ten = x.Ten, luot = x.SoLuong }).ToList(),
+            gioCao = kgCao == null ? null : new { ten = kgCao.Ten, luot = kgCao.SoLuong },
+            gioFull = Enumerable.Range(gioDau, gioCuoi - gioDau + 1).Select(g => new { gio = g, luot = gioMap.ContainsKey(g) ? gioMap[g].SoLuong : 0 }).ToList(),
+            tongSan = tongSan,
+            sanCoDat = sanCoDat,
+            luotTbSan = Math.Round(luotTbSan, 2),
+            tongLuotSan = tongLuotSan,
+            topSan = topSanRows.Select(x => new { ten = x.Ten, luot = x.SoLuong }).ToList(),
+            sanIt = sanIt.Select(x => new { ten = x.Ten, luot = x.SoLuong }).ToList(),
+            khaiThac = sanLoaiRows.Select(x => new { ten = x.Ten, soSan = x.SoSan, luot = x.Luot }).ToList(),
+            dichVu = Model.DichVuPhoBien.Select(x => new { ten = x.Ten, soLuong = x.SoLuong, tien = x.GiaTri }).ToList(),
+            donHuy = Model.DonHuy.Select(x => new
+            {
+                ma = x.MaDatSan,
+                san = x.TenSan,
+                ngayDat = x.NgayDat.ToString("yyyy-MM-dd", inv),
+                gio = x.GioBatDau.ToString("HH:mm", inv) + " - " + x.GioKetThuc.ToString("HH:mm", inv) + " (" + x.GioBatDau.ToString("dd/MM", inv) + ")",
+                donGia = x.DonGia
+            }).ToList(),
+            phanTich = phanTich
+        };
+        string exportJson = System.Text.Json.JsonSerializer.Serialize(exportObj);
+        <script type="application/json" id="tk-export-data">@Html.Raw(exportJson)</script>
+
         <div class="tk-report" id="tk-report" data-title="@tieuDeTrang">
             <div class="rp-head">
                 <div class="rp-org">Hệ thống quản lý đặt sân thể thao</div>
@@ -2238,9 +2286,7 @@
                             {
                                 var dvr = Model.DichVuPhoBien[ri];
                                 <tr>
-                                    <td>@(ri + 1)</td>
-                                    <td>@dvr.Ten</td>
-                                    <td class="r">@dvr.SoLuong.ToString("N0")</td>
+                                    <td>@(ri + 1)</td><td>@dvr.Ten</td><td class="r">@dvr.SoLuong.ToString("N0")</td>
                                     <td class="r">@tien(dvr.GiaTri)</td>
                                     <td class="r">@(tongDichVu > 0 ? (dvr.GiaTri / tongDichVu * 100m).ToString("0.#") + "%" : "–")</td>
                                 </tr>
@@ -2486,7 +2532,7 @@
             return parts.concat(central, [new Uint8Array(end.buffer)]);
         }
 
-        function colName(i) {
+        function colName(i) {                 // 0 -> A, 1 -> B ...
             var s = '';
             i++;
             while (i > 0) {
@@ -2496,133 +2542,566 @@
             }
             return s;
         }
+        function cn(c) { return colName(c - 1); }                 // cột đánh số từ 1
+        function xref(r, c) { return cn(c) + r; }
 
         function xmlEsc(x) {
             return String(x).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
-        // rows: mảng các dòng; mỗi ô là { v, t: 's' | 'n', s: chỉ số kiểu }
-        function buildXlsx(rows) {
-            var NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-            var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-            var sheetData = rows.map(function (r, ri) {
-                if (!r.length) return '<row r="' + (ri + 1) + '"/>';
-                return '<row r="' + (ri + 1) + '">' + r.map(function (c, ci) {
-                    var ref = colName(ci) + (ri + 1);
-                    if (c.t === 'n') return '<c r="' + ref + '" s="' + c.s + '"><v>' + c.v + '</v></c>';
-                    return '<c r="' + ref + '" s="' + c.s + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(c.v) + '</t></is></c>';
-                }).join('') + '</row>';
+        // ===== Bảng màu (cùng tông với giao diện thống kê) =====
+        var P = { dark: '14532D', head: '166534', green: '16A34A', light: 'F0FDF4', mint: 'DCFCE7', zebra: 'F8FAFC',
+                  line: 'CBD5E1', gray: '64748B', text: '334155', red: 'DC2626', orange: 'D97706', blue: '0EA5E9', amber: 'F59E0B' };
+        var PALETTE = ['14532D', '16A34A', '4ADE80', '0EA5E9', 'F59E0B', '94A3B8'];
+        var FM = {
+            money: '#,##0" đ";-#,##0" đ";"–"', int: '#,##0;-#,##0;"–"', pct: '0.0%;-0.0%;"–"', dec: '0.0;-0.0;"–"',
+            moneyZ: '#,##0" đ"', intZ: '#,##0', pctZ: '0.0%', decZ: '0.0', date: 'dd/mm/yyyy'
+        };
+        var EDGE = 'thin:' + P.line;
+        var BOX = { l: EDGE, r: EDGE, t: EDGE, b: EDGE };
+        var BOXTOT = { l: EDGE, r: EDGE, t: 'medium:' + P.green, b: EDGE };
+        var COLW = 9.6;                                           // độ rộng 1 ô lưới
+        var GRID = [2].concat([1, 2, 3, 4, 5, 6, 7, 8].map(function () { return COLW; }), [2.5],
+                            [1, 2, 3, 4, 5, 6, 7, 8].map(function () { return COLW; }), [2]);   // A, B..I, J, K..R, S
+
+        // ===== Kho kiểu ô: mỗi tổ hợp font/màu/viền/căn lề được đăng ký 1 lần =====
+        function styleReg() {
+            var fonts = ['<font><sz val="11"/><name val="Calibri"/></font>'];
+            var fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+            var borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+            var xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+            var fmts = [], cache = {};
+            var BUILTIN = { 'General': 0, '0': 1, '#,##0': 3, '0%': 9 };
+            function pos(arr, x) { var i = arr.indexOf(x); if (i < 0) { arr.push(x); i = arr.length - 1; } return i; }
+            function edge(tag, spec) {
+                if (!spec) return '<' + tag + '/>';
+                var p = spec.split(':');
+                return '<' + tag + ' style="' + p[0] + '"><color rgb="FF' + p[1] + '"/></' + tag + '>';
+            }
+            return {
+                get: function (o) {
+                    var key = JSON.stringify(o);
+                    if (cache[key] != null) return cache[key];
+                    var fi = pos(fonts, '<font>' + (o.b ? '<b/>' : '') + (o.i ? '<i/>' : '') + '<sz val="' + (o.sz || 11) + '"/>'
+                        + (o.color ? '<color rgb="FF' + o.color + '"/>' : '') + '<name val="Calibri"/></font>');
+                    var fl = o.bg ? pos(fills, '<fill><patternFill patternType="solid"><fgColor rgb="FF' + o.bg + '"/><bgColor indexed="64"/></patternFill></fill>') : 0;
+                    var bd = o.bd ? pos(borders, '<border>' + edge('left', o.bd.l) + edge('right', o.bd.r) + edge('top', o.bd.t) + edge('bottom', o.bd.b) + '<diagonal/></border>') : 0;
+                    var nf = 0;
+                    if (o.fmt) {
+                        nf = BUILTIN[o.fmt];
+                        if (nf == null) { var k = fmts.indexOf(o.fmt); if (k < 0) { fmts.push(o.fmt); k = fmts.length - 1; } nf = 164 + k; }
+                    }
+                    var al = (o.h || o.v || o.wrap || o.indent || o.shrink)
+                        ? '<alignment' + (o.h ? ' horizontal="' + o.h + '"' : '') + ' vertical="' + (o.v || 'center') + '"'
+                          + (o.wrap ? ' wrapText="1"' : '') + (o.indent ? ' indent="' + o.indent + '"' : '') + (o.shrink ? ' shrinkToFit="1"' : '') + '/>'
+                        : '';
+                    var xf = '<xf numFmtId="' + nf + '" fontId="' + fi + '" fillId="' + fl + '" borderId="' + bd + '" xfId="0"'
+                        + (nf ? ' applyNumberFormat="1"' : '') + (fi ? ' applyFont="1"' : '') + (fl ? ' applyFill="1"' : '') + (bd ? ' applyBorder="1"' : '')
+                        + (al ? ' applyAlignment="1">' + al + '</xf>' : '/>');
+                    var idx = pos(xfs, xf);
+                    cache[key] = idx;
+                    return idx;
+                },
+                xml: function (head, NS) {
+                    return head + '<styleSheet xmlns="' + NS + '">'
+                        + (fmts.length ? '<numFmts count="' + fmts.length + '">' + fmts.map(function (f, i) { return '<numFmt numFmtId="' + (164 + i) + '" formatCode="' + xmlEsc(f) + '"/>'; }).join('') + '</numFmts>' : '')
+                        + '<fonts count="' + fonts.length + '">' + fonts.join('') + '</fonts>'
+                        + '<fills count="' + fills.length + '">' + fills.join('') + '</fills>'
+                        + '<borders count="' + borders.length + '">' + borders.join('') + '</borders>'
+                        + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+                        + '<cellXfs count="' + xfs.length + '">' + xfs.join('') + '</cellXfs>'
+                        + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+                }
+            };
+        }
+
+        // ===== Ô và Sheet =====
+        function cT(v, s) { return { k: 't', v: v == null ? '' : String(v), s: s || 0 }; }
+        function cN(v, s) { return { k: 'n', v: +v || 0, s: s || 0 }; }
+        function cF(f, v, s) { return { k: 'f', f: f, v: v, s: s || 0 }; }
+
+        function Sheet(name, tab) {
+            this.name = name; this.tab = tab; this.cells = {}; this.merges = []; this.hts = {};
+            this.cf = []; this.charts = []; this.maxR = 1; this.maxC = 1;
+        }
+        Sheet.prototype.put = function (r, c, cell) {
+            (this.cells[r] = this.cells[r] || {})[c] = cell;
+            if (r > this.maxR) this.maxR = r;
+            if (c > this.maxC) this.maxC = c;
+        };
+        // Ô gộp ngang: giá trị ở ô đầu, các ô còn lại cùng kiểu để viền/màu vẽ đủ
+        Sheet.prototype.span = function (r, c1, c2, cell) {
+            this.put(r, c1, cell);
+            for (var c = c1 + 1; c <= c2; c++) this.put(r, c, { k: 't', v: '', s: cell.s });
+            if (c2 > c1) this.merges.push(xref(r, c1) + ':' + xref(r, c2));
+        };
+        Sheet.prototype.rect = function (r1, c1, r2, c2, cell) {     // ô gộp cả khối (dòng x cột)
+            for (var r = r1; r <= r2; r++) for (var c = c1; c <= c2; c++) this.put(r, c, (r === r1 && c === c1) ? cell : { k: 't', v: '', s: cell.s });
+            this.merges.push(xref(r1, c1) + ':' + xref(r2, c2));
+        };
+
+        // ===== Thành phần giao diện =====
+        function banner(sh, S, title, sub) {
+            sh.span(1, 2, 18, cT(title, S.get({ sz: 18, b: 1, color: 'FFFFFF', bg: P.dark, h: 'left', indent: 1 })));
+            sh.hts[1] = 38;
+            sh.span(2, 2, 18, cT(sub, S.get({ sz: 10, color: '475569', bg: P.mint, h: 'left', indent: 1 })));
+            sh.hts[2] = 22;
+            sh.hts[3] = 10;
+        }
+
+        function section(sh, S, r, c1, c2, text) {
+            sh.span(r, c1, c2, cT(text, S.get({ sz: 12, b: 1, color: P.dark, h: 'left', bd: { b: 'medium:' + P.green } })));
+            sh.hts[r] = 24;
+        }
+
+        // Thẻ chỉ số 3 dòng: nhãn - giá trị lớn - ghi chú
+        function card(sh, S, r, c1, c2, label, val, note) {
+            var white = 'medium:FFFFFF';
+            sh.span(r, c1, c2, cT(label, S.get({ sz: 9, b: 1, color: P.gray, bg: P.light, h: 'center', bd: { l: white, r: white, t: 'medium:' + P.green } })));
+            var vs = S.get({ sz: val.sz || 20, b: 1, color: val.color || P.dark, bg: P.light, h: 'center', fmt: val.fmt, shrink: 1, bd: { l: white, r: white } });
+            sh.span(r + 1, c1, c2, val.text != null ? cT(val.text, vs) : cN(val.v, vs));
+            sh.span(r + 2, c1, c2, cT(note.t, S.get({ sz: 9, color: note.c || P.gray, bg: P.light, h: 'center', bd: { l: white, r: white } })));
+            sh.hts[r] = 20; sh.hts[r + 1] = 36; sh.hts[r + 2] = 20;
+        }
+
+        // Đoạn chữ gộp ô, tự ước lượng chiều cao
+        function para(sh, S, r, c1, c2, text, kind) {
+            var st = kind === 'note'
+                ? S.get({ sz: 9, i: 1, color: P.gray, h: 'left', v: 'top', wrap: 1 })
+                : S.get({ sz: 10, color: P.text, h: 'left', v: 'top', wrap: 1, indent: 1 });
+            sh.span(r, c1, c2, cT(text, st));
+            var cap = (c2 - c1 + 1) * COLW * 1.05;
+            sh.hts[r] = Math.max(16, Math.ceil(String(text).length / cap) * 14 + 4);
+        }
+
+        function cellStyle(S, t, bg, tot) {
+            var o = { bd: tot ? BOXTOT : BOX, v: 'center', wrap: 1 };
+            if (bg) o.bg = bg;
+            if (tot) o.b = 1;
+            if (t === 'text') { o.h = 'left'; o.indent = 1; }
+            else if (t === 'money') { o.h = 'right'; o.indent = 1; }
+            else o.h = 'center';
+            if (FM[t]) o.fmt = FM[t];
+            return S.get(o);
+        }
+
+        // cols: [{ h, t: 'text'|'center'|'int'|'money'|'dec'|'pct'|'date', span, total:'sum', share: chỉ số cột gốc, calc: fn }]
+        // Trả về vị trí các dòng để vẽ biểu đồ / đặt khối kế tiếp.
+        function table(sh, S, r0, c0, cols, data, opts) {
+            opts = opts || {};
+            var starts = [], c = c0;
+            cols.forEach(function (col) { starts.push(c); c += col.span; });
+            var cEnd = c - 1, L = starts.map(cn);
+            var info = { hdr: r0, first: r0 + 1, last: r0 + data.length, total: null, end: r0, starts: starts, cEnd: cEnd };
+
+            cols.forEach(function (col, i) {
+                sh.span(r0, starts[i], starts[i] + col.span - 1, cT(col.h, S.get({ b: 1, color: 'FFFFFF', bg: P.head, h: 'center', v: 'center', wrap: 1, bd: BOX })));
+            });
+            sh.hts[r0] = 28;
+
+            if (!data.length) {
+                sh.span(r0 + 1, c0, cEnd, cT('Chưa có dữ liệu trong kỳ này.', S.get({ sz: 10, i: 1, color: P.gray, h: 'center', bd: BOX })));
+                sh.hts[r0 + 1] = 24; info.end = r0 + 1;
+                return info;
+            }
+
+            var totalRow = info.last + 1;
+            var sums = cols.map(function (col, i) {
+                return col.total === 'sum' ? data.reduce(function (s, r) { return s + (+r[i] || 0); }, 0) : null;
+            });
+
+            data.forEach(function (row, ri) {
+                var rn = info.first + ri, bg = ri % 2 ? P.zebra : null, ht = 21;
+                cols.forEach(function (col, ci) {
+                    var t = col.t || 'text', st = cellStyle(S, t, bg, false), a = starts[ci], b = a + col.span - 1, cell;
+                    if (col.calc) { var x = col.calc(rn, L, row); cell = cF(x.f, x.v, st); }
+                    else if (col.share != null) {
+                        var ref = '$' + L[col.share] + '$' + totalRow, base = sums[col.share];
+                        cell = cF('IF(' + ref + '=0,0,' + L[col.share] + rn + '/' + ref + ')', base ? (+row[col.share] || 0) / base : 0, st);
+                    } else if (t === 'text' || t === 'center') {
+                        cell = cT(row[ci], st);
+                        var cap = col.span * COLW * 0.95 - 2, len = String(row[ci] == null ? '' : row[ci]).length;
+                        if (len > cap) ht = Math.max(ht, Math.ceil(len / cap) * 15 + 6);
+                    } else cell = cN(row[ci], st);
+                    sh.span(rn, a, b, cell);
+                });
+                sh.hts[rn] = ht;
+            });
+
+            // Dòng tổng (công thức SUM)
+            if (opts.total) {
+                info.total = totalRow;
+                cols.forEach(function (col, ci) {
+                    var t = col.t || 'text', st = cellStyle(S, t, P.mint, true), a = starts[ci], b = a + col.span - 1, cell;
+                    if (ci === 0) cell = cT(opts.totalLabel || 'Tổng', cellStyle(S, 'text', P.mint, true));
+                    else if (col.calc) { var x = col.calc(totalRow, L, sums); cell = cF(x.f, x.v, st); }
+                    else if (col.total === 'sum') cell = cF('SUM(' + L[ci] + info.first + ':' + L[ci] + info.last + ')', sums[ci], st);
+                    else if (col.share != null) cell = cF('SUM(' + L[ci] + info.first + ':' + L[ci] + info.last + ')', sums[col.share] ? 1 : 0, st);
+                    else cell = cT('', st);
+                    sh.span(totalRow, a, b, cell);
+                });
+                sh.hts[totalRow] = 23;
+                info.end = totalRow;
+            } else info.end = info.last;
+
+            // Thanh dữ liệu cho cột tỷ lệ / tỷ trọng
+            cols.forEach(function (col, ci) {
+                if (col.share != null) sh.cf.push(xref(info.first, starts[ci]) + ':' + xref(info.last, starts[ci] + col.span - 1));
+            });
+            return info;
+        }
+
+        function qref(sheetName, r1, c1, r2, c2) {
+            return "'" + sheetName + "'!$" + cn(c1) + '$' + r1 + ':$' + cn(c2) + '$' + r2;
+        }
+
+        // Khung trống khi chưa có dữ liệu để vẽ biểu đồ
+        function emptyChart(sh, S, r1, r2, c1, c2, msg) {
+            sh.rect(r1, c1, r2, c2, cT(msg, S.get({ sz: 10, i: 1, color: P.gray, bg: P.zebra, h: 'center', bd: BOX })));
+        }
+
+        // ===== Biểu đồ (chart XML) =====
+        function chartXml(ch) {
+            var sz = function (n, color, bold) {
+                return '<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="' + n + '" b="' + (bold ? 1 : 0) + '"><a:solidFill><a:srgbClr val="' + color + '"/></a:solidFill></a:defRPr></a:pPr><a:endParaRPr lang="vi-VN"/></a:p></c:txPr>';
+            };
+            var noLine = '<c:spPr><a:ln><a:noFill/></a:ln></c:spPr>';
+            var cat = '<c:cat><c:strRef><c:f>' + xmlEsc(ch.cat) + '</c:f></c:strRef></c:cat>';
+            var val = '<c:val><c:numRef><c:f>' + xmlEsc(ch.val) + '</c:f></c:numRef></c:val>';
+            var tx = '<c:tx><c:v>' + xmlEsc(ch.name) + '</c:v></c:tx>';
+            var plot, legend = '';
+
+            if (ch.kind === 'doughnut') {
+                var pts = '';
+                for (var i = 0; i < ch.n; i++) {
+                    pts += '<c:dPt><c:idx val="' + i + '"/><c:bubble3D val="0"/><c:spPr><a:solidFill><a:srgbClr val="' + PALETTE[i % PALETTE.length] + '"/></a:solidFill><a:ln w="19050"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln></c:spPr></c:dPt>';
+                }
+                plot = '<c:doughnutChart><c:varyColors val="1"/><c:ser><c:idx val="0"/><c:order val="0"/>' + tx + pts
+                    + '<c:dLbls><c:numFmt formatCode="0.0%;;" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>' + sz(900, 'FFFFFF', true)
+                    + '<c:showLegendKey val="0"/><c:showVal val="0"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="1"/><c:showBubbleSize val="0"/><c:showLeaderLines val="0"/></c:dLbls>'
+                    + cat + val + '</c:ser><c:firstSliceAng val="0"/><c:holeSize val="55"/></c:doughnutChart>';
+                legend = '<c:legend><c:legendPos val="r"/><c:overlay val="0"/>' + sz(900, '475569', false) + '</c:legend>';
+            } else {
+                var horiz = ch.kind === 'bar';
+                var lblFmt = ch.money ? (ch.big ? '#,##0.0,,&quot; tr&quot;;;' : '#,##0;;') : '#,##0;;';
+                var axFmt = ch.money && ch.big ? '#,##0.0,,&quot; tr&quot;' : '#,##0';
+                var dl = '<c:dLbls><c:numFmt formatCode="' + lblFmt + '" sourceLinked="0"/><c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>' + sz(800, '334155', false)
+                    + '<c:dLblPos val="outEnd"/><c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/></c:dLbls>';
+                plot = '<c:barChart><c:barDir val="' + (horiz ? 'bar' : 'col') + '"/><c:grouping val="clustered"/><c:varyColors val="0"/>'
+                    + '<c:ser><c:idx val="0"/><c:order val="0"/>' + tx + '<c:spPr><a:solidFill><a:srgbClr val="' + P.green + '"/></a:solidFill></c:spPr><c:invertIfNegative val="0"/>' + dl + cat + val + '</c:ser>'
+                    + '<c:gapWidth val="' + (horiz ? 45 : 55) + '"/><c:axId val="50010"/><c:axId val="50020"/></c:barChart>'
+                    + '<c:catAx><c:axId val="50010"/><c:scaling><c:orientation val="' + (horiz ? 'maxMin' : 'minMax') + '"/></c:scaling><c:delete val="0"/><c:axPos val="' + (horiz ? 'l' : 'b') + '"/>'
+                    + '<c:numFmt formatCode="General" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>'
+                    + '<c:spPr><a:ln w="9525"><a:solidFill><a:srgbClr val="CBD5E1"/></a:solidFill></a:ln></c:spPr>' + sz(800, '475569', false)
+                    + '<c:crossAx val="50020"/><c:crosses val="autoZero"/><c:auto val="1"/><c:lblAlgn val="ctr"/><c:lblOffset val="100"/><c:noMultiLvlLbl val="0"/></c:catAx>'
+                    + '<c:valAx><c:axId val="50020"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="' + (horiz ? 'b' : 'l') + '"/>'
+                    + '<c:majorGridlines><c:spPr><a:ln w="6350"><a:solidFill><a:srgbClr val="E2E8F0"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>'
+                    + '<c:numFmt formatCode="' + axFmt + '" sourceLinked="0"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>' + noLine + sz(800, '64748B', false)
+                    + '<c:crossAx val="50010"/><c:crosses val="' + (horiz ? 'max' : 'autoZero') + '"/><c:crossBetween val="between"/></c:valAx>';
+            }
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                + '<c:roundedCorners val="0"/><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/>' + plot + '</c:plotArea>' + legend
+                + '<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>'
+                + '<c:spPr><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill><a:ln w="9525"><a:solidFill><a:srgbClr val="E2E8F0"/></a:solidFill></a:ln></c:spPr>'
+                + sz(900, '475569', false) + '</c:chartSpace>';
+        }
+
+        function drawingXml(charts) {
+            return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                + '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+                + charts.map(function (ch, i) {
+                    return '<xdr:twoCellAnchor editAs="oneCell"><xdr:from><xdr:col>' + ch.from.c + '</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>' + ch.from.r + '</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
+                        + '<xdr:to><xdr:col>' + ch.to.c + '</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>' + ch.to.r + '</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
+                        + '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="' + (i + 2) + '" name="Biểu đồ ' + (i + 1) + '"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>'
+                        + '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
+                        + '<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId' + (i + 1) + '"/>'
+                        + '</a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor>';
+                }).join('') + '</xdr:wsDr>';
+        }
+
+        function cellXml(c, ref) {
+            if (c.k === 't') {
+                if (c.v === '') return '<c r="' + ref + '" s="' + c.s + '"/>';
+                return '<c r="' + ref + '" s="' + c.s + '" t="inlineStr"><is><t xml:space="preserve">' + xmlEsc(c.v) + '</t></is></c>';
+            }
+            if (c.k === 'n') return '<c r="' + ref + '" s="' + c.s + '"><v>' + c.v + '</v></c>';
+            var isStr = typeof c.v === 'string';
+            return '<c r="' + ref + '" s="' + c.s + '"' + (isStr ? ' t="str"' : '') + '><f>' + xmlEsc(c.f) + '</f><v>' + xmlEsc(c.v) + '</v></c>';
+        }
+
+        function sheetXml(sh, selected, head, NS, RNS) {
+            var rows = {}, r, c;
+            Object.keys(sh.cells).forEach(function (k) { rows[k] = true; });
+            Object.keys(sh.hts).forEach(function (k) { rows[k] = true; });
+            var data = Object.keys(rows).map(Number).sort(function (a, b) { return a - b; }).map(function (rn) {
+                var ht = sh.hts[rn], attrs = ht ? ' ht="' + ht + '" customHeight="1"' : '';
+                var rc = sh.cells[rn];
+                if (!rc) return '<row r="' + rn + '"' + attrs + '/>';
+                return '<row r="' + rn + '"' + attrs + '>' + Object.keys(rc).map(Number).sort(function (a, b) { return a - b; })
+                    .map(function (cc) { return cellXml(rc[cc], xref(rn, cc)); }).join('') + '</row>';
             }).join('');
 
-            var sheet = head + '<worksheet xmlns="' + NS + '"><cols>'
-                + '<col min="1" max="1" width="44" customWidth="1"/>'
-                + '<col min="2" max="6" width="20" customWidth="1"/></cols>'
-                + '<sheetData>' + sheetData + '</sheetData></worksheet>';
+            var cols = '<cols>' + GRID.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join('') + '</cols>';
+            var cf = sh.cf.map(function (ref, i) {
+                return '<conditionalFormatting sqref="' + ref + '"><cfRule type="dataBar" priority="' + (i + 1) + '"><dataBar><cfvo type="num" val="0"/><cfvo type="num" val="1"/><color rgb="FFBBF7D0"/></dataBar></cfRule></conditionalFormatting>';
+            }).join('');
 
-            var styles = head + '<styleSheet xmlns="' + NS + '">'
-                + '<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0&quot; đ&quot;"/><numFmt numFmtId="165" formatCode="0.0%"/><numFmt numFmtId="166" formatCode="0.0"/></numFmts>'
-                + '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts>'
-                + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
-                + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-                + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-                + '<cellXfs count="7">'
-                + '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
-                + '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-                + '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
-                + '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
-                + '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
-                + '<xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>'
-                + '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-                + '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+            return head + '<worksheet xmlns="' + NS + '" xmlns:r="' + RNS + '"><sheetPr><tabColor rgb="FF' + sh.tab + '"/><pageSetUpPr fitToPage="1"/></sheetPr>'
+                + '<dimension ref="A1:' + xref(sh.maxR, Math.max(sh.maxC, 19)) + '"/>'
+                + '<sheetViews><sheetView showGridLines="0"' + (selected ? ' tabSelected="1"' : '') + ' workbookViewId="0"><selection activeCell="A1" sqref="A1"/></sheetView></sheetViews>'
+                + '<sheetFormatPr defaultRowHeight="15"/>' + cols + '<sheetData>' + data + '</sheetData>'
+                + (sh.merges.length ? '<mergeCells count="' + sh.merges.length + '">' + sh.merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '')
+                + cf
+                + '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
+                + '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
+                + (sh.charts.length ? '<drawing r:id="rId1"/>' : '')
+                + '</worksheet>';
+        }
+
+        function buildXlsx(sheets, S) {
+            var NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+            var RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+            var PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
+            var head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+            var files = [], overrides = '', sheetTags = '', rels = '', chartNo = 0, drawNo = 0;
+
+            sheets.forEach(function (sh, i) {
+                var n = i + 1;
+                files.push({ name: 'xl/worksheets/sheet' + n + '.xml', text: sheetXml(sh, i === 0, head, NS, RNS) });
+                overrides += '<Override PartName="/xl/worksheets/sheet' + n + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+                sheetTags += '<sheet name="' + xmlEsc(sh.name) + '" sheetId="' + n + '" r:id="rId' + n + '"/>';
+                rels += '<Relationship Id="rId' + n + '" Type="' + RNS + '/worksheet" Target="worksheets/sheet' + n + '.xml"/>';
+
+                if (sh.charts.length) {
+                    drawNo++;
+                    files.push({ name: 'xl/worksheets/_rels/sheet' + n + '.xml.rels', text: head + '<Relationships xmlns="' + PKG + '"><Relationship Id="rId1" Type="' + RNS + '/drawing" Target="../drawings/drawing' + drawNo + '.xml"/></Relationships>' });
+                    files.push({ name: 'xl/drawings/drawing' + drawNo + '.xml', text: drawingXml(sh.charts) });
+                    overrides += '<Override PartName="/xl/drawings/drawing' + drawNo + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>';
+                    var drels = '';
+                    sh.charts.forEach(function (ch, j) {
+                        chartNo++;
+                        files.push({ name: 'xl/charts/chart' + chartNo + '.xml', text: chartXml(ch) });
+                        overrides += '<Override PartName="/xl/charts/chart' + chartNo + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawingml.chart+xml"/>';
+                        drels += '<Relationship Id="rId' + (j + 1) + '" Type="' + RNS + '/chart" Target="../charts/chart' + chartNo + '.xml"/>';
+                    });
+                    files.push({ name: 'xl/drawings/_rels/drawing' + drawNo + '.xml.rels', text: head + '<Relationships xmlns="' + PKG + '">' + drels + '</Relationships>' });
+                }
+            });
+            rels += '<Relationship Id="rId' + (sheets.length + 1) + '" Type="' + RNS + '/styles" Target="styles.xml"/>';
 
             return zipFiles([
-                { name: '[Content_Types].xml', text: head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
-                { name: '_rels/.rels', text: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
-                { name: 'xl/workbook.xml', text: head + '<workbook xmlns="' + NS + '" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Thống kê" sheetId="1" r:id="rId1"/></sheets></workbook>' },
-                { name: 'xl/_rels/workbook.xml.rels', text: head + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
-                { name: 'xl/styles.xml', text: styles },
-                { name: 'xl/worksheets/sheet1.xml', text: sheet }
-            ]);
+                { name: '[Content_Types].xml', text: head + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + overrides + '</Types>' },
+                { name: '_rels/.rels', text: head + '<Relationships xmlns="' + PKG + '"><Relationship Id="rId1" Type="' + RNS + '/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+                { name: 'xl/workbook.xml', text: head + '<workbook xmlns="' + NS + '" xmlns:r="' + RNS + '"><bookViews><workbookView activeTab="0" tabRatio="800"/></bookViews><sheets>' + sheetTags + '</sheets><calcPr fullCalcOnLoad="1"/></workbook>' },
+                { name: 'xl/_rels/workbook.xml.rels', text: head + '<Relationships xmlns="' + PKG + '">' + rels + '</Relationships>' },
+                { name: 'xl/styles.xml', text: S.xml(head, NS) }
+            ].concat(files));
         }
         // XLSX-END
 
-        function cellText(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); }
-        function strCell(v, st) { return { v: v, t: 's', s: st || 0 }; }
+        // ===== Dựng nội dung từng tab (dữ liệu thô do server nhúng trong trang) =====
+        function buildSheets(d, S) {
+            var sheets = [];
+            var xuatLuc = new Date().toLocaleString('vi-VN');
+            var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+            var cap1 = function (s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; };
+            var ratio = function (a, b) { return b ? a / b : 0; };
+            var vnPct = function (x) { return (x * 100).toFixed(1).replace('.', ',') + '%'; };
+            var vnMoney = function (v) { return Math.round(v).toLocaleString('vi-VN') + ' đ'; };
+            var sub = 'Kỳ báo cáo: ' + d.nhan + '   |   So sánh với: ' + d.kyTruoc + '   |   Xuất lúc ' + xuatLuc;
 
-        // Chữ hiển thị trên trang (1.200.000 đ, 32,4%, 7...) -> ô số thật để Excel tính toán được
-        function parseCell(text) {
-            var t = text.trim(), m;
-            if (t === '' || t === '–' || /^#\d+$/.test(t)) return strCell(t);
-            if ((m = t.match(/^(\d+(?:[.,]\d+)?)\s*%$/))) return { v: parseFloat(m[1].replace(',', '.')) / 100, t: 'n', s: 4 };
-            if ((m = t.match(/^([\d.,\s]+)\s*đ$/))) return { v: parseInt(m[1].replace(/\D/g, ''), 10), t: 'n', s: 3 };
-            if (/^\d{1,3}([.,]\d{3})+$/.test(t)) return { v: parseInt(t.replace(/\D/g, ''), 10), t: 'n', s: 2 };
-            if (/^\d+$/.test(t)) return { v: parseInt(t, 10), t: 'n', s: 2 };
-            if (/^\d+[.,]\d+$/.test(t)) return { v: parseFloat(t.replace(',', '.')), t: 'n', s: 5 };
-            return strCell(t);
+            function delta(cur, prev) {
+                if (!prev) return { t: cur ? 'Chưa có dữ liệu kỳ trước' : '–', c: P.gray };
+                var p = (cur - prev) / prev;
+                if (Math.abs(p) < 0.0005) return { t: '= 0% ' + d.soVoi, c: P.gray };
+                return { t: (p > 0 ? '▲ ' : '▼ ') + vnPct(Math.abs(p)) + ' ' + d.soVoi, c: p > 0 ? P.green : P.red };
+            }
+            var tbBinh = d.donHoanThanh > 0 ? Math.round(d.doanhThu / d.donHoanThanh) : 0;
+            var tyHuy = ratio(d.luotHuy, d.luotDat);
+            var huyMau = tyHuy < 0.1 ? P.green : (tyHuy < 0.2 ? P.orange : P.red);
+            var thatThoatTxt = (d.thatThoatCat ? '≥ ' : '') + vnMoney(d.thatThoat);
+
+            // ================= TAB 1: DOANH THU =================
+            var s1 = new Sheet('Doanh thu', P.green);
+            banner(s1, S, 'THỐNG KÊ ĐẶT SÂN  ·  DOANH THU', sub);
+            card(s1, S, 4, 2, 5, 'DOANH THU', { v: d.doanhThu, fmt: FM.moneyZ }, delta(d.doanhThu, d.doanhThuTruoc));
+            card(s1, S, 4, 6, 9, 'LƯỢT ĐẶT', { v: d.luotDat, fmt: FM.intZ }, delta(d.luotDat, d.luotDatTruoc));
+            card(s1, S, 4, 11, 14, 'GIÁ TRỊ TB / ĐƠN', { v: tbBinh, fmt: FM.moneyZ }, { t: 'Trên ' + d.donHoanThanh + ' đơn hoàn thành' });
+            card(s1, S, 4, 15, 18, 'TỶ LỆ HỦY ĐƠN', { v: tyHuy, fmt: FM.pctZ, color: huyMau },
+                { t: d.luotHuy + ' / ' + d.luotDat + ' đơn' + (d.luotHuy > 0 ? '  ·  mất ' + thatThoatTxt : ''), c: d.luotHuy > 0 ? huyMau : P.gray });
+            s1.hts[7] = 12;
+
+            section(s1, S, 8, 2, 9, 'Doanh thu theo ' + d.donVi);
+            section(s1, S, 8, 11, 18, 'Cơ cấu doanh thu theo loại sân');
+            var CH1 = 9, CH2 = 23;                                   // vùng đặt biểu đồ: dòng 9 - 23
+            s1.hts[24] = 12;
+
+            var tl = table(s1, S, 25, 2, [
+                { h: cap1(d.donVi), t: 'text', span: 2 },
+                { h: 'Doanh thu', t: 'money', span: 2, total: 'sum' },
+                { h: 'Đơn hoàn thành', t: 'int', span: 2, total: 'sum' },
+                { h: 'Tỷ trọng', t: 'pct', span: 2, share: 1 }
+            ], d.theoKy.map(function (x) { return [x.ten, x.tien, x.don, 0]; }), { total: true });
+
+            var tr = table(s1, S, 25, 11, [
+                { h: 'Loại sân', t: 'text', span: 3 },
+                { h: 'Lượt đặt', t: 'int', span: 2, total: 'sum' },
+                { h: 'Doanh thu', t: 'money', span: 2, total: 'sum' },
+                { h: 'Tỷ lệ', t: 'pct', span: 1, share: 2 }
+            ], d.loai.map(function (x) { return [x.ten, x.luot, x.tien, 0]; }), { total: true });
+
+            var coDT = d.theoKy.some(function (x) { return x.tien > 0; });
+            if (coDT) {
+                var maxKy = Math.max.apply(null, d.theoKy.map(function (x) { return x.tien; }));
+                s1.charts.push({ kind: 'col', name: 'Doanh thu', money: true, big: maxKy >= 1000000, from: { c: 1, r: CH1 - 1 }, to: { c: 9, r: CH2 },
+                    cat: qref(s1.name, tl.first, tl.starts[0], tl.last, tl.starts[0]), val: qref(s1.name, tl.first, tl.starts[1], tl.last, tl.starts[1]) });
+                s1.charts.push({ kind: 'doughnut', name: 'Doanh thu', n: d.loai.length, from: { c: 10, r: CH1 - 1 }, to: { c: 18, r: CH2 },
+                    cat: qref(s1.name, tr.first, tr.starts[0], tr.last, tr.starts[0]), val: qref(s1.name, tr.first, tr.starts[2], tr.last, tr.starts[2]) });
+            } else {
+                emptyChart(s1, S, CH1, CH2, 2, 9, 'Chưa có doanh thu trong kỳ này');
+                emptyChart(s1, S, CH1, CH2, 11, 18, 'Chưa có doanh thu trong kỳ này');
+            }
+
+            // Nhận định đặt dưới cả hai bảng, trải hết chiều ngang để không làm lệch chiều cao các dòng bảng
+            var rn1 = Math.max(tl.end, tr.end) + 2;
+            section(s1, S, rn1, 2, 18, 'Nhận định nhanh');
+            d.phanTich.forEach(function (t, i) { para(s1, S, rn1 + 1 + i, 2, 18, '• ' + t, 'para'); });
+            para(s1, S, rn1 + d.phanTich.length + 2, 2, 18, 'Doanh thu chỉ tính đơn hoàn thành; lượt đặt không tính đơn hủy.', 'note');
+            sheets.push(s1);
+
+            // ================= TAB 2: HIỆU SUẤT SÂN =================
+            var s2 = new Sheet('Hiệu suất sân', P.blue);
+            banner(s2, S, 'THỐNG KÊ ĐẶT SÂN  ·  HIỆU SUẤT SÂN', sub);
+            card(s2, S, 4, 2, 5, 'KHUNG GIỜ CAO ĐIỂM', d.gioCao ? { text: d.gioCao.ten, sz: 16 } : { text: '–', sz: 16 },
+                { t: d.gioCao ? d.gioCao.luot + ' lượt  ·  ' + vnPct(ratio(d.gioCao.luot, d.tongLuotSan)) + ' tổng lượt' : 'Chưa có dữ liệu' });
+            card(s2, S, 4, 6, 9, 'TỔNG LƯỢT ĐẶT', { v: d.tongLuotSan, fmt: FM.intZ }, { t: 'Không tính đơn hủy' });
+            card(s2, S, 4, 11, 14, 'SỐ SÂN', { v: d.tongSan, fmt: FM.intZ }, { t: d.sanCoDat + ' sân có lượt đặt' });
+            card(s2, S, 4, 15, 18, 'LƯỢT TB / SÂN', { v: d.luotTbSan, fmt: FM.decZ }, { t: 'Trung bình mỗi sân' });
+            s2.hts[7] = 12;
+
+            section(s2, S, 8, 2, 9, 'Lượt đặt theo khung giờ');
+            s2.hts[24] = 12;
+            var buoiCua = function (h) { return h < 12 ? 'Sáng' : (h < 18 ? 'Chiều' : 'Tối'); };
+            var tg = table(s2, S, 25, 2, [
+                { h: 'Giờ bắt đầu', t: 'center', span: 2 },
+                { h: 'Lượt đặt', t: 'int', span: 2, total: 'sum' },
+                { h: 'Tỷ lệ', t: 'pct', span: 2, share: 1 },
+                { h: 'Buổi', t: 'center', span: 2 }
+            ], d.gioFull.map(function (x) { return [pad2(x.gio) + ':00', x.luot, 0, buoiCua(x.gio)]; }), { total: true });
+            if (d.gioFull.some(function (x) { return x.luot > 0; })) {
+                s2.charts.push({ kind: 'col', name: 'Lượt đặt', from: { c: 1, r: 8 }, to: { c: 9, r: 23 },
+                    cat: qref(s2.name, tg.first, tg.starts[0], tg.last, tg.starts[0]), val: qref(s2.name, tg.first, tg.starts[1], tg.last, tg.starts[1]) });
+            } else emptyChart(s2, S, 9, 23, 2, 9, 'Chưa có lượt đặt trong kỳ này');
+
+            section(s2, S, 8, 11, 18, 'Theo buổi trong ngày');
+            var tb = table(s2, S, 9, 11, [
+                { h: 'Buổi', t: 'text', span: 2 },
+                { h: 'Khoảng giờ', t: 'center', span: 2 },
+                { h: 'Lượt đặt', t: 'int', span: 2, total: 'sum' },
+                { h: 'Tỷ lệ', t: 'pct', span: 2, share: 2 }
+            ], d.buoi.map(function (x) { return [x.ten, x.mo, x.luot, 0]; }), { total: true });
+
+            var rkCols = [
+                { h: 'Hạng', t: 'center', span: 1 }, { h: 'Sân', t: 'text', span: 4 },
+                { h: 'Lượt đặt', t: 'int', span: 1 }, { h: 'Tỷ lệ', t: 'pct', span: 2 }
+            ];
+            var rr = tb.end + 2;
+            section(s2, S, rr, 11, 18, 'Sân được đặt nhiều nhất');
+            var t3 = table(s2, S, rr + 1, 11, rkCols, d.topSan.map(function (x, i) { return ['#' + (i + 1), x.ten, x.luot, ratio(x.luot, d.tongLuotSan)]; }));
+            rr = t3.end + 2;
+            section(s2, S, rr, 11, 18, 'Sân ít khách nhất');
+            var t4 = table(s2, S, rr + 1, 11, rkCols, d.sanIt.map(function (x, i) { return ['#' + (i + 1), x.ten, x.luot, ratio(x.luot, d.tongLuotSan)]; }));
+            rr = t4.end + 2;
+            section(s2, S, rr, 11, 18, 'Khai thác theo loại sân');
+            table(s2, S, rr + 1, 11, [
+                { h: 'Loại sân', t: 'text', span: 3 },
+                { h: 'Số sân', t: 'int', span: 1, total: 'sum' },
+                { h: 'Lượt đặt', t: 'int', span: 2, total: 'sum' },
+                { h: 'Lượt / sân', t: 'dec', span: 2, calc: function (rn, L, row) {
+                    var so = +row[1] || 0, luot = +row[2] || 0;
+                    return { f: 'IF(' + L[1] + rn + '=0,0,' + L[2] + rn + '/' + L[1] + rn + ')', v: so ? luot / so : 0 };
+                } }
+            ], d.khaiThac.map(function (x) { return [x.ten, x.soSan, x.luot, 0]; }), { total: true });
+            sheets.push(s2);
+
+            // ================= TAB 3: DỊCH VỤ =================
+            var s3 = new Sheet('Dịch vụ', P.amber);
+            banner(s3, S, 'THỐNG KÊ ĐẶT SÂN  ·  DỊCH VỤ', sub);
+            var dv = d.dichVu, tongDv = dv.reduce(function (a, x) { return a + x.tien; }, 0), tongSl = dv.reduce(function (a, x) { return a + x.soLuong; }, 0);
+            var dvTop = dv.length ? dv.reduce(function (a, x) { return x.soLuong > a.soLuong ? x : a; }, dv[0]) : null;
+            var dvTien = dv.length ? dv.reduce(function (a, x) { return x.tien > a.tien ? x : a; }, dv[0]) : null;
+            card(s3, S, 4, 2, 5, 'DOANH THU DỊCH VỤ', { v: tongDv, fmt: FM.moneyZ }, { t: d.doanhThu > 0 ? vnPct(ratio(tongDv, d.doanhThu)) + ' tổng doanh thu kỳ' : 'Chưa có doanh thu' });
+            card(s3, S, 4, 6, 9, 'TỔNG SỐ LƯỢNG', { v: tongSl, fmt: FM.intZ }, { t: 'Top ' + dv.length + ' dịch vụ' });
+            card(s3, S, 4, 11, 14, 'DÙNG NHIỀU NHẤT', { text: dvTop ? dvTop.ten : '–', sz: 14 }, { t: dvTop ? dvTop.soLuong + ' lượt sử dụng' : 'Chưa có dữ liệu' });
+            card(s3, S, 4, 15, 18, 'DOANH THU CAO NHẤT', { text: dvTien ? dvTien.ten : '–', sz: 14 }, { t: dvTien ? vnMoney(dvTien.tien) : 'Chưa có dữ liệu' });
+            s3.hts[7] = 12;
+            section(s3, S, 8, 2, 9, 'Doanh thu theo dịch vụ');
+            section(s3, S, 8, 11, 18, 'Tỷ trọng đóng góp');
+            s3.hts[24] = 12;
+            var t5 = table(s3, S, 25, 2, [
+                { h: 'Hạng', t: 'center', span: 1 }, { h: 'Dịch vụ', t: 'text', span: 7 },
+                { h: 'Số lượng', t: 'int', span: 3, total: 'sum' }, { h: 'Doanh thu', t: 'money', span: 3, total: 'sum' },
+                { h: 'Đóng góp', t: 'pct', span: 3, share: 3 }
+            ], dv.map(function (x, i) { return ['#' + (i + 1), x.ten, x.soLuong, x.tien, 0]; }), { total: true, totalLabel: 'Tổng' });
+            para(s3, S, t5.end + 1, 2, 18, 'Đóng góp = tỷ trọng doanh thu của từng dịch vụ trong nhóm top; không tính đơn hủy.', 'note');
+            if (tongDv > 0) {
+                s3.charts.push({ kind: 'bar', name: 'Doanh thu', money: true, big: false, from: { c: 1, r: 8 }, to: { c: 9, r: 23 },
+                    cat: qref(s3.name, t5.first, t5.starts[1], t5.last, t5.starts[1]), val: qref(s3.name, t5.first, t5.starts[3], t5.last, t5.starts[3]) });
+                s3.charts.push({ kind: 'doughnut', name: 'Doanh thu', n: dv.length, from: { c: 10, r: 8 }, to: { c: 18, r: 23 },
+                    cat: qref(s3.name, t5.first, t5.starts[1], t5.last, t5.starts[1]), val: qref(s3.name, t5.first, t5.starts[3], t5.last, t5.starts[3]) });
+            } else {
+                emptyChart(s3, S, 9, 23, 2, 9, 'Chưa có doanh thu dịch vụ trong kỳ này');
+                emptyChart(s3, S, 9, 23, 11, 18, 'Chưa có doanh thu dịch vụ trong kỳ này');
+            }
+            sheets.push(s3);
+
+            // ================= TAB 4: ĐƠN HỦY (chỉ khi có) =================
+            if (d.donHuy.length) {
+                var s4 = new Sheet('Đơn hủy', P.red);
+                banner(s4, S, 'THỐNG KÊ ĐẶT SÂN  ·  ĐƠN BỊ HỦY', sub);
+                var tongHuy = d.donHuy.reduce(function (a, x) { return a + x.donGia; }, 0);
+                card(s4, S, 4, 2, 5, 'SỐ ĐƠN HỦY', { v: d.luotHuy, fmt: FM.intZ, color: P.red }, { t: 'Trên tổng ' + d.luotDat + ' lượt đặt' });
+                card(s4, S, 4, 6, 9, 'TỶ LỆ HỦY', { v: tyHuy, fmt: FM.pctZ, color: huyMau }, { t: tyHuy < 0.1 ? 'Ở mức tốt' : (tyHuy < 0.2 ? 'Cần theo dõi' : 'Tỷ lệ cao'), c: huyMau });
+                card(s4, S, 4, 11, 14, 'THẤT THOÁT', { v: d.thatThoat, fmt: FM.moneyZ, color: P.red }, { t: d.thatThoatCat ? 'Tối thiểu (danh sách bị cắt bớt)' : 'Tổng đơn giá các đơn hủy' });
+                card(s4, S, 4, 15, 18, 'ĐƠN GIÁ TB / ĐƠN HỦY', { v: d.donHuy.length ? Math.round(tongHuy / d.donHuy.length) : 0, fmt: FM.moneyZ }, { t: 'Tính trên ' + d.donHuy.length + ' đơn trong danh sách' });
+                s4.hts[7] = 12;
+                section(s4, S, 8, 2, 18, 'Danh sách đơn bị hủy');
+                var t6 = table(s4, S, 9, 2, [
+                    { h: 'Mã đơn', t: 'center', span: 2 }, { h: 'Sân', t: 'text', span: 6 },
+                    { h: 'Ngày đặt', t: 'date', span: 3 }, { h: 'Giờ thuê', t: 'center', span: 3 },
+                    { h: 'Đơn giá', t: 'money', span: 3, total: 'sum' }
+                ], d.donHuy.map(function (x) { return ['#' + x.ma, x.san, excelDate(x.ngayDat), x.gio, x.donGia]; }), { total: true });
+                if (d.thatThoatCat) para(s4, S, t6.end + 1, 2, 18, 'Danh sách đã bị cắt bớt: tổng tiền chỉ là mức tối thiểu so với tổng ' + d.luotHuy + ' đơn hủy.', 'note');
+                sheets.push(s4);
+            }
+            return sheets;
         }
 
-        function tableRows(tbl, rows) {
-            [].slice.call(tbl.querySelectorAll('tr')).forEach(function (tr) {
-                var isHead = !!tr.closest('thead');
-                rows.push([].slice.call(tr.children).map(function (c) {
-                    return isHead ? strCell(cellText(c), 1) : parseCell(cellText(c));
-                }));
-            });
-            rows.push([]);
+        // 'yyyy-MM-dd' -> số ngày kiểu Excel
+        function excelDate(iso) {
+            var p = String(iso).split('-');
+            return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000) + 25569;
         }
 
         var xlsxBtn = document.getElementById('tk-export-csv');
         if (xlsxBtn) xlsxBtn.addEventListener('click', function () {
-            var rows = [];
-            var sub = document.querySelector('.tk-title .sub');
-            rows.push([strCell('Thống kê đặt sân', 6)]);
-            rows.push([strCell(sub ? cellText(sub) : '')]);
-            rows.push([strCell('Xuất lúc ' + new Date().toLocaleString('vi-VN'))]);
-            rows.push([]);
-
-            // 4 thẻ chỉ số tổng quan
-            var kpis = [].slice.call(document.querySelectorAll('.tk-kpi'));
-            if (kpis.length) {
-                rows.push([strCell('Chỉ số tổng quan', 1)]);
-                rows.push([strCell('Chỉ số', 1), strCell('Giá trị', 1), strCell('Ghi chú', 1)]);
-                kpis.forEach(function (k) {
-                    var lab = k.querySelector('.tk-kpi-label');
-                    var val = k.querySelector('.tk-kpi-val');
-                    var foot = k.querySelector('.tk-kpi-foot');
-                    var small = val ? val.querySelector('small') : null;
-                    var note = ((small ? cellText(small) : '') + ' ' + (foot ? cellText(foot) : '')).trim();
-                    rows.push([strCell(lab ? cellText(lab) : ''), parseCell(val && val.firstChild ? val.firstChild.textContent : ''), strCell(note)]);
-                });
-                rows.push([]);
+            try {
+                var d = JSON.parse(document.getElementById('tk-export-data').textContent);
+                var S = styleReg();
+                var blob = new Blob(buildXlsx(buildSheets(d, S), S), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                var a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = 'thong-ke-dat-san_' + d.tuISO + '_' + d.denISO + '.xlsx';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+            } catch (err) {
+                console.error(err);
+                alert('Không thể xuất file Excel: ' + (err && err.message ? err.message : err));
             }
-
-            // Mọi bảng số liệu trong 3 tab (kể cả tab đang ẩn)
-            [].slice.call(document.querySelectorAll('.tk-pane .tk-tbl')).forEach(function (tbl) {
-                var panel = tbl.closest('.tk-panel');
-                var ti = panel ? panel.querySelector('.tk-panel-title') : null;
-                var title = ti ? cellText(ti) : 'Bảng số liệu';
-                if (tbl.closest('#tk-rk-low')) title += ' - Ít khách';
-                else if (tbl.closest('#tk-rk-top')) title += ' - Đắt khách';
-                rows.push([strCell(title, 1)]);
-                tableRows(tbl, rows);
-            });
-
-            // Danh sách đơn hủy (nếu có)
-            var huyTbl = document.querySelector('#tk-huy table');
-            if (huyTbl) {
-                rows.push([strCell('Đơn bị hủy', 1)]);
-                tableRows(huyTbl, rows);
-            }
-
-            var blob = new Blob(buildXlsx(rows), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-            var a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'thong-ke-' + new Date().toISOString().slice(0, 10) + '.xlsx';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
         });
 
         // ----- Cửa sổ danh sách đơn hủy -----
