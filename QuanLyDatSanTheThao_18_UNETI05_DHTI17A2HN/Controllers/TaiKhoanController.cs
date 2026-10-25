@@ -75,6 +75,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return RedirectToAction("Index", "Home");
         }
 
+        [HttpGet]
+        public IActionResult AccessDenied()
+        {
+            return View();
+        }
+
         // GET: Hiển thị trang Đăng ký
         [HttpGet]
         public IActionResult DangKy()
