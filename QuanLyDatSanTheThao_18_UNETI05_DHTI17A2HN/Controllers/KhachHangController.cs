@@ -5,6 +5,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
 
@@ -29,6 +30,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ==========================================================
         // 1. XEM HỒ SƠ CÁ NHÂN (DÀNH CHO KHÁCH HÀNG ĐANG ĐĂNG NHẬP)
         // ==========================================================
+        [AuthorizeRole]
         [HttpGet]
         public async Task<IActionResult> HoSo()
         {
@@ -73,6 +75,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ==========================================================
         // 2. CẬP NHẬT HỒ SƠ CÁ NHÂN (DÀNH CHO KHÁCH HÀNG ĐANG ĐĂNG NHẬP)
         // ==========================================================
+        [AuthorizeRole]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CapNhatHoSo(HoSoKhachHangViewModel model)
@@ -140,6 +143,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // 3. QUẢN LÝ DANH SÁCH KHÁCH HÀNG (DÀNH CHO ADMIN / NHÂN VIÊN)
         // Tìm kiếm + Lọc trạng thái + Phân trang bằng LINQ EF Core
         // ==========================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpGet]
         public async Task<IActionResult> Index(string? tuKhoa, string? trangThai, int trang = 1, int kichThuocTrang = 10)
         {
@@ -202,6 +206,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ==========================================================
         // 4. XEM CHI TIẾT KHÁCH HÀNG (KÈM LỊCH SỬ ĐẶT SÂN)
         // ==========================================================
+        [AuthorizeRole]
         [HttpGet]
         public async Task<IActionResult> ChiTiet(int id)
         {
@@ -234,6 +239,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ==========================================================
         // 5. KHÓA / MỞ KHÓA TÀI KHOẢN KHÁCH HÀNG (DÀNH CHO QUẢN TRỊ)
         // ==========================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ThayDoiTrangThai(int id)

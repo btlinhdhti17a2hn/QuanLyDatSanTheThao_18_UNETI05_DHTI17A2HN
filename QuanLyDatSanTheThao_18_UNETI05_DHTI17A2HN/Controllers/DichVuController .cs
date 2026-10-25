@@ -5,10 +5,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
+    [AuthorizeRole("Admin", "NhanVien")]
     public class DichVuController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -68,12 +70,14 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== THÊM (Admin) ==================
+        [AuthorizeRole("Admin")]
         public IActionResult Create()
         {
             if (!LaAdmin()) return TuChoi();
             return View(new DichVu { TrangThai = true });
         }
 
+        [AuthorizeRole("Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create([Bind("TenDichVu,MoTa,DonGia,TrangThai")] DichVu dichVu)
@@ -94,6 +98,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== SỬA (Admin) ==================
+        [AuthorizeRole("Admin")]
         public async Task<IActionResult> Edit(int? id)
         {
             if (!LaAdmin()) return TuChoi();
@@ -104,6 +109,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return View(dichVu);
         }
 
+        [AuthorizeRole("Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id, [Bind("MaDichVu,TenDichVu,MoTa,DonGia,TrangThai")] DichVu model)
@@ -132,6 +138,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== ĐỔI TRẠNG THÁI (Admin) ==================
+        [AuthorizeRole("Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DoiTrangThai(int id)
@@ -147,6 +154,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== XÓA (Admin) ==================
+        [AuthorizeRole("Admin")]
         public async Task<IActionResult> Delete(int? id)
         {
             if (!LaAdmin()) return TuChoi();
@@ -159,6 +167,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return View(dichVu);
         }
 
+        [AuthorizeRole("Admin")]
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)

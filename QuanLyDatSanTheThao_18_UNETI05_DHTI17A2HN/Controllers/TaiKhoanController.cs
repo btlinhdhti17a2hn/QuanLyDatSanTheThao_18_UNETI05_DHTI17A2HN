@@ -5,6 +5,7 @@
 using AspNetCoreGeneratedDocument;
 using Microsoft.AspNetCore.Mvc;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 
 
@@ -162,6 +163,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // 1. Xem danh sách tài khoản
+        [AuthorizeRole("Admin")]
         [HttpGet]
         public IActionResult QuanLyTaiKhoan()
         {
@@ -177,6 +179,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // 2. Khóa / Mở khóa tài khoản
+        [AuthorizeRole("Admin")]
         [HttpPost]
         public async Task<IActionResult> ThayDoiTrangThai(int id)
         {

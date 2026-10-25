@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
 
@@ -237,6 +238,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // =====================================================================
         // 3. THÊM MỚI (Admin / Nhân viên)
         // =====================================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpGet]
         public async Task<IActionResult> Create()
         {
@@ -253,6 +255,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             });
         }
 
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
@@ -279,6 +282,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // =====================================================================
         // 4. SỬA (Admin / Nhân viên)
         // =====================================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpGet]
         public async Task<IActionResult> Edit(int? id)
         {
@@ -293,6 +297,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return View(san);
         }
 
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(int id,
@@ -342,6 +347,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // =====================================================================
         // 5. XÓA (không xóa sân đã phát sinh lịch đặt)
         // =====================================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Delete(int id, string? returnUrl)
@@ -369,6 +375,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // =====================================================================
         // 6. ĐỔI TRẠNG THÁI NHANH (Hoạt động <-> Ngừng hoạt động)
         // =====================================================================
+        [AuthorizeRole("Admin", "NhanVien")]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DoiTrangThai(int id, string? returnUrl)

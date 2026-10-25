@@ -5,15 +5,17 @@
 // sân & loại sân ưa thích, dịch vụ phổ biến, số lượt hủy, khung giờ cao điểm.
 // Có bộ lọc thời gian (hôm nay / tuần / tháng / quý / năm / tùy chọn) và so sánh với kỳ trước.
 
-using System.Linq.Expressions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
+using System.Linq.Expressions;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
+    [AuthorizeRole("Admin", "NhanVien")]
     public class ThongKeController : Controller
     {
         // Tính số giờ thuê sân (chỉ dùng cho "Tạm tính hôm nay")
