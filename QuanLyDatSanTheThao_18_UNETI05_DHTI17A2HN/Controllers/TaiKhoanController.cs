@@ -28,6 +28,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             {
                 return RedirectToAction("Index", "Home");
             }
+
+            if (TempData["Error"] != null)
+            {
+                ViewBag.Error = TempData["Error"];
+            }
             return View();
         }
 
