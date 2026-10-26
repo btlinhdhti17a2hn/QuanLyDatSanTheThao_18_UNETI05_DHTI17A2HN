@@ -24,15 +24,24 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         [HttpGet]
         public IActionResult DangNhap()
         {
-            // Nếu đã đăng nhập rồi thì không cho vào trang này nữa, đẩy về Trang chủ
             if (HttpContext.Session.GetInt32("MaTaiKhoan") != null)
             {
+                var vaiTroHienTai = HttpContext.Session.GetString("VaiTro");
+                if (vaiTroHienTai == "Admin")
+                {
+                    return RedirectToAction("Index", "ThongKe");
+                }
+                if (vaiTroHienTai == "NhanVien")
+                {
+                    return RedirectToAction("Index", "TiepNhanDatSan");
+                }
                 return RedirectToAction("Index", "Home");
             }
 
-            if (TempData["Error"] != null)
+            // Hiển thị thông báo do bộ lọc AuthorizeRole truyền sang (chưa đăng nhập / tài khoản bị khóa)
+            if (TempData["ThongBaoDangNhap"] != null)
             {
-                ViewBag.Error = TempData["Error"];
+                ViewBag.Error = TempData["ThongBaoDangNhap"];
             }
             return View();
         }
@@ -60,7 +69,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     HttpContext.Session.SetString("HoTen", user.HoTen);
                     HttpContext.Session.SetString("VaiTro", user.VaiTro);
 
-                    // Chuyển hướng về trang chủ (Sau này Admin có thể chuyển hướng về trang Dashboard)
+                    // Admin vào Dashboard thống kê, Nhân viên vào Tiếp nhận đặt sân, khách hàng về Trang chủ
+                    if (user.VaiTro == "Admin")
+                    {
+                        return RedirectToAction("Index", "ThongKe");
+                    }
+                    if (user.VaiTro == "NhanVien")
+                    {
+                        return RedirectToAction("Index", "TiepNhanDatSan");
+                    }
                     return RedirectToAction("Index", "Home");
                 }
                 else

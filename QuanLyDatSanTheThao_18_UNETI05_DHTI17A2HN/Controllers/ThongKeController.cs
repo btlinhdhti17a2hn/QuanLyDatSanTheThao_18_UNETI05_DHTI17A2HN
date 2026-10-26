@@ -49,7 +49,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ================== PHÂN QUYỀN ==================
         private string? VaiTro => HttpContext.Session.GetString("VaiTro");
         private bool LaQuanLy() => VaiTro == "Admin" || VaiTro == "NhanVien";
-
+        private bool LaAdmin() => VaiTro == "Admin";
         private IActionResult TuChoi()
         {
             if (string.IsNullOrEmpty(VaiTro))
@@ -103,9 +103,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
         // ================== THỐNG KÊ LINQ ==================
         // kieu: homnay | tuannay | thangnay | quynay | nam | tuychon
+        [AuthorizeRole("Admin")]
         public async Task<IActionResult> ThongKe(string? kieu, int? nam, DateTime? tu, DateTime? den)
         {
-            if (!LaQuanLy()) return TuChoi();
+            if (!LaAdmin()) return TuChoi();
 
             // ----- 1. Khoảng thời gian [tuNgay, denNgay] và kỳ trước -----
             var homNay = DateTime.Today;

@@ -32,7 +32,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters
             {
                 if (context.Controller is Controller ctrl)
                 {
-                    ctrl.TempData["Error"] = "Vui lòng đăng nhập để sử dụng chức năng này!";
+                    ctrl.TempData["ThongBaoDangNhap"] = "Vui lòng đăng nhập để sử dụng chức năng này!";
                 }
                 context.Result = new RedirectToActionResult("DangNhap", "TaiKhoan", null);
                 return;
@@ -51,7 +51,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters
                     session.Clear();
                     if (context.Controller is Controller controller)
                     {
-                        controller.TempData["Error"] = "Tài khoản của bạn đã bị khóa hoặc không còn hiệu lực. Vui lòng liên hệ Quản trị viên.";
+                        controller.TempData["ThongBaoDangNhap"] = "Tài khoản của bạn đã bị khóa hoặc không còn hiệu lực. Vui lòng liên hệ Quản trị viên.";
                     }
                     context.Result = new RedirectToActionResult("DangNhap", "TaiKhoan", null);
                     return;
