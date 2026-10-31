@@ -1,8 +1,8 @@
-﻿// Họ và tên: Vũ Ánh Ngọc
+// Họ và tên: Vũ Ánh Ngọc
 // Mã sinh viên: 23103100106
 // Nội dung thực hiện: Module 4 - Tiếp nhận đặt sân: danh sách cần xử lý (tìm kiếm, lọc, sắp xếp, phân trang),
-//                     xem chi tiết, xác nhận / hoàn thành / hủy đơn, kiểm tra trùng lịch, giờ mở cửa,
-//                     tiền cọc, giới hạn lượt đặt bằng LINQ và kiểm soát luồng trạng thái.
+//                     xem chi tiết, xác nhận tiền cọc, duyệt / từ chối / hoàn thành đơn, kiểm tra trùng lịch, giờ mở cửa,
+//                     tiền cọc, giới hạn lượt đặt bằng LINQ và kiểm soát luồng trạng thái tách riêng đặt sân & thanh toán.
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -25,23 +25,29 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // Mục 8.5: Giới hạn số lượt đặt (chưa hủy) của 1 sân trong 1 ngày
         private const int GioiHanLuotMoiNgay = 8;
 
-        // Các trạng thái của đơn đặt sân (khớp với dữ liệu mẫu và Module 3)
+        // Các trạng thái của đơn đặt sân (hỗ trợ cả chuẩn mới Chờ duyệt/Đã duyệt/Từ chối và cũ Chờ xử lý/Đang xử lý/Đã hủy)
         private const string ChoXuLy = "Chờ xử lý";
+        private const string ChoDuyet = "Chờ duyệt";
         private const string DangXuLy = "Đang xử lý";
+        private const string DaDuyet = "Đã duyệt";
         private const string HoanThanh = "Hoàn thành";
         private const string DaHuy = "Đã hủy";
+        private const string TT_TuChoi = "Từ chối";
 
-        private static readonly string[] TatCaTrangThai = { ChoXuLy, DangXuLy, HoanThanh, DaHuy };
+        private static readonly string[] TatCaTrangThai = { ChoXuLy, ChoDuyet, DangXuLy, DaDuyet, HoanThanh, DaHuy, TT_TuChoi };
 
         // Mục 8.4: LUỒNG TRẠNG THÁI HỢP LỆ
-        // Chờ xử lý -> Đang xử lý -> Hoàn thành; nhánh Hủy từ Chờ xử lý hoặc Đang xử lý.
-        // Hoàn thành và Đã hủy là trạng thái cuối, không được chuyển tiếp.
+        // Chờ duyệt / Chờ xử lý -> Đã duyệt / Đang xử lý -> Hoàn thành; nhánh Hủy/Từ chối.
+        // Hoàn thành, Đã hủy, Từ chối là trạng thái cuối, không được chuyển tiếp.
         private static readonly Dictionary<string, string[]> LuongTrangThai = new()
         {
-            [ChoXuLy] = new[] { DangXuLy, DaHuy },
-            [DangXuLy] = new[] { HoanThanh, DaHuy },
+            [ChoXuLy] = new[] { DangXuLy, DaDuyet, DaHuy, TT_TuChoi },
+            [ChoDuyet] = new[] { DangXuLy, DaDuyet, DaHuy, TT_TuChoi },
+            [DangXuLy] = new[] { HoanThanh, DaHuy, TT_TuChoi },
+            [DaDuyet] = new[] { HoanThanh, DaHuy, TT_TuChoi },
             [HoanThanh] = Array.Empty<string>(),
-            [DaHuy] = Array.Empty<string>()
+            [DaHuy] = Array.Empty<string>(),
+            [TT_TuChoi] = Array.Empty<string>()
         };
 
         public TiepNhanDatSanController(ApplicationDbContext context)
@@ -50,7 +56,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // PHÂN QUYỀN TẠI CONTROLLER (không chỉ ẩn menu trên View)
+        // PHÂN QUYỀN TẠI CONTROLLER
         // Chỉ Admin và Nhân viên quản lý được tiếp nhận/xử lý đặt sân
         // ==========================================================
         private bool CoQuyenQuanLy()
@@ -59,7 +65,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return vaiTro == "Admin" || vaiTro == "NhanVien";
         }
 
-        // Trả về null nếu hợp lệ, ngược lại trả về kết quả chuyển hướng
         private IActionResult? KiemTraQuyen()
         {
             if (HttpContext.Session.GetInt32("MaTaiKhoan") == null)
@@ -79,8 +84,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
         // ==========================================================
         // 1. DANH SÁCH ĐƠN CẦN XỬ LÝ (Mục 8.1)
-        // Tìm theo khách hàng / sân; lọc theo loại sân, trạng thái, khoảng ngày; sắp xếp; phân trang
-        // Tất cả điều kiện kết hợp được với nhau và được giữ nguyên khi chuyển trang
+        // Tìm theo khách hàng / sân; lọc theo loại sân, trạng thái đặt sân, trạng thái thanh toán, khoảng ngày; sắp xếp; phân trang
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> Index(
@@ -88,6 +92,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             string? tenSan,
             int? maLoaiSan,
             string? trangThai,
+            string? trangThaiThanhToan,
             DateTime? tuNgay,
             DateTime? denNgay,
             string? sapXep,
@@ -103,7 +108,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             tenSan = tenSan?.Trim();
             if (!string.IsNullOrEmpty(trangThai) && !TatCaTrangThai.Contains(trangThai)) trangThai = null;
 
-            // Nếu người dùng chọn từ ngày > đến ngày thì hoán đổi lại và báo cho người dùng biết
             if (tuNgay.HasValue && denNgay.HasValue && tuNgay.Value.Date > denNgay.Value.Date)
             {
                 (tuNgay, denNgay) = (denNgay, tuNgay);
@@ -115,7 +119,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 .AsNoTracking()
                 .Include(d => d.KhachHang)
                 .Include(d => d.SanTheThao)
-                    .ThenInclude(s => s.LoaiSan);
+                    .ThenInclude(s => s.LoaiSan)
+                .Include(d => d.ThanhToans);
 
             // Tìm theo người dùng/khách hàng (họ tên hoặc số điện thoại)
             if (!string.IsNullOrEmpty(tenKhach))
@@ -136,10 +141,23 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 query = query.Where(d => d.SanTheThao.MaLoaiSan == maLoaiSan.Value);
             }
 
-            // Lọc theo trạng thái
+            // Lọc theo trạng thái đặt sân
             if (!string.IsNullOrEmpty(trangThai))
             {
-                query = query.Where(d => d.TrangThai == trangThai);
+                if (trangThai == "Chờ duyệt" || trangThai == "Chờ xử lý")
+                    query = query.Where(d => d.TrangThai == "Chờ duyệt" || d.TrangThai == "Chờ xử lý");
+                else if (trangThai == "Đã duyệt" || trangThai == "Đang xử lý")
+                    query = query.Where(d => d.TrangThai == "Đã duyệt" || d.TrangThai == "Đang xử lý");
+                else if (trangThai == "Từ chối" || trangThai == "Đã hủy")
+                    query = query.Where(d => d.TrangThai == "Từ chối" || d.TrangThai == "Đã hủy");
+                else
+                    query = query.Where(d => d.TrangThai == trangThai);
+            }
+
+            // Lọc theo trạng thái thanh toán
+            if (!string.IsNullOrEmpty(trangThaiThanhToan))
+            {
+                query = query.Where(d => d.ThanhToans.OrderByDescending(t => t.MaThanhToan).FirstOrDefault()!.TrangThai == trangThaiThanhToan);
             }
 
             // Lọc theo khoảng ngày sử dụng sân
@@ -184,10 +202,20 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 .Select(g => new { TrangThai = g.Key, SoLuong = g.Count() })
                 .ToDictionaryAsync(x => x.TrangThai, x => x.SoLuong);
 
-            vm.SoChoXuLy = thongKe.GetValueOrDefault(ChoXuLy);
-            vm.SoDangXuLy = thongKe.GetValueOrDefault(DangXuLy);
+            vm.SoChoXuLy = thongKe.GetValueOrDefault(ChoXuLy) + thongKe.GetValueOrDefault(ChoDuyet);
+            vm.SoDangXuLy = thongKe.GetValueOrDefault(DangXuLy) + thongKe.GetValueOrDefault(DaDuyet);
             vm.SoHoanThanh = thongKe.GetValueOrDefault(HoanThanh);
-            vm.SoDaHuy = thongKe.GetValueOrDefault(DaHuy);
+            vm.SoDaHuy = thongKe.GetValueOrDefault(DaHuy) + thongKe.GetValueOrDefault(TT_TuChoi);
+
+            // Thống kê trạng thái thanh toán
+            var thongKeTt = await _context.ThanhToans
+                .GroupBy(t => t.TrangThai)
+                .Select(g => new { TrangThai = g.Key, SoLuong = g.Count() })
+                .ToDictionaryAsync(x => x.TrangThai, x => x.SoLuong);
+
+            vm.SoChuaThanhToan = thongKeTt.GetValueOrDefault("Chưa thanh toán");
+            vm.SoChoXacNhan = thongKeTt.GetValueOrDefault("Chờ xác nhận");
+            vm.SoDaThanhToan = thongKeTt.GetValueOrDefault("Đã thanh toán");
 
             // Dữ liệu nền cho select lọc loại sân
             vm.DanhSachLoaiSan = await _context.LoaiSans
@@ -200,6 +228,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.TenSan = tenSan;
             vm.MaLoaiSan = maLoaiSan;
             vm.TrangThai = trangThai;
+            vm.TrangThaiThanhToan = trangThaiThanhToan;
             vm.TuNgay = tuNgay;
             vm.DenNgay = denNgay;
             vm.SapXep = sapXep;
@@ -225,6 +254,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     .ThenInclude(s => s.LoaiSan)
                 .Include(d => d.ChiTietDatSans)
                     .ThenInclude(ct => ct.DichVu)
+                .Include(d => d.ThanhToans)
                 .FirstOrDefaultAsync(d => d.MaDatSan == id);
 
             if (don == null) return NotFound();
@@ -245,7 +275,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.ConPhaiThanhToan = Math.Max(vm.TongTien - don.TienCoc, 0);
 
             // Thêm / sửa dịch vụ chỉ khi đơn chưa kết thúc
-            vm.CoTheSuaDichVu = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
+            vm.CoTheSuaDichVu = don.TrangThai == ChoXuLy || don.TrangThai == ChoDuyet || don.TrangThai == DangXuLy || don.TrangThai == DaDuyet;
             if (vm.CoTheSuaDichVu)
             {
                 var daCo = don.ChiTietDatSans.Select(ct => ct.MaDichVu).ToList();
@@ -256,36 +286,89 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     .ToListAsync();
             }
 
-            // Chỉ phân tích điều kiện khi đơn còn đang chờ xác nhận
-            if (don.TrangThai == ChoXuLy)
+            // Chỉ phân tích điều kiện khi đơn còn đang chờ duyệt
+            if (don.TrangThai == ChoXuLy || don.TrangThai == ChoDuyet)
             {
                 vm.KetQua = await PhanTichDonAsync(don);
             }
 
             // Nút thao tác phải phù hợp với trạng thái hiện tại
-            vm.CoTheXacNhan = don.TrangThai == ChoXuLy && !vm.KetQua.Loi.Any();
-            vm.CoTheHoanThanh = don.TrangThai == DangXuLy && don.GioBatDau <= now;
+            vm.CoTheXacNhan = (don.TrangThai == ChoXuLy || don.TrangThai == ChoDuyet) && !vm.KetQua.Loi.Any();
+            vm.CoTheHoanThanh = (don.TrangThai == DangXuLy || don.TrangThai == DaDuyet) && don.GioBatDau <= now;
 
-            // Đơn Chờ xử lý hoặc Đang xử lý đều có thể hủy / từ chối,
-            // kể cả khi sân đang được sử dụng (Hoàn thành / Đã hủy là trạng thái cuối)
-            vm.CoTheHuy = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
+            // Đơn Chờ duyệt/Đang xử lý đều có thể hủy / từ chối
+            vm.CoTheHuy = don.TrangThai == ChoXuLy || don.TrangThai == ChoDuyet || don.TrangThai == DangXuLy || don.TrangThai == DaDuyet;
 
             return View(vm);
         }
 
         // ==========================================================
-        // 3. XÁC NHẬN ĐƠN: Chờ xử lý -> Đang xử lý
+        // 3. XÁC NHẬN TIỀN CỌC: Chuyển Trạng thái thanh toán sang 'Đã thanh toán'
         // ==========================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> XacNhanCoc(int id, string? quayLai)
+        {
+            var chan = KiemTraQuyen();
+            if (chan != null) return chan;
+
+            var don = await _context.DatSans
+                .Include(d => d.ThanhToans)
+                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+
+            if (don == null) return NotFound();
+
+            var thanhToan = don.ThanhToans.OrderByDescending(t => t.MaThanhToan).FirstOrDefault();
+            if (thanhToan == null)
+            {
+                thanhToan = new ThanhToan
+                {
+                    MaDatSan = don.MaDatSan,
+                    SoTien = don.TienCoc,
+                    PhuongThuc = "Chuyển khoản QR",
+                    GhiChu = $"DATSAN{don.MaDatSan}"
+                };
+                _context.ThanhToans.Add(thanhToan);
+            }
+
+            thanhToan.TrangThai = "Đã thanh toán";
+            thanhToan.NgayThanhToan = DateTime.Now;
+            if (string.IsNullOrEmpty(thanhToan.MaGiaoDich))
+            {
+                thanhToan.MaGiaoDich = $"XN{DateTime.Now:yyyyMMddHHmmss}";
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Đã xác nhận tiền đặt cọc ({thanhToan.SoTien:N0} VNĐ) cho đơn #{id}! Trạng thái thanh toán: 'Đã thanh toán'. Bạn có thể tiến hành duyệt đơn.";
+
+            if (!string.IsNullOrEmpty(quayLai) && Url.IsLocalUrl(quayLai))
+                return Redirect(quayLai);
+
+            return RedirectToAction(nameof(ChiTiet), new { id });
+        }
+
+        // ==========================================================
+        // 4. DUYỆT ĐƠN ĐẶT SÂN: Chuyển Trạng thái đặt sân sang 'Đã duyệt'
+        // ==========================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> DuyetDon(int id, string? quayLai)
+        {
+            return DoiTrangThaiAsync(id, DaDuyet, quayLai,
+                "Đã duyệt đơn đặt sân #{0}. Trạng thái đặt sân chuyển sang 'Đã duyệt'.");
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public Task<IActionResult> XacNhan(int id, string? quayLai)
         {
-            return DoiTrangThaiAsync(id, DangXuLy, quayLai,
-                "Đã xác nhận đơn đặt sân #{0}. Đơn chuyển sang trạng thái 'Đang xử lý'.");
+            return DoiTrangThaiAsync(id, DaDuyet, quayLai,
+                "Đã duyệt đơn đặt sân #{0}. Trạng thái đặt sân chuyển sang 'Đã duyệt'.");
         }
 
         // ==========================================================
-        // 4. HOÀN THÀNH ĐƠN: Đang xử lý -> Hoàn thành
+        // 5. HOÀN THÀNH ĐƠN: Đang xử lý / Đã duyệt -> Hoàn thành
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -296,19 +379,26 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // 5. HỦY / TỪ CHỐI ĐƠN: Chờ xử lý hoặc Đang xử lý -> Đã hủy
+        // 6. TỪ CHỐI / HỦY ĐƠN: Chờ duyệt hoặc Đã duyệt -> Từ chối
         // ==========================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public Task<IActionResult> TuChoi(int id, string? quayLai)
+        {
+            return DoiTrangThaiAsync(id, TT_TuChoi, quayLai,
+                "Đã từ chối đơn đặt sân #{0}. Khung giờ này được trả lại cho khách khác đặt.");
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public Task<IActionResult> HuyDon(int id, string? quayLai)
         {
-            return DoiTrangThaiAsync(id, DaHuy, quayLai,
-                "Đã hủy đơn đặt sân #{0}. Khung giờ này được trả lại cho khách khác đặt.");
+            return DoiTrangThaiAsync(id, TT_TuChoi, quayLai,
+                "Đã từ chối/hủy đơn đặt sân #{0}. Khung giờ này được trả lại cho khách khác đặt.");
         }
 
         // ==========================================================
-        // 6. TẠM LƯU DỊCH VỤ: thêm / sửa / bỏ dịch vụ của đơn mà KHÔNG đổi trạng thái
-        // Dữ liệu được ghi xuống CSDL nên nhân viên thoát trang rồi quay lại vẫn còn nguyên.
+        // 7. TẠM LƯU DỊCH VỤ
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -323,7 +413,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             if (don == null) return NotFound();
 
-            if (don.TrangThai != ChoXuLy && don.TrangThai != DangXuLy)
+            if (don.TrangThai != ChoXuLy && don.TrangThai != ChoDuyet && don.TrangThai != DangXuLy && don.TrangThai != DaDuyet)
             {
                 TempData["Error"] = $"Đơn #{id} đang ở trạng thái '{don.TrangThai}' nên không thể thay đổi dịch vụ.";
                 return RedirectToAction(nameof(ChiTiet), new { id });
@@ -338,63 +428,45 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Gộp các dòng trùng dịch vụ, bỏ dòng có số lượng 0
-            var chon = dichVu
+            var gop = dichVu
                 .Where(x => x.SoLuong > 0)
                 .GroupBy(x => x.MaDichVu)
-                .ToDictionary(g => g.Key, g => Math.Min(g.Sum(x => x.SoLuong), SoLuongDichVuToiDa));
+                .Select(g => new { MaDichVu = g.Key, SoLuong = g.Sum(x => x.SoLuong) })
+                .ToList();
 
-            // 1. Dòng đang có trong đơn: bỏ nếu không còn được chọn, cập nhật số lượng nếu còn
-            var daCo = new HashSet<int>();
-            foreach (var ct in don.ChiTietDatSans.ToList())
+            var dsMaDichVu = gop.Select(x => x.MaDichVu).ToList();
+            var dsDichVu = await _context.DichVus
+                .Where(dv => dsMaDichVu.Contains(dv.MaDichVu))
+                .ToDictionaryAsync(dv => dv.MaDichVu);
+
+            _context.ChiTietDatSans.RemoveRange(don.ChiTietDatSans);
+
+            int daThem = 0;
+            foreach (var item in gop)
             {
-                if (!chon.TryGetValue(ct.MaDichVu, out int soLuong) || !daCo.Add(ct.MaDichVu))
-                {
-                    _context.ChiTietDatSans.Remove(ct);
+                if (!dsDichVu.TryGetValue(item.MaDichVu, out var dv) || !dv.TrangThai)
                     continue;
-                }
 
-                ct.SoLuong = soLuong;
-                ct.ThanhTien = ct.DonGia * soLuong; // giữ nguyên đơn giá đã áp dụng cho dòng này
-            }
-
-            // 2. Dịch vụ mới: lấy đơn giá hiện hành, chỉ nhận dịch vụ đang kinh doanh
-            var maMoi = chon.Keys.Where(k => !daCo.Contains(k)).ToList();
-            if (maMoi.Any())
-            {
-                var dsDichVu = await _context.DichVus
-                    .Where(dv => maMoi.Contains(dv.MaDichVu))
-                    .ToDictionaryAsync(dv => dv.MaDichVu);
-
-                foreach (var ma in maMoi)
+                int sl = Math.Min(item.SoLuong, SoLuongDichVuToiDa);
+                don.ChiTietDatSans.Add(new ChiTietDatSan
                 {
-                    if (!dsDichVu.TryGetValue(ma, out var dv) || !dv.TrangThai)
-                    {
-                        TempData["Error"] = "Có dịch vụ không tồn tại hoặc đã ngừng cung cấp. Vui lòng tải lại trang và chọn lại.";
-                        return RedirectToAction(nameof(ChiTiet), new { id });
-                    }
-
-                    int soLuong = chon[ma];
-                    don.ChiTietDatSans.Add(new ChiTietDatSan
-                    {
-                        MaDichVu = dv.MaDichVu,
-                        SoLuong = soLuong,
-                        DonGia = dv.DonGia,
-                        ThanhTien = dv.DonGia * soLuong,
-                        TrangThai = "Đã thêm"
-                    });
-                }
+                    MaDatSan = don.MaDatSan,
+                    MaDichVu = dv.MaDichVu,
+                    SoLuong = sl,
+                    DonGia = dv.DonGia,
+                    ThanhTien = dv.DonGia * sl,
+                    TrangThai = "Đã thêm"
+                });
+                daThem++;
             }
 
             await _context.SaveChangesAsync();
-
-            TempData["Success"] = chon.Count == 0
-                ? $"Đã tạm lưu đơn #{id}: hiện chưa có dịch vụ nào được chọn."
-                : $"Đã tạm lưu {chon.Count} dịch vụ cho đơn #{id}. Bạn có thể tiếp tục chỉnh sửa hoặc xử lý đơn sau.";
+            TempData["Success"] = $"Đã cập nhật dịch vụ cho đơn #{id} ({daThem} dịch vụ).";
             return RedirectToAction(nameof(ChiTiet), new { id });
         }
 
         // ==========================================================
-        // HÀM DÙNG CHUNG: CẬP NHẬT TRẠNG THÁI THEO ĐÚNG LUỒNG
+        // CÁC HÀM TIỆN ÍCH DÙNG CHUNG TRONG CONTROLLER
         // ==========================================================
         private async Task<IActionResult> DoiTrangThaiAsync(int id, string trangThaiMoi, string? quayLai, string mauThongBao)
         {
@@ -405,11 +477,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 .Include(d => d.KhachHang)
                 .Include(d => d.SanTheThao)
                 .Include(d => d.ChiTietDatSans)
+                .Include(d => d.ThanhToans)
                 .FirstOrDefaultAsync(d => d.MaDatSan == id);
 
             if (don == null) return NotFound();
 
-            // Kiểm tra luồng trạng thái + các điều kiện nghiệp vụ trước khi cho phép chuyển
             string? loi = await KiemTraChuyenTrangThaiAsync(don, trangThaiMoi);
             if (loi != null)
             {
@@ -417,7 +489,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return QuayLaiTrang(quayLai, id);
             }
 
-            // Chỉ cập nhật đúng trường trạng thái, không xóa bất kỳ dữ liệu lịch sử nào
             don.TrangThai = trangThaiMoi;
             await _context.SaveChangesAsync();
 
@@ -425,14 +496,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return QuayLaiTrang(quayLai, id);
         }
 
-        // Kiểm tra việc chuyển trạng thái có hợp lệ hay không. Trả về null nếu hợp lệ.
         private async Task<string?> KiemTraChuyenTrangThaiAsync(DatSan don, string trangThaiMoi)
         {
-            // 1. Đúng luồng trạng thái (Mục 8.4)
             if (!LuongTrangThai.TryGetValue(don.TrangThai, out var duocPhep) || !duocPhep.Contains(trangThaiMoi))
             {
                 return $"Không thể chuyển đơn #{don.MaDatSan} từ '{don.TrangThai}' sang '{trangThaiMoi}'. " +
-                       "Đơn phải đi theo luồng: Chờ xử lý → Đang xử lý → Hoàn thành (hoặc Hủy).";
+                       "Đơn phải đi theo luồng: Chờ duyệt → Đã duyệt → Hoàn thành (hoặc Từ chối).";
             }
 
             var now = DateTime.Now;
@@ -440,40 +509,30 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             switch (trangThaiMoi)
             {
                 case DangXuLy:
-                    // 2. Phải đạt toàn bộ điều kiện trước khi xác nhận (Mục 8.3, 8.5)
+                case DaDuyet:
                     var ketQua = await PhanTichDonAsync(don);
                     if (ketQua.Loi.Any())
                     {
-                        return $"Không thể xác nhận đơn #{don.MaDatSan}: " + string.Join(" ", ketQua.Loi);
+                        return $"Không thể duyệt đơn #{don.MaDatSan}: " + string.Join(" ", ketQua.Loi);
                     }
                     break;
 
                 case HoanThanh:
                     if (don.GioBatDau > now)
                     {
-                        return $"Đơn #{don.MaDatSan} chưa đến giờ sử dụng sân ({don.GioBatDau:dd/MM/yyyy HH:mm}) nên chưa thể hoàn thành.";
+                        return $"Không thể hoàn thành đơn #{don.MaDatSan} vì chưa đến giờ sử dụng sân " +
+                               $"({don.GioBatDau:dd/MM/yyyy HH:mm}).";
                     }
                     break;
 
                 case DaHuy:
-                    // Cho phép hủy / từ chối đơn Chờ xử lý hoặc Đang xử lý,
-                    // kể cả khi sân đang được sử dụng (luồng trạng thái đã được kiểm tra ở trên)
+                case TT_TuChoi:
                     break;
             }
 
             return null;
         }
 
-        // ==========================================================
-        // PHÂN TÍCH ĐIỀU KIỆN XÁC NHẬN BẰNG LINQ (Mục 8.3, 8.5)
-        //  - Khách hàng tồn tại và đang hoạt động
-        //  - Sân tồn tại, đang hoạt động, không bảo trì vào ngày sử dụng
-        //  - Chỉ được đặt trong giờ mở cửa
-        //  - Giờ kết thúc phải sau giờ bắt đầu
-        //  - Không trùng lịch với đơn khác của cùng sân
-        //  - Tiền cọc không vượt tổng tiền dự kiến
-        //  - Không vượt giới hạn số lượt đặt của sân trong ngày
-        // ==========================================================
         private async Task<KetQuaKiemTraDonDat> PhanTichDonAsync(DatSan don)
         {
             var kq = new KetQuaKiemTraDonDat();
@@ -517,14 +576,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             if (don.GioKetThuc < now)
             {
-                kq.Loi.Add("Đơn đã quá thời gian sử dụng sân, chỉ có thể hủy đơn.");
+                kq.Loi.Add("Đơn đã quá thời gian sử dụng sân, chỉ có thể hủy/từ chối đơn.");
             }
 
-            // 5. Trùng lịch: LINQ Any/ToList, loại trừ chính đơn này và các đơn đã hủy
+            // 5. Trùng lịch: loại trừ chính đơn này và các đơn đã hủy/từ chối
             var donTrung = _context.DatSans
                 .Where(d => d.MaDatSan != don.MaDatSan
                          && d.MaSan == don.MaSan
                          && d.TrangThai != DaHuy
+                         && d.TrangThai != TT_TuChoi
                          && d.GioBatDau < don.GioKetThuc
                          && d.GioKetThuc > don.GioBatDau);
 
@@ -539,7 +599,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 kq.Loi.Add("Sân đã có lịch khác trùng khoảng thời gian này.");
             }
 
-            // 6. Tiền cọc không vượt tổng tiền dự kiến (tiền sân + dịch vụ)
+            // 6. Tiền cọc không vượt tổng tiền dự kiến
             double soGio = (don.GioKetThuc - don.GioBatDau).TotalHours;
             decimal tienDichVu = await _context.ChiTietDatSans
                 .Where(ct => ct.MaDatSan == don.MaDatSan)
@@ -555,13 +615,21 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 kq.Loi.Add($"Tiền cọc ({don.TienCoc:N0} VNĐ) vượt quá tổng tiền dự kiến ({tongDuKien:N0} VNĐ).");
             }
 
-            // 7. Kiểm soát khả năng đáp ứng: đếm số lượt đặt khác của sân trong ngày
+            // Kiểm tra trạng thái đặt cọc
+            var tt = don.ThanhToans.OrderByDescending(t => t.MaThanhToan).FirstOrDefault();
+            if (tt == null || tt.TrangThai != "Đã thanh toán")
+            {
+                kq.CanhBao.Add("Khách hàng chưa thanh toán hoặc đang 'Chờ xác nhận' tiền cọc. Vui lòng bấm 'Xác nhận đã đặt cọc' sau khi kiểm tra tiền về.");
+            }
+
+            // 7. Kiểm soát khả năng đáp ứng: tối đa 8 đơn/ngày
             var dauNgay = don.GioBatDau.Date;
             var cuoiNgay = dauNgay.AddDays(1);
             kq.SoLuotTrongNgay = await _context.DatSans.CountAsync(d =>
                 d.MaDatSan != don.MaDatSan
                 && d.MaSan == don.MaSan
                 && d.TrangThai != DaHuy
+                && d.TrangThai != TT_TuChoi
                 && d.GioBatDau >= dauNgay
                 && d.GioBatDau < cuoiNgay);
 
@@ -577,14 +645,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             return kq;
         }
 
-        // Quay về trang người dùng vừa thao tác (chỉ chấp nhận đường dẫn nội bộ để tránh open redirect)
-        private IActionResult QuayLaiTrang(string? quayLai, int id)
+        private IActionResult QuayLaiTrang(string? quayLai, int maDatSan)
         {
             if (!string.IsNullOrEmpty(quayLai) && Url.IsLocalUrl(quayLai))
-            {
-                return LocalRedirect(quayLai);
-            }
-            return RedirectToAction(nameof(ChiTiet), new { id });
+                return Redirect(quayLai);
+
+            return RedirectToAction(nameof(ChiTiet), new { id = maDatSan });
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Họ và tên: Lê Bích Ngọc
+// Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
 // Nội dung thực hiện: Entity DatSan - Xử lý đặt sân
 using System.ComponentModel.DataAnnotations;
@@ -39,8 +39,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities
 
         [Required]
         [StringLength(50)]
-        public string TrangThai { get; set; } = "Chờ xử lý";
+        public string TrangThai { get; set; } = "Chờ duyệt"; // "Chờ duyệt" | "Đã duyệt" | "Từ chối" (hoặc "Hoàn thành")
 
         public virtual ICollection<ChiTietDatSan> ChiTietDatSans { get; set; } = new List<ChiTietDatSan>();
+        public virtual ICollection<ThanhToan> ThanhToans { get; set; } = new List<ThanhToan>();
+
+        [NotMapped]
+        public ThanhToan? ThanhToanHienTai => ThanhToans?.OrderByDescending(t => t.MaThanhToan).FirstOrDefault();
+
+        [NotMapped]
+        public string TrangThaiThanhToan => ThanhToanHienTai?.TrangThai ?? "Chưa thanh toán";
     }
 }

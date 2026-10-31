@@ -1,7 +1,7 @@
-﻿// Họ và tên: Vũ Ánh Ngọc
+// Họ và tên: Vũ Ánh Ngọc
 // Mã sinh viên: 23103100106
 // Nội dung thực hiện: Module 4 - ViewModel Tiếp nhận đặt sân (danh sách xử lý có tìm kiếm/lọc/sắp xếp/phân trang,
-//                     chi tiết đơn kèm kết quả kiểm tra điều kiện trước khi xử lý).
+//                     chi tiết đơn kèm kết quả kiểm tra điều kiện trước khi xử lý, trạng thái thanh toán & đặt sân riêng biệt).
 
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 
@@ -22,7 +22,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public string? TenKhach { get; set; }
         public string? TenSan { get; set; }
         public int? MaLoaiSan { get; set; }
-        public string? TrangThai { get; set; }
+        public string? TrangThai { get; set; }               // Trạng thái đặt sân: "Chờ duyệt", "Đã duyệt", "Từ chối", "Hoàn thành"
+        public string? TrangThaiThanhToan { get; set; }     // Trạng thái thanh toán: "Chưa thanh toán", "Chờ xác nhận", "Đã thanh toán"
         public DateTime? TuNgay { get; set; }
         public DateTime? DenNgay { get; set; }
         public string SapXep { get; set; } = "ngaydat_moi";
@@ -32,11 +33,16 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public int TongSoTrang { get; set; } = 1;
         public int TongSoBanGhi { get; set; }
 
-        // Thống kê nhanh theo trạng thái (toàn bộ đơn, không phụ thuộc bộ lọc)
+        // Thống kê nhanh theo trạng thái đặt sân
         public int SoChoXuLy { get; set; }
         public int SoDangXuLy { get; set; }
         public int SoHoanThanh { get; set; }
         public int SoDaHuy { get; set; }
+
+        // Thống kê nhanh theo trạng thái thanh toán
+        public int SoChuaThanhToan { get; set; }
+        public int SoChoXacNhan { get; set; }
+        public int SoDaThanhToan { get; set; }
 
         // Thông báo khi bộ lọc được tự điều chỉnh (ví dụ: từ ngày > đến ngày)
         public string? CanhBaoLoc { get; set; }
@@ -75,7 +81,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         // Số tiền khách còn phải thanh toán = Tổng cộng - Tiền cọc (không âm)
         public decimal ConPhaiThanhToan { get; set; }
 
-        // Cho phép thêm / sửa dịch vụ khi đơn chưa kết thúc (Chờ xử lý, Đang xử lý)
+        // Cho phép thêm / sửa dịch vụ khi đơn chưa kết thúc (Chờ xử lý, Đang xử lý, Chờ duyệt, Đã duyệt)
         public bool CoTheSuaDichVu { get; set; }
 
         // Danh sách dịch vụ để chọn (dịch vụ đang kinh doanh + dịch vụ đã có sẵn trong đơn)
@@ -84,7 +90,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public KetQuaKiemTraDonDat KetQua { get; set; } = new();
         public int GioiHanLuotMoiNgay { get; set; }
 
+        // Thông tin thanh toán hiện tại
+        public ThanhToan? ThanhToan => DonDat?.ThanhToans?.OrderByDescending(t => t.MaThanhToan).FirstOrDefault();
+
         // Nút thao tác nào được phép hiển thị/thực hiện theo trạng thái hiện tại
+        public bool CoTheXacNhanCoc => ThanhToan == null || ThanhToan.TrangThai != "Đã thanh toán";
+        public bool CoTheDuyetDon => (DonDat.TrangThai == "Chờ duyệt" || DonDat.TrangThai == "Chờ xử lý") && !KetQua.Loi.Any();
         public bool CoTheXacNhan { get; set; }
         public bool CoTheHoanThanh { get; set; }
         public bool CoTheHuy { get; set; }

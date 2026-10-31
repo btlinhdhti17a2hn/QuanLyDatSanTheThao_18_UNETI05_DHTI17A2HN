@@ -1,7 +1,7 @@
 @*
 // Họ và tên: Nguyễn Thị Lan Nhi
 // Mã sinh viên: 23103100104
-// Nội dung thực hiện: Module 3 - Giao diện Chi tiết đơn đặt sân (Thông tin sân, thời gian, trạng thái, chi phí và dịch vụ đi kèm)
+// Nội dung thực hiện: Module 3 - Giao diện Chi tiết đơn đặt sân (Tách riêng 2 trạng thái: Đặt sân & Thanh toán, nút thanh toán QR)
 *@
 
 @model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.DatSan
@@ -12,6 +12,8 @@
     decimal tienSan = Math.Round((decimal)soGio * Model.DonGia, 0);
     decimal tienDichVu = Model.ChiTietDatSans?.Sum(ct => ct.ThanhTien) ?? 0;
     decimal tongCong = tienSan + tienDichVu;
+    var thanhToan = Model.ThanhToanHienTai;
+    var ttThanhToan = thanhToan?.TrangThai ?? "Chưa thanh toán";
 }
 
 <div class="container py-4">
@@ -35,25 +37,51 @@
                     <small class="text-muted">Thời điểm tạo đơn: @Model.NgayDat.ToString("dd/MM/yyyy HH:mm")</small>
                 </div>
                 <div class="text-end">
-                    <span class="small text-muted d-block mb-1">Trạng thái hiện tại:</span>
-                    @switch (Model.TrangThai)
-                    {
-                        case "Chờ xử lý":
-                            <span class="badge bg-warning text-dark fs-6 px-4 py-2 rounded-pill">⏳ Chờ xử lý</span>
-                            break;
-                        case "Đang xử lý":
-                            <span class="badge bg-info text-dark fs-6 px-4 py-2 rounded-pill">⚙️ Đang xử lý</span>
-                            break;
-                        case "Hoàn thành":
-                            <span class="badge bg-success fs-6 px-4 py-2 rounded-pill">✅ Hoàn thành</span>
-                            break;
-                        case "Đã hủy":
-                            <span class="badge bg-danger fs-6 px-4 py-2 rounded-pill">❌ Đã hủy</span>
-                            break;
-                        default:
-                            <span class="badge bg-secondary fs-6 px-4 py-2 rounded-pill">@Model.TrangThai</span>
-                            break;
-                    }
+                    <div class="mb-2">
+                        <span class="small text-muted d-block">Trạng thái đặt sân:</span>
+                        @switch (Model.TrangThai)
+                        {
+                            case "Chờ duyệt":
+                            case "Chờ xử lý":
+                                <span class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill">⏳ Chờ duyệt</span>
+                                break;
+                            case "Đã duyệt":
+                            case "Đang xử lý":
+                                <span class="badge bg-info text-dark fs-6 px-3 py-2 rounded-pill">⚙️ Đã duyệt</span>
+                                break;
+                            case "Hoàn thành":
+                                <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">✅ Hoàn thành</span>
+                                break;
+                            case "Từ chối":
+                            case "Đã hủy":
+                                <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">❌ Từ chối</span>
+                                break;
+                            default:
+                                <span class="badge bg-secondary fs-6 px-3 py-2 rounded-pill">@Model.TrangThai</span>
+                                break;
+                        }
+                    </div>
+                    <div>
+                        <span class="small text-muted d-block">Trạng thái thanh toán:</span>
+                        @switch (ttThanhToan)
+                        {
+                            case "Đã thanh toán":
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-6 px-3 py-1 rounded-pill fw-bold">
+                                    ✅ Đã thanh toán cọc
+                                </span>
+                                break;
+                            case "Chờ xác nhận":
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fs-6 px-3 py-1 rounded-pill fw-bold">
+                                    ⏳ Chờ xác nhận cọc
+                                </span>
+                                break;
+                            default:
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-6 px-3 py-1 rounded-pill">
+                                    ⚪ Chưa thanh toán cọc
+                                </span>
+                                break;
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -138,6 +166,48 @@
                 </div>
             }
 
+            <!-- Thông tin thanh toán tiền cọc mô phỏng -->
+            <div class="mb-4 pb-4 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-success text-uppercase small mb-0">💳 Chi tiết giao dịch thanh toán tiền cọc</h6>
+                    @if (ttThanhToan != "Đã thanh toán" && Model.TrangThai != "Đã hủy" && Model.TrangThai != "Từ chối")
+                    {
+                        <a asp-action="ThanhToan" asp-route-id="@Model.MaDatSan" class="btn btn-sm btn-success rounded-pill px-3 shadow-sm" style="background: linear-gradient(135deg, #16a34a, #22c55e); border: none;">
+                            Quét mã QR thanh toán cọc &raquo;
+                        </a>
+                    }
+                </div>
+                
+                <div class="p-3 bg-light rounded-3">
+                    <div class="row g-2">
+                        <div class="col-sm-6 col-md-3">
+                            <small class="text-muted d-block">Tiền cọc quy định:</small>
+                            <strong class="text-danger fs-6">@Model.TienCoc.ToString("N0") VNĐ</strong>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <small class="text-muted d-block">Phương thức:</small>
+                            <strong>@(thanhToan?.PhuongThuc ?? "Chuyển khoản QR")</strong>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <small class="text-muted d-block">Trạng thái thanh toán:</small>
+                            <strong class="@(ttThanhToan == "Đã thanh toán" ? "text-success" : (ttThanhToan == "Chờ xác nhận" ? "text-warning" : "text-muted"))">
+                                @ttThanhToan
+                            </strong>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <small class="text-muted d-block">Ngày khách báo thanh toán:</small>
+                            <strong>@(thanhToan?.NgayThanhToan?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa thực hiện")</strong>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(thanhToan?.GhiChu))
+                    {
+                        <div class="mt-2 pt-2 border-top small text-muted">
+                            <strong>Nội dung / Ghi chú:</strong> @thanhToan.GhiChu
+                        </div>
+                    }
+                </div>
+            </div>
+
             <!-- Bảng tổng kết tiền -->
             <div class="row justify-content-end mb-4">
                 <div class="col-md-6 col-lg-5">
@@ -166,20 +236,29 @@
             </div>
 
             <!-- Nút thao tác -->
-            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top">
                 <a asp-action="LichSuDatSan" class="btn btn-outline-secondary rounded-pill px-4">
                     &laquo; Quay lại lịch sử đặt sân
                 </a>
 
-                @if (Model.TrangThai == "Chờ xử lý")
-                {
-                    <form asp-action="Huy" asp-route-id="@Model.MaDatSan" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn đặt sân này không?');">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
-                            🗑️ Hủy đơn đặt sân
-                        </button>
-                    </form>
-                }
+                <div class="d-flex gap-2">
+                    @if (ttThanhToan != "Đã thanh toán" && Model.TrangThai != "Đã hủy" && Model.TrangThai != "Từ chối")
+                    {
+                        <a asp-action="ThanhToan" asp-route-id="@Model.MaDatSan" class="btn btn-success rounded-pill px-4 fw-semibold shadow-sm" style="background: linear-gradient(135deg, #16a34a, #22c55e); border: none;">
+                            💳 Thanh toán cọc qua QR
+                        </a>
+                    }
+
+                    @if (Model.TrangThai == "Chờ duyệt" || Model.TrangThai == "Chờ xử lý")
+                    {
+                        <form asp-action="Huy" asp-route-id="@Model.MaDatSan" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn đặt sân này không?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
+                                🗑️ Hủy đơn đặt sân
+                            </button>
+                        </form>
+                    }
+                </div>
             </div>
         </div>
     </div>

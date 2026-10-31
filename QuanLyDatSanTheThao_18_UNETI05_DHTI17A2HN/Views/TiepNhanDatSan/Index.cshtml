@@ -1,7 +1,7 @@
-﻿@*
+@*
 // Họ và tên: Vũ Ánh Ngọc
 // Mã sinh viên: 23103100106
-// Nội dung thực hiện: Module 4 - Giao diện Danh sách đặt sân cần xử lý (tìm kiếm, lọc, sắp xếp, phân trang, thao tác theo trạng thái)
+// Nội dung thực hiện: Module 4 - Giao diện Danh sách đặt sân cần xử lý (tìm kiếm, lọc, sắp xếp, phân trang, tách riêng 2 trạng thái Đặt sân & Thanh toán)
 *@
 
 @model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.TiepNhanDatSanListViewModel
@@ -9,33 +9,30 @@
 @{
     ViewData["Title"] = "Tiếp nhận đặt sân";
 
-    // Đường dẫn hiện tại (kèm toàn bộ điều kiện lọc) để quay lại đúng trang sau khi xử lý
     var quayLaiUrl = Context.Request.Path.Value + Context.Request.QueryString.Value;
 
-    // Tạo dữ liệu route cho liên kết phân trang: GIỮ NGUYÊN mọi điều kiện tìm kiếm, lọc, sắp xếp
     Dictionary<string, string?> RouteTrang(int trang) => new()
     {
         ["tenKhach"] = Model.TenKhach,
         ["tenSan"] = Model.TenSan,
         ["maLoaiSan"] = Model.MaLoaiSan?.ToString(),
         ["trangThai"] = Model.TrangThai,
+        ["trangThaiThanhToan"] = Model.TrangThaiThanhToan,
         ["tuNgay"] = Model.TuNgay?.ToString("yyyy-MM-dd"),
         ["denNgay"] = Model.DenNgay?.ToString("yyyy-MM-dd"),
         ["sapXep"] = Model.SapXep,
         ["trang"] = trang.ToString()
     };
 
-    // Kiểu hiển thị (màu + biểu tượng) cho từng trạng thái - giống trang chi tiết của khách hàng
     (string Css, string Icon) KieuTrangThai(string tt) => tt switch
     {
-        "Chờ xử lý" => ("bg-warning text-dark", "⏳"),
-        "Đang xử lý" => ("bg-info text-dark", "⚙️"),
+        "Chờ duyệt" or "Chờ xử lý" => ("bg-warning text-dark", "⏳"),
+        "Đã duyệt" or "Đang xử lý" => ("bg-info text-dark", "⚙️"),
         "Hoàn thành" => ("bg-success", "✅"),
-        "Đã hủy" => ("bg-danger", "❌"),
+        "Từ chối" or "Đã hủy" => ("bg-danger", "❌"),
         _ => ("bg-secondary", "•")
     };
 
-    // Cửa sổ số trang hiển thị: trang hiện tại +- 2
     int tuTrang = Math.Max(1, Model.TrangHienTai - 2);
     int denTrang = Math.Min(Model.TongSoTrang, Model.TrangHienTai + 2);
     var homNay = DateTime.Now;
@@ -63,7 +60,6 @@
     }
     .btn-xanh:hover { color: #fff; filter: brightness(.95); }
 
-    /* Bảng xanh lá dùng chung với các trang quản lý khác của hệ thống */
     .table-card {
         border: none;
         border-radius: 20px;
@@ -78,7 +74,6 @@
         font-weight: 700;
         text-transform: uppercase;
         font-size: .78rem;
-        letter-spacing: .6px;
         border: none;
         padding: 1rem .9rem;
         white-space: nowrap;
@@ -88,50 +83,50 @@
     .table-pretty tbody tr:hover { background: #f0fdf4; }
 </style>
 
-<div class="container-fluid py-4">
-    <!-- Tiêu đề -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+<div class="container py-4">
+    <!-- Tiêu đề trang -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h3 class="fw-bold text-success mb-1">📋 Tiếp nhận &amp; xử lý đặt sân</h3>
-            <p class="text-muted small mb-0">Xem đơn đặt sân của khách, kiểm tra điều kiện, xác nhận, hoàn thành hoặc hủy theo đúng luồng trạng thái</p>
+            <h2 class="fw-bold text-success mb-1">📋 Tiếp nhận & Xử lý đặt sân</h2>
+            <p class="text-muted small mb-0">Quản trị viên kiểm soát quy trình 2 bước: Xác nhận tiền cọc & Duyệt đơn đặt sân</p>
         </div>
         <span class="badge bg-success-subtle text-success fs-6 px-3 py-2 rounded-pill">
-            Kết quả: <strong>@Model.TongSoBanGhi</strong> đơn
+            Tổng cộng @Model.TongSoBanGhi đơn
         </span>
     </div>
 
     <!-- Thông báo -->
     @if (TempData["Success"] != null)
     {
-        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-3" role="alert">
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-4" role="alert">
             ✅ @TempData["Success"]
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-3" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-4" role="alert">
             ⚠️ @TempData["Error"]
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
     @if (!string.IsNullOrEmpty(Model.CanhBaoLoc))
     {
-        <div class="alert alert-warning shadow-sm rounded-3">ℹ️ @Model.CanhBaoLoc</div>
+        <div class="alert alert-warning shadow-sm rounded-4">ℹ️ @Model.CanhBaoLoc</div>
     }
 
-    <!-- Thẻ thống kê nhanh theo trạng thái (bấm để lọc) -->
+    <!-- Thẻ thống kê nhanh theo trạng thái đặt sân & thanh toán -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
-            <a asp-action="Index" asp-route-trangThai="Chờ xử lý" class="tn-stat @(Model.TrangThai == "Chờ xử lý" ? "active" : "")">
+            <a asp-action="Index" asp-route-trangThai="Chờ duyệt" class="tn-stat @(Model.TrangThai == "Chờ duyệt" ? "active" : "")">
                 <div class="so text-warning">@Model.SoChoXuLy</div>
-                <div class="nhan">⏳ Chờ xử lý</div>
+                <div class="nhan">⏳ Chờ duyệt đơn</div>
             </a>
         </div>
         <div class="col-6 col-lg-3">
-            <a asp-action="Index" asp-route-trangThai="Đang xử lý" class="tn-stat @(Model.TrangThai == "Đang xử lý" ? "active" : "")">
+            <a asp-action="Index" asp-route-trangThai="Đã duyệt" class="tn-stat @(Model.TrangThai == "Đã duyệt" ? "active" : "")">
                 <div class="so text-info">@Model.SoDangXuLy</div>
-                <div class="nhan">⚙️ Đang xử lý</div>
+                <div class="nhan">⚙️ Đã duyệt sân</div>
             </a>
         </div>
         <div class="col-6 col-lg-3">
@@ -141,9 +136,9 @@
             </a>
         </div>
         <div class="col-6 col-lg-3">
-            <a asp-action="Index" asp-route-trangThai="Đã hủy" class="tn-stat @(Model.TrangThai == "Đã hủy" ? "active" : "")">
-                <div class="so text-danger">@Model.SoDaHuy</div>
-                <div class="nhan">❌ Đã hủy</div>
+            <a asp-action="Index" asp-route-trangThaiThanhToan="Chờ xác nhận" class="tn-stat @(Model.TrangThaiThanhToan == "Chờ xác nhận" ? "active" : "")" style="border-left: 4px solid #f59e0b;">
+                <div class="so text-warning">@Model.SoChoXacNhan</div>
+                <div class="nhan">💳 Chờ xác nhận cọc</div>
             </a>
         </div>
     </div>
@@ -156,7 +151,7 @@
                     <label class="form-label fw-semibold text-secondary small">Khách hàng</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light border-end-0">👤</span>
-                        <input type="text" name="tenKhach" value="@Model.TenKhach" class="form-control border-start-0" placeholder="Họ tên hoặc số điện thoại..." />
+                        <input type="text" name="tenKhach" value="@Model.TenKhach" class="form-control border-start-0" placeholder="Họ tên hoặc SĐT..." />
                     </div>
                 </div>
 
@@ -168,10 +163,10 @@
                     </div>
                 </div>
 
-                <div class="col-md-6 col-lg-3">
+                <div class="col-md-6 col-lg-2">
                     <label class="form-label fw-semibold text-secondary small">Loại sân</label>
                     <select name="maLoaiSan" class="form-select">
-                        <option value="">-- Tất cả loại sân --</option>
+                        <option value="">-- Tất cả --</option>
                         @foreach (var loai in Model.DanhSachLoaiSan)
                         {
                             <option value="@loai.MaLoaiSan" selected="@(Model.MaLoaiSan == loai.MaLoaiSan)">@loai.TenLoai</option>
@@ -179,14 +174,24 @@
                     </select>
                 </div>
 
-                <div class="col-md-6 col-lg-3">
-                    <label class="form-label fw-semibold text-secondary small">Trạng thái</label>
+                <div class="col-md-6 col-lg-2">
+                    <label class="form-label fw-semibold text-secondary small">Trạng thái đặt sân</label>
                     <select name="trangThai" class="form-select">
-                        <option value="">-- Tất cả trạng thái --</option>
-                        <option value="Chờ xử lý" selected="@(Model.TrangThai == "Chờ xử lý")">Chờ xử lý</option>
-                        <option value="Đang xử lý" selected="@(Model.TrangThai == "Đang xử lý")">Đang xử lý</option>
+                        <option value="">-- Tất cả --</option>
+                        <option value="Chờ duyệt" selected="@(Model.TrangThai == "Chờ duyệt")">Chờ duyệt</option>
+                        <option value="Đã duyệt" selected="@(Model.TrangThai == "Đã duyệt")">Đã duyệt</option>
                         <option value="Hoàn thành" selected="@(Model.TrangThai == "Hoàn thành")">Hoàn thành</option>
-                        <option value="Đã hủy" selected="@(Model.TrangThai == "Đã hủy")">Đã hủy</option>
+                        <option value="Từ chối" selected="@(Model.TrangThai == "Từ chối")">Từ chối / Hủy</option>
+                    </select>
+                </div>
+
+                <div class="col-md-6 col-lg-2">
+                    <label class="form-label fw-semibold text-secondary small">Trạng thái thanh toán</label>
+                    <select name="trangThaiThanhToan" class="form-select">
+                        <option value="">-- Tất cả --</option>
+                        <option value="Chưa thanh toán" selected="@(Model.TrangThaiThanhToan == "Chưa thanh toán")">Chưa thanh toán</option>
+                        <option value="Chờ xác nhận" selected="@(Model.TrangThaiThanhToan == "Chờ xác nhận")">Chờ xác nhận cọc</option>
+                        <option value="Đã thanh toán" selected="@(Model.TrangThaiThanhToan == "Đã thanh toán")">Đã thanh toán</option>
                     </select>
                 </div>
 
@@ -203,14 +208,12 @@
                 <div class="col-md-6 col-lg-3">
                     <label class="form-label fw-semibold text-secondary small">Sắp xếp theo</label>
                     <select name="sapXep" class="form-select">
-                        <option value="ngaydat_moi" selected="@(Model.SapXep == "ngaydat_moi")">Ngày tạo đơn: mới nhất</option>
-                        <option value="ngaydat_cu" selected="@(Model.SapXep == "ngaydat_cu")">Ngày tạo đơn: cũ nhất</option>
+                        <option value="ngaydat_moi" selected="@(Model.SapXep == "ngaydat_moi")">Ngày tạo: mới nhất</option>
+                        <option value="ngaydat_cu" selected="@(Model.SapXep == "ngaydat_cu")">Ngày tạo: cũ nhất</option>
                         <option value="ngaysd_moi" selected="@(Model.SapXep == "ngaysd_moi")">Ngày sử dụng: mới → cũ</option>
                         <option value="ngaysd_cu" selected="@(Model.SapXep == "ngaysd_cu")">Ngày sử dụng: cũ → mới</option>
                         <option value="khach_az" selected="@(Model.SapXep == "khach_az")">Tên khách: A → Z</option>
-                        <option value="khach_za" selected="@(Model.SapXep == "khach_za")">Tên khách: Z → A</option>
                         <option value="san_az" selected="@(Model.SapXep == "san_az")">Tên sân: A → Z</option>
-                        <option value="san_za" selected="@(Model.SapXep == "san_za")">Tên sân: Z → A</option>
                     </select>
                 </div>
 
@@ -233,9 +236,9 @@
                         <th>Sân thể thao</th>
                         <th>Thời gian sử dụng</th>
                         <th class="text-end">Tiền cọc</th>
-                        <th>Ngày tạo</th>
-                        <th class="text-center">Trạng thái</th>
-                        <th class="text-center pe-4">Thao tác</th>
+                        <th class="text-center">Trạng thái đặt sân</th>
+                        <th class="text-center">Thanh toán cọc</th>
+                        <th class="text-center pe-4">Thao tác xử lý</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -244,8 +247,11 @@
                         foreach (var d in Model.DanhSach)
                         {
                             var kieu = KieuTrangThai(d.TrangThai);
-                            bool choPhepHuy = d.TrangThai == "Chờ xử lý" || d.TrangThai == "Đang xử lý";
-                            bool choPhepHoanThanh = d.TrangThai == "Đang xử lý" && d.GioBatDau <= homNay;
+                            var ttHienTai = d.ThanhToans?.OrderByDescending(t => t.MaThanhToan).FirstOrDefault();
+                            var ttThanhToan = ttHienTai?.TrangThai ?? "Chưa thanh toán";
+                            bool choPhepHuy = d.TrangThai == "Chờ xử lý" || d.TrangThai == "Chờ duyệt" || d.TrangThai == "Đang xử lý" || d.TrangThai == "Đã duyệt";
+                            bool choPhepHoanThanh = (d.TrangThai == "Đang xử lý" || d.TrangThai == "Đã duyệt") && d.GioBatDau <= homNay;
+                            bool choPhepDuyet = d.TrangThai == "Chờ xử lý" || d.TrangThai == "Chờ duyệt";
 
                             <tr>
                                 <td class="ps-4 fw-bold text-muted">#@d.MaDatSan</td>
@@ -262,23 +268,65 @@
                                     <small class="text-primary fw-semibold">@d.GioBatDau.ToString("HH:mm") - @d.GioKetThuc.ToString("HH:mm")</small>
                                 </td>
                                 <td class="text-end fw-semibold">@d.TienCoc.ToString("N0") VNĐ</td>
-                                <td><small class="text-muted">@d.NgayDat.ToString("dd/MM/yyyy HH:mm")</small></td>
+
+                                <!-- TRẠNG THÁI ĐẶT SÂN -->
                                 <td class="text-center">
                                     <span class="badge @kieu.Css px-3 py-2 rounded-pill">@kieu.Icon @d.TrangThai</span>
                                 </td>
+
+                                <!-- TRẠNG THÁI THANH TOÁN CỌC -->
+                                <td class="text-center">
+                                    @switch (ttThanhToan)
+                                    {
+                                        case "Đã thanh toán":
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill fw-bold">
+                                                ✅ Đã thanh toán
+                                            </span>
+                                            break;
+                                        case "Chờ xác nhận":
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1 rounded-pill fw-bold">
+                                                ⏳ Chờ xác nhận
+                                            </span>
+                                            break;
+                                        default:
+                                            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-1 rounded-pill">
+                                                ⚪ Chưa thanh toán
+                                            </span>
+                                            break;
+                                    }
+                                </td>
+
+                                <!-- THAO TÁC XỬ LÝ TỪNG BƯỚC -->
                                 <td class="text-center pe-4">
                                     <div class="d-inline-flex flex-wrap justify-content-center gap-1">
+                                        <!-- Xem chi tiết -->
                                         <a asp-action="ChiTiet" asp-route-id="@d.MaDatSan" class="btn btn-sm btn-outline-primary rounded-pill px-3">Chi tiết</a>
 
-                                        @if (d.TrangThai == "Chờ xử lý")
+                                        <!-- Bước 1 Admin: Xác nhận đã đặt cọc (nếu chưa thanh toán) -->
+                                        @if (ttThanhToan != "Đã thanh toán" && d.TrangThai != "Đã hủy" && d.TrangThai != "Từ chối")
                                         {
-                                            <form asp-action="XacNhan" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
-                                                  onsubmit="return confirm('Xác nhận đơn đặt sân #@(d.MaDatSan)?');">
+                                            <form asp-action="XacNhanCoc" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Xác nhận khách đã thanh toán cọc (@d.TienCoc.ToString("N0") đ) cho đơn #@(d.MaDatSan)?');">
                                                 <input type="hidden" name="quayLai" value="@quayLaiUrl" />
-                                                <button type="submit" class="btn btn-sm btn-xanh rounded-pill px-3">Xác nhận</button>
+                                                <button type="submit" class="btn btn-sm btn-warning text-dark fw-bold rounded-pill px-3">
+                                                    💵 Xác nhận cọc
+                                                </button>
                                             </form>
                                         }
 
+                                        <!-- Bước 2 Admin: Duyệt đơn đặt sân -->
+                                        @if (choPhepDuyet)
+                                        {
+                                            <form asp-action="DuyetDon" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Duyệt đơn đặt sân #@(d.MaDatSan)?');">
+                                                <input type="hidden" name="quayLai" value="@quayLaiUrl" />
+                                                <button type="submit" class="btn btn-sm btn-xanh rounded-pill px-3 fw-bold">
+                                                    ✔️ Duyệt đơn
+                                                </button>
+                                            </form>
+                                        }
+
+                                        <!-- Hoàn thành -->
                                         @if (choPhepHoanThanh)
                                         {
                                             <form asp-action="HoanThanhDon" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
@@ -288,12 +336,13 @@
                                             </form>
                                         }
 
+                                        <!-- Từ chối / Hủy -->
                                         @if (choPhepHuy)
                                         {
-                                            <form asp-action="HuyDon" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
-                                                  onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn đặt sân #@(d.MaDatSan) không?');">
+                                            <form asp-action="TuChoi" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
+                                                  onsubmit="return confirm('Bạn có chắc chắn muốn từ chối/hủy đơn đặt sân #@(d.MaDatSan) không?');">
                                                 <input type="hidden" name="quayLai" value="@quayLaiUrl" />
-                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Hủy</button>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">Từ chối</button>
                                             </form>
                                         }
                                     </div>
@@ -305,8 +354,8 @@
                     {
                         <tr>
                             <td colspan="8" class="text-center py-5 text-muted">
-                                <div class="fs-1 mb-2">🔍</div>
-                                <p class="mb-0 fw-semibold">Không tìm thấy đơn đặt sân nào phù hợp với điều kiện tìm kiếm!</p>
+                                <div class="fs-1 mb-2">📭</div>
+                                <div class="fw-semibold">Không tìm thấy đơn đặt sân nào phù hợp với bộ lọc hiện tại.</div>
                             </td>
                         </tr>
                     }
@@ -314,48 +363,26 @@
             </table>
         </div>
 
-        <!-- Phân trang: có Trước / Sau, số trang, trang hiện tại; giữ nguyên điều kiện khi chuyển trang -->
+        <!-- Phân trang -->
         @if (Model.TongSoTrang > 1)
         {
-            <div class="card-footer bg-white border-0 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div class="d-flex flex-wrap justify-content-between align-items-center p-3 border-top bg-light">
                 <small class="text-muted">
-                    Trang <strong>@Model.TrangHienTai</strong> / <strong>@Model.TongSoTrang</strong>
-                    &middot; Tổng <strong>@Model.TongSoBanGhi</strong> đơn
+                    Trang <strong>@Model.TrangHienTai</strong> / <strong>@Model.TongSoTrang</strong> (tổng cộng @Model.TongSoBanGhi đơn)
                 </small>
-
                 <nav aria-label="Phân trang">
                     <ul class="pagination pagination-sm mb-0">
                         <li class="page-item @(Model.TrangHienTai <= 1 ? "disabled" : "")">
-                            <a class="page-link" asp-action="Index" asp-all-route-data="RouteTrang(Model.TrangHienTai - 1)">&laquo; Trước</a>
+                            <a class="page-link" asp-all-route-data="@RouteTrang(Model.TrangHienTai - 1)">&laquo; Trước</a>
                         </li>
-
-                        @if (tuTrang > 1)
+                        @for (int p = tuTrang; p <= denTrang; p++)
                         {
-                            <li class="page-item"><a class="page-link" asp-action="Index" asp-all-route-data="RouteTrang(1)">1</a></li>
-                            if (tuTrang > 2)
-                            {
-                                <li class="page-item disabled"><span class="page-link">…</span></li>
-                            }
-                        }
-
-                        @for (int i = tuTrang; i <= denTrang; i++)
-                        {
-                            <li class="page-item @(i == Model.TrangHienTai ? "active" : "")">
-                                <a class="page-link @(i == Model.TrangHienTai ? "bg-success border-success" : "")" asp-action="Index" asp-all-route-data="RouteTrang(i)">@i</a>
+                            <li class="page-item @(p == Model.TrangHienTai ? "active" : "")">
+                                <a class="page-link @(p == Model.TrangHienTai ? "bg-success border-success" : "")" asp-all-route-data="@RouteTrang(p)">@p</a>
                             </li>
                         }
-
-                        @if (denTrang < Model.TongSoTrang)
-                        {
-                            if (denTrang < Model.TongSoTrang - 1)
-                            {
-                                <li class="page-item disabled"><span class="page-link">…</span></li>
-                            }
-                            <li class="page-item"><a class="page-link" asp-action="Index" asp-all-route-data="RouteTrang(Model.TongSoTrang)">@Model.TongSoTrang</a></li>
-                        }
-
                         <li class="page-item @(Model.TrangHienTai >= Model.TongSoTrang ? "disabled" : "")">
-                            <a class="page-link" asp-action="Index" asp-all-route-data="RouteTrang(Model.TrangHienTai + 1)">Sau &raquo;</a>
+                            <a class="page-link" asp-all-route-data="@RouteTrang(Model.TrangHienTai + 1)">Sau &raquo;</a>
                         </li>
                     </ul>
                 </nav>

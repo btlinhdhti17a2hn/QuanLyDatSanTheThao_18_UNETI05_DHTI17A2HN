@@ -1,4 +1,4 @@
-﻿// Họ và tên: Lê Bích Ngọc
+// Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
 // Nội dung thực hiện: Cấu hình ApplicationDbContext, ánh xạ cơ sở dữ liệu (DbSet) và khởi tạo dữ liệu mẫu (Seed Data).
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +19,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data
         public DbSet<DatSan> DatSans { get; set; }
         public DbSet<DichVu> DichVus { get; set; }
         public DbSet<ChiTietDatSan> ChiTietDatSans { get; set; }
+        public DbSet<ThanhToan> ThanhToans { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -132,7 +133,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data
             // 6. DỮ LIỆU MẪU: ĐẶT SÂN (45 BẢN GHI ĐA DẠNG TRẠNG THÁI)
             // ----------------------------------------------------------------------
             var datSans = new List<DatSan>();
-            string[] cacTrangThai = { "Chờ xử lý", "Đang xử lý", "Hoàn thành", "Đã hủy" }; // 4 trạng thái
+            string[] cacTrangThai = { "Chờ duyệt", "Đang xử lý", "Hoàn thành", "Đã hủy" }; // 4 trạng thái
             for (int i = 1; i <= 45; i++)
             {
                 int khId = (i % 30) + 1; // Random khách hàng 1-30
@@ -179,6 +180,30 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data
                 });
             }
             modelBuilder.Entity<ChiTietDatSan>().HasData(chiTietDatSans);
+
+            // ----------------------------------------------------------------------
+            // 8. DỮ LIỆU MẪU: THANH TOÁN (45 BẢN GHI MÔ PHỎNG THEO 45 ĐƠN ĐẶT SÂN)
+            // ----------------------------------------------------------------------
+            var thanhToans = new List<ThanhToan>();
+            string[] cacTrangThaiThanhToan = { "Chờ xác nhận", "Đã thanh toán", "Đã thanh toán", "Chưa thanh toán" };
+            for (int i = 1; i <= 45; i++)
+            {
+                string tt = cacTrangThaiThanhToan[i % 4];
+                DateTime? ngayTt = tt == "Chưa thanh toán" ? null : new DateTime(2026, 9, 25, 10, (i % 50) + 1, 0);
+
+                thanhToans.Add(new ThanhToan
+                {
+                    MaThanhToan = i,
+                    MaDatSan = i,
+                    SoTien = 100000,
+                    PhuongThuc = (i % 2 == 0) ? "Chuyển khoản QR" : "Chuyển khoản ngân hàng",
+                    TrangThai = tt,
+                    NgayThanhToan = ngayTt,
+                    GhiChu = $"DATSAN{i}",
+                    MaGiaoDich = tt == "Đã thanh toán" ? $"MB{202609250000L + i}" : null
+                });
+            }
+            modelBuilder.Entity<ThanhToan>().HasData(thanhToans);
         }
     }
 }

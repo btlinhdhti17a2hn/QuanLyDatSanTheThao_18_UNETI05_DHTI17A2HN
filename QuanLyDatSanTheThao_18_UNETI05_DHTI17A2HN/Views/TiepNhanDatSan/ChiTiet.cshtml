@@ -1,7 +1,7 @@
-﻿@*
+@*
 // Họ và tên: Vũ Ánh Ngọc
 // Mã sinh viên: 23103100106
-// Nội dung thực hiện: Module 4 - Giao diện Chi tiết và Xử lý đơn đặt sân (kiểm tra điều kiện, luồng trạng thái, xác nhận/hoàn thành/hủy)
+// Nội dung thực hiện: Module 4 - Giao diện Chi tiết và Xử lý đơn đặt sân (kiểm tra điều kiện, luồng trạng thái tách riêng đặt sân & thanh toán cọc)
 *@
 
 @model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.TiepNhanDatSanChiTietViewModel
@@ -12,38 +12,37 @@
 
     (string Css, string Icon) KieuTrangThai(string tt) => tt switch
     {
-        "Chờ xử lý" => ("bg-warning text-dark", "⏳"),
-        "Đang xử lý" => ("bg-info text-dark", "⚙️"),
+        "Chờ duyệt" or "Chờ xử lý" => ("bg-warning text-dark", "⏳"),
+        "Đã duyệt" or "Đang xử lý" => ("bg-info text-dark", "⚙️"),
         "Hoàn thành" => ("bg-success", "✅"),
-        "Đã hủy" => ("bg-danger", "❌"),
+        "Từ chối" or "Đã hủy" => ("bg-danger", "❌"),
         _ => ("bg-secondary", "•")
     };
     var kieu = KieuTrangThai(don.TrangThai);
 
-    // Vị trí hiện tại trên luồng: 0 = Chờ xử lý, 1 = Đang xử lý, 2 = Hoàn thành, -1 = Đã hủy
     int buoc = don.TrangThai switch
     {
-        "Chờ xử lý" => 0,
-        "Đang xử lý" => 1,
+        "Chờ duyệt" or "Chờ xử lý" => 0,
+        "Đã duyệt" or "Đang xử lý" => 1,
         "Hoàn thành" => 2,
         _ => -1
     };
-    string[] tenBuoc = { "Chờ xử lý", "Đang xử lý", "Hoàn thành" };
+    string[] tenBuoc = { "Chờ duyệt", "Đã duyệt", "Hoàn thành" };
     string[] iconBuoc = { "⏳", "⚙️", "✅" };
 
-    // Sân đang được sử dụng: đơn Đang xử lý và đã đến giờ bắt đầu
-    bool dangSuDung = don.TrangThai == "Đang xử lý" && don.GioBatDau <= DateTime.Now;
+    bool dangSuDung = (don.TrangThai == "Đang xử lý" || don.TrangThai == "Đã duyệt") && don.GioBatDau <= DateTime.Now;
 
     string cauHoiHuy = dangSuDung
         ? $"Sân hiện đang được sử dụng. Bạn vẫn muốn hủy / từ chối đơn đặt sân #{don.MaDatSan}?"
-        : $"Bạn có chắc chắn muốn hủy đơn đặt sân #{don.MaDatSan} không?";
+        : $"Bạn có chắc chắn muốn từ chối / hủy đơn đặt sân #{don.MaDatSan} không?";
 
-    // Dịch vụ đã có trong đơn (theo mã dịch vụ) để điền sẵn số lượng
+    var thanhToan = Model.ThanhToan;
+    var ttThanhToan = thanhToan?.TrangThai ?? "Chưa thanh toán";
+
     var dvTrongDon = don.ChiTietDatSans
         .GroupBy(ct => ct.MaDichVu)
         .ToDictionary(g => g.Key, g => g.First());
 
-    // Biểu tượng dịch vụ (giống trang Quản lý dịch vụ)
     string LayIcon(string? ten)
     {
         var t = (ten ?? "").ToLower();
@@ -59,31 +58,37 @@
         return "🏷️";
     }
 
-    string gioMoCua = don.SanTheThao.GioMoCua.ToString(@"hh\:mm");
-    string gioDongCua = don.SanTheThao.GioDongCua.ToString(@"hh\:mm");
+    var gioMoCua = don.SanTheThao.GioMoCua.ToString(@"hh\:mm");
+    var gioDongCua = don.SanTheThao.GioDongCua.ToString(@"hh\:mm");
 }
 
 <style>
-    .tn-flow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-    .tn-step {
+    .tn-flow {
         display: flex;
         align-items: center;
-        gap: .5rem;
-        padding: .5rem 1rem;
-        border-radius: 50px;
-        font-weight: 700;
-        font-size: .9rem;
-        background: #f3f4f6;
-        color: #9ca3af;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+    .tn-step {
+        padding: .5rem 1.1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        font-size: .88rem;
+        background: #f1f5f9;
+        color: #64748b;
+        border: 2px solid transparent;
+        transition: all .2s ease;
+    }
+    .tn-step.current {
+        background: #ecfdf5;
+        color: #166534;
+        border-color: #22c55e;
+        box-shadow: 0 4px 12px rgba(34, 197, 94, .25);
     }
     .tn-step.done { background: #dcfce7; color: #15803d; }
-    .tn-step.current {
-        background: linear-gradient(135deg, #16a34a, #22c55e);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
-    }
-    .tn-step.cancel { background: #fee2e2; color: #b91c1c; }
-    .tn-arrow { color: #9ca3af; font-weight: 800; }
+    .tn-step.cancel { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .tn-arrow { color: #94a3b8; font-weight: 700; font-size: 1.1rem; }
+
     .btn-xanh {
         background: linear-gradient(135deg, #16a34a, #22c55e);
         border: none;
@@ -91,14 +96,13 @@
     }
     .btn-xanh:hover { color: #fff; filter: brightness(.95); }
 
-    /* Bảng xanh lá dùng chung với các trang quản lý khác của hệ thống */
-    .table-card {
+    .btn-vang {
+        background: linear-gradient(135deg, #f59e0b, #fbbf24);
         border: none;
-        border-radius: 20px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
-        overflow: hidden;
-        background: #fff;
+        color: #78350f;
     }
+    .btn-vang:hover { color: #78350f; filter: brightness(.95); }
+
     .table-pretty { margin: 0; }
     .table-pretty thead th {
         background: linear-gradient(135deg, #dcfce7, #bbf7d0);
@@ -106,7 +110,6 @@
         font-weight: 700;
         text-transform: uppercase;
         font-size: .78rem;
-        letter-spacing: .6px;
         border: none;
         padding: 1rem .9rem;
         white-space: nowrap;
@@ -115,7 +118,6 @@
     .table-pretty tbody tr { transition: background .2s ease; }
     .table-pretty tbody tr:hover { background: #f0fdf4; }
 
-    /* Dịch vụ: biểu tượng, ô số lượng, dòng được chọn */
     .dv-ico {
         width: 42px;
         height: 42px;
@@ -162,39 +164,62 @@
     <!-- Thông báo -->
     @if (TempData["Success"] != null)
     {
-        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-3" role="alert">
+        <div class="alert alert-success alert-dismissible fade show shadow-sm rounded-4" role="alert">
             ✅ @TempData["Success"]
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
     @if (TempData["Error"] != null)
     {
-        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-3" role="alert">
+        <div class="alert alert-danger alert-dismissible fade show shadow-sm rounded-4" role="alert">
             ⚠️ @TempData["Error"]
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     }
 
     <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
-        <!-- Đầu phiếu -->
+        <!-- Đầu phiếu: hiển thị rõ cả 2 trạng thái -->
         <div class="card-header bg-white border-bottom p-4">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
                 <div>
-                    <span class="badge bg-success-subtle text-success fs-6 px-3 py-1 rounded-pill mb-2">Xử lý đặt sân</span>
-                    <h3 class="fw-bold text-dark mb-0">Mã đơn: #@don.MaDatSan</h3>
+                    <span class="badge bg-success-subtle text-success fs-6 px-3 py-1 rounded-pill mb-2">Quy trình duyệt 2 bước</span>
+                    <h3 class="fw-bold text-dark mb-0">Xử lý đơn đặt sân: #@don.MaDatSan</h3>
                     <small class="text-muted">Thời điểm tạo đơn: @don.NgayDat.ToString("dd/MM/yyyy HH:mm")</small>
                 </div>
                 <div class="text-end">
-                    <span class="small text-muted d-block mb-1">Trạng thái hiện tại:</span>
-                    <span class="badge @kieu.Css fs-6 px-4 py-2 rounded-pill">@kieu.Icon @don.TrangThai</span>
+                    <div class="mb-2">
+                        <span class="small text-muted d-block">Trạng thái đặt sân:</span>
+                        <span class="badge @kieu.Css fs-6 px-3 py-2 rounded-pill">@kieu.Icon @don.TrangThai</span>
+                    </div>
+                    <div>
+                        <span class="small text-muted d-block">Trạng thái thanh toán:</span>
+                        @switch (ttThanhToan)
+                        {
+                            case "Đã thanh toán":
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-6 px-3 py-1 rounded-pill fw-bold">
+                                    ✅ Đã thanh toán cọc
+                                </span>
+                                break;
+                            case "Chờ xác nhận":
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fs-6 px-3 py-1 rounded-pill fw-bold">
+                                    ⏳ Khách đã báo thanh toán (Chờ xác nhận)
+                                </span>
+                                break;
+                            default:
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle fs-6 px-3 py-1 rounded-pill">
+                                    ⚪ Khách chưa thanh toán
+                                </span>
+                                break;
+                        }
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="card-body p-4 p-md-5">
-            <!-- Luồng trạng thái -->
+            <!-- Luồng trạng thái đặt sân -->
             <div class="mb-4 pb-4 border-bottom">
-                <h6 class="fw-bold text-success text-uppercase small mb-3">🔄 Luồng xử lý đơn</h6>
+                <h6 class="fw-bold text-success text-uppercase small mb-3">🔄 Luồng xử lý đơn đặt sân</h6>
                 <div class="tn-flow">
                     @for (int i = 0; i < tenBuoc.Length; i++)
                     {
@@ -208,8 +233,74 @@
                     @if (buoc == -1)
                     {
                         <span class="tn-arrow">|</span>
-                        <span class="tn-step cancel">❌ Đã hủy</span>
+                        <span class="tn-step cancel">❌ Từ chối / Đã hủy</span>
                     }
+                </div>
+            </div>
+
+            <!-- KHỐI QUẢN LÝ THANH TOÁN TIỀN CỌC MÔ PHỎNG (MỚI) -->
+            <div class="mb-4 pb-4 border-bottom">
+                <div class="card border-0 shadow-sm rounded-4 p-3 p-md-4" style="background: linear-gradient(145deg, #f0fdf4, #ffffff); border: 2px solid #bbf7d0 !important;">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div>
+                            <h5 class="fw-bold text-success mb-1">💳 Quản lý thanh toán tiền cọc</h5>
+                            <small class="text-muted">Kiểm tra thông tin chuyển khoản từ khách hàng trước khi duyệt đơn đặt sân</small>
+                        </div>
+                        <div>
+                            @if (ttThanhToan != "Đã thanh toán" && don.TrangThai != "Đã hủy" && don.TrangThai != "Từ chối")
+                            {
+                                <form asp-action="XacNhanCoc" asp-route-id="@don.MaDatSan" method="post" class="d-inline"
+                                      onsubmit="return confirm('Xác nhận khách đã thanh toán cọc (@don.TienCoc.ToString("N0") VNĐ) cho đơn #@don.MaDatSan?');">
+                                    <button type="submit" class="btn btn-vang fw-bold rounded-pill px-4 py-2 shadow-sm">
+                                        💵 Xác nhận đã đặt cọc
+                                    </button>
+                                </form>
+                            }
+                            else if (ttThanhToan == "Đã thanh toán")
+                            {
+                                <span class="badge bg-success fs-6 px-4 py-2 rounded-pill">
+                                    ✅ Đã hoàn tất đặt cọc
+                                </span>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-sm-6 col-md-3">
+                            <div class="p-3 bg-white rounded-3 border">
+                                <small class="text-muted d-block">Tiền cọc quy định:</small>
+                                <strong class="text-danger fs-5">@don.TienCoc.ToString("N0") VNĐ</strong>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="p-3 bg-white rounded-3 border">
+                                <small class="text-muted d-block">Phương thức:</small>
+                                <strong class="text-dark">@(thanhToan?.PhuongThuc ?? "Chuyển khoản QR")</strong>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="p-3 bg-white rounded-3 border">
+                                <small class="text-muted d-block">Trạng thái thanh toán:</small>
+                                <strong class="@(ttThanhToan == "Đã thanh toán" ? "text-success" : (ttThanhToan == "Chờ xác nhận" ? "text-warning" : "text-muted"))">
+                                    @ttThanhToan
+                                </strong>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="p-3 bg-white rounded-3 border">
+                                <small class="text-muted d-block">Thời điểm thanh toán:</small>
+                                <strong class="text-dark">@(thanhToan?.NgayThanhToan?.ToString("dd/MM/yyyy HH:mm") ?? "Chưa thanh toán")</strong>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(thanhToan?.GhiChu))
+                        {
+                            <div class="col-12">
+                                <div class="p-2 bg-white rounded-3 border small">
+                                    <strong>Nội dung / Lời nhắn của khách:</strong> @thanhToan.GhiChu
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -258,7 +349,7 @@
                 </div>
             </div>
 
-            <!-- Thời gian sử dụng -->
+            <!-- Thời gian sử dụng sân -->
             <div class="mb-4 pb-4 border-bottom">
                 <h6 class="fw-bold text-success text-uppercase small mb-3">⏰ Thời gian sử dụng sân</h6>
                 <div class="row g-3 text-center">
@@ -283,23 +374,17 @@
                 </div>
             </div>
 
-            <!-- Kiểm tra điều kiện trước khi xử lý (chỉ hiện khi đơn đang chờ xác nhận) -->
-            @if (don.TrangThai == "Chờ xử lý")
+            <!-- Kết quả kiểm tra điều kiện -->
+            @if (don.TrangThai == "Chờ duyệt" || don.TrangThai == "Chờ xử lý")
             {
                 <div class="mb-4 pb-4 border-bottom">
-                    <h6 class="fw-bold text-success text-uppercase small mb-3">🛡️ Kiểm tra điều kiện trước khi xác nhận</h6>
+                    <h6 class="fw-bold text-success text-uppercase small mb-3">🔍 Kết quả kiểm tra điều kiện duyệt đơn</h6>
 
-                    @if (!Model.KetQua.Loi.Any())
+                    @if (Model.KetQua.Loi.Any())
                     {
-                        <div class="alert alert-success rounded-3 mb-2">
-                            ✅ Đơn đạt đủ điều kiện: đúng giờ mở cửa, không trùng lịch, tiền cọc hợp lệ và sân còn khả năng đáp ứng.
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="alert alert-danger rounded-3 mb-2">
-                            <div class="fw-bold mb-1">⛔ Đơn chưa đủ điều kiện để xác nhận:</div>
-                            <ul class="mb-0">
+                        <div class="alert alert-danger shadow-sm rounded-4 mb-3">
+                            <div class="fw-bold mb-2">❌ Chưa đủ điều kiện để duyệt:</div>
+                            <ul class="mb-0 ps-3">
                                 @foreach (var loi in Model.KetQua.Loi)
                                 {
                                     <li>@loi</li>
@@ -307,136 +392,92 @@
                             </ul>
                         </div>
                     }
-
-                    @foreach (var cb in Model.KetQua.CanhBao)
+                    else
                     {
-                        <div class="alert alert-warning rounded-3 mb-2">⚠️ @cb</div>
+                        <div class="alert alert-success shadow-sm rounded-4 mb-3">
+                            <div class="fw-bold">✅ Đã kiểm tra: Sân còn trống, đúng giờ hoạt động và đủ điều kiện để duyệt!</div>
+                        </div>
                     }
 
-                    <div class="small text-muted">
-                        📊 Số lượt đặt khác của sân trong ngày @don.GioBatDau.ToString("dd/MM/yyyy"):
-                        <strong>@Model.KetQua.SoLuotTrongNgay</strong> / @Model.GioiHanLuotMoiNgay lượt
-                    </div>
-
-                    @if (Model.KetQua.DonTrungLich.Any())
+                    @if (Model.KetQua.CanhBao.Any())
                     {
-                        <div class="mt-3">
-                            <div class="fw-semibold small mb-2 text-danger">Các đơn đang trùng khung giờ:</div>
-                            <div class="table-responsive">
-                                <table class="table table-sm table-bordered align-middle mb-0">
-                                    <thead class="table-light small">
-                                        <tr>
-                                            <th>Mã đơn</th>
-                                            <th>Khách hàng</th>
-                                            <th>Khung giờ</th>
-                                            <th>Trạng thái</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var t in Model.KetQua.DonTrungLich)
-                                        {
-                                            var kt = KieuTrangThai(t.TrangThai);
-                                            <tr>
-                                                <td>#@t.MaDatSan</td>
-                                                <td>@t.KhachHang.HoTen</td>
-                                                <td>@t.GioBatDau.ToString("dd/MM/yyyy HH:mm") - @t.GioKetThuc.ToString("HH:mm")</td>
-                                                <td><span class="badge @kt.Css rounded-pill">@kt.Icon @t.TrangThai</span></td>
-                                                <td class="text-center">
-                                                    <a asp-action="ChiTiet" asp-route-id="@t.MaDatSan" class="btn btn-sm btn-outline-primary rounded-pill px-3">Xem</a>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="alert alert-warning shadow-sm rounded-4 mb-3">
+                            <div class="fw-bold mb-1">⚠️ Lưu ý quản trị:</div>
+                            <ul class="mb-0 ps-3">
+                                @foreach (var cb in Model.KetQua.CanhBao)
+                                {
+                                    <li>@cb</li>
+                                }
+                            </ul>
                         </div>
                     }
                 </div>
             }
 
             <!-- Dịch vụ đi kèm -->
-            @if (Model.CoTheSuaDichVu)
-            {
-                <!-- Thêm / sửa dịch vụ + nút Tạm lưu (ghi xuống CSDL, không đổi trạng thái đơn) -->
-                <div class="mb-4 pb-4 border-bottom">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                        <h6 class="fw-bold text-success text-uppercase small mb-0">🥤 Dịch vụ sử dụng thêm</h6>
-                        <span id="dvChuaLuu" class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-2 d-none">
-                            ⚠️ Có thay đổi chưa tạm lưu
-                        </span>
-                    </div>
+            <div class="mb-4 pb-4 border-bottom">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-success text-uppercase small mb-0">🥤 Dịch vụ đi kèm</h6>
+                    @if (Model.CoTheSuaDichVu)
+                    {
+                        <button type="submit" form="formDichVu" class="btn btn-sm btn-outline-success rounded-pill px-3">
+                            💾 Tạm lưu thay đổi dịch vụ
+                        </button>
+                    }
+                </div>
 
-                    <form id="formDichVu" asp-action="LuuDichVu" asp-route-id="@don.MaDatSan" method="post">
-                        <div class="table-responsive table-card border">
-                            <table class="table table-pretty align-middle">
+                @if (Model.CoTheSuaDichVu)
+                {
+                    <form asp-action="LuuDichVu" asp-route-id="@don.MaDatSan" method="post" id="formDichVu">
+                        @Html.AntiForgeryToken()
+                        <div class="table-responsive">
+                            <table class="table table-pretty align-middle mb-0">
                                 <thead>
                                     <tr>
+                                        <th style="width: 50px;"></th>
                                         <th>Dịch vụ</th>
                                         <th class="text-end">Đơn giá</th>
-                                        <th class="text-center">Số lượng</th>
-                                        <th class="text-end">Thành tiền</th>
+                                        <th class="text-center" style="width: 170px;">Số lượng</th>
+                                        <th class="text-end" style="width: 170px;">Thành tiền</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @{ int stt = 0; }
+                                    @{ int idx = 0; }
                                     @foreach (var dv in Model.DanhSachDichVu)
                                     {
-                                        bool daChon = dvTrongDon.TryGetValue(dv.MaDichVu, out var ctCu);
-                                        decimal giaDong = daChon ? ctCu!.DonGia : dv.DonGia;
-                                        int slDong = daChon ? ctCu!.SoLuong : 0;
-                                        <tr class="dv-row @(slDong > 0 ? "dv-chon" : "")" data-gia="@((long)giaDong)">
-                                            <td>
-                                                <div class="d-flex align-items-center gap-3">
-                                                    <span class="dv-ico">@LayIcon(dv.TenDichVu)</span>
-                                                    <div class="fw-semibold text-dark">
-                                                        @dv.TenDichVu
-                                                        @if (!dv.TrangThai)
-                                                        {
-                                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill ms-1">Ngừng cung cấp</span>
-                                                        }
-                                                    </div>
-                                                </div>
-                                                <input type="hidden" name="dichVu[@stt].MaDichVu" value="@dv.MaDichVu" />
+                                        int sl = dvTrongDon.TryGetValue(dv.MaDichVu, out var ct) ? ct.SoLuong : 0;
+                                        decimal tt = (decimal)sl * dv.DonGia;
+                                        <tr class="dv-row @(sl > 0 ? "dv-chon" : "")" data-dongia="@((long)dv.DonGia)">
+                                            <td class="text-center ps-3">
+                                                <span class="dv-ico">@LayIcon(dv.TenDichVu)</span>
                                             </td>
-                                            <td class="text-end">@giaDong.ToString("N0") VNĐ</td>
+                                            <td>
+                                                <div class="fw-semibold text-dark">@dv.TenDichVu</div>
+                                                <small class="text-muted">@dv.MoTa</small>
+                                                <input type="hidden" name="dichVu[@idx].MaDichVu" value="@dv.MaDichVu" />
+                                            </td>
+                                            <td class="text-end fw-semibold">@dv.DonGia.ToString("N0") VNĐ</td>
                                             <td class="text-center">
                                                 <div class="input-group input-group-sm dv-qty mx-auto">
-                                                    <button type="button" class="btn btn-dv dv-giam" aria-label="Giảm">−</button>
-                                                    <input type="number" class="form-control dv-sl" name="dichVu[@stt].SoLuong"
-                                                           min="0" max="99" value="@slDong" />
-                                                    <button type="button" class="btn btn-dv dv-tang" aria-label="Tăng">+</button>
+                                                    <button type="button" class="btn btn-dv btn-giam">−</button>
+                                                    <input type="number" name="dichVu[@idx].SoLuong" value="@sl" min="0" max="99" class="form-control dv-input" />
+                                                    <button type="button" class="btn btn-dv btn-tang">+</button>
                                                 </div>
                                             </td>
-                                            <td class="text-end fw-semibold dv-thanhtien">@((giaDong * slDong).ToString("N0")) VNĐ</td>
+                                            <td class="text-end fw-bold dv-thanhtien pe-3">@tt.ToString("N0") VNĐ</td>
                                         </tr>
-                                        stt++;
-                                    }
-                                    @if (!Model.DanhSachDichVu.Any())
-                                    {
-                                        <tr><td colspan="4" class="text-center text-muted py-3">Chưa có dịch vụ nào trong danh mục.</td></tr>
+                                        idx++;
                                     }
                                 </tbody>
                             </table>
                         </div>
-
-                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-                            <div class="small text-muted">
-                                Tạm tính dịch vụ: <strong id="dvTamTinh" class="text-dark">@Model.TienDichVu.ToString("N0") VNĐ</strong>
-                                &middot; Bấm <strong>Tạm lưu</strong> để giữ lại các mục đã chọn, chưa cần xử lý đơn ngay.
-                            </div>
-                            <button type="submit" class="btn btn-xanh rounded-pill px-4 fw-semibold shadow-sm">💾 Tạm lưu</button>
-                        </div>
                     </form>
-                </div>
-            }
-            else if (don.ChiTietDatSans.Any())
-            {
-                <div class="mb-4 pb-4 border-bottom">
-                    <h6 class="fw-bold text-success text-uppercase small mb-3">🥤 Dịch vụ sử dụng thêm</h6>
-                    <div class="table-responsive table-card border">
-                        <table class="table table-pretty align-middle">
-                            <thead>
+                }
+                else if (don.ChiTietDatSans.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-bordered align-middle mb-0">
+                            <thead class="table-light small">
                                 <tr>
                                     <th>Dịch vụ</th>
                                     <th class="text-center">Số lượng</th>
@@ -457,10 +498,14 @@
                             </tbody>
                         </table>
                     </div>
-                </div>
-            }
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Đơn không sử dụng dịch vụ đi kèm.</p>
+                }
+            </div>
 
-            <!-- Tổng kết tiền -->
+            <!-- Bảng tổng kết chi phí -->
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="p-3 bg-light rounded-3" id="khungTien"
@@ -470,59 +515,68 @@
                             <span class="fw-semibold">@don.DonGia.ToString("N0") VNĐ/giờ</span>
                         </div>
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Tiền thuê sân:</span>
+                            <span class="text-muted">Tiền thuê sân (@Model.SoGio.ToString("0.#")h):</span>
                             <span class="fw-semibold">@Model.TienSan.ToString("N0") VNĐ</span>
                         </div>
-                        @if (Model.TienDichVu > 0 || Model.CoTheSuaDichVu)
-                        {
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">Tiền dịch vụ:</span>
-                                <span class="fw-semibold" id="tongDichVu">@Model.TienDichVu.ToString("N0") VNĐ</span>
-                            </div>
-                        }
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Tiền dịch vụ thêm:</span>
+                            <span class="fw-semibold" id="tongDichVu">@Model.TienDichVu.ToString("N0") VNĐ</span>
+                        </div>
                         <div class="d-flex justify-content-between mb-2 border-top pt-2">
                             <span class="fw-bold text-dark">Tổng cộng:</span>
                             <strong class="fs-5 text-primary" id="tongCong">@Model.TongTien.ToString("N0") VNĐ</strong>
                         </div>
                         <div class="d-flex justify-content-between mb-2 border-top pt-2">
-                            <span class="fw-bold text-danger">Tiền cọc:</span>
+                            <span class="fw-bold text-danger">Tiền cọc quy định (30%):</span>
                             <strong class="fs-5 text-danger">@don.TienCoc.ToString("N0") VNĐ</strong>
                         </div>
-                        @if (don.TrangThai != "Đã hủy")
-                        {
-                            <div class="d-flex justify-content-between align-items-center border-top border-2 pt-2">
-                                <span class="fw-bold text-success">
-                                    Tổng tiền cần thanh toán:
-                                    <small class="text-muted fw-normal d-block">(Tổng cộng − Tiền cọc)</small>
-                                </span>
-                                <strong class="fs-4 text-success" id="canThanhToan">@Model.ConPhaiThanhToan.ToString("N0") VNĐ</strong>
-                            </div>
-                        }
+                        <div class="d-flex justify-content-between align-items-center border-top border-2 pt-2">
+                            <span class="fw-bold text-success">
+                                Tiền khách còn phải trả:
+                                <small class="text-muted fw-normal d-block">(Tổng cộng − Tiền cọc)</small>
+                            </span>
+                            <strong class="fs-4 text-success" id="canThanhToan">@Model.ConPhaiThanhToan.ToString("N0") VNĐ</strong>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Nút thao tác: chỉ hiện nút phù hợp với trạng thái hiện tại -->
+            <!-- Nút thao tác Admin từng bước -->
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top">
                 <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">&laquo; Quay lại danh sách</a>
 
                 <div class="d-flex flex-wrap gap-2">
-                    @if (don.TrangThai == "Chờ xử lý")
+                    <!-- Bước 1: Xác nhận tiền cọc -->
+                    @if (ttThanhToan != "Đã thanh toán" && don.TrangThai != "Đã hủy" && don.TrangThai != "Từ chối")
+                    {
+                        <form asp-action="XacNhanCoc" asp-route-id="@don.MaDatSan" method="post"
+                              onsubmit="return confirm('Xác nhận khách đã đặt cọc (@don.TienCoc.ToString("N0") VNĐ) cho đơn #@don.MaDatSan?');">
+                            <button type="submit" class="btn btn-vang rounded-pill px-4 fw-bold shadow-sm">
+                                💵 Xác nhận đã đặt cọc
+                            </button>
+                        </form>
+                    }
+
+                    <!-- Bước 2: Duyệt đơn đặt sân -->
+                    @if (don.TrangThai == "Chờ duyệt" || don.TrangThai == "Chờ xử lý")
                     {
                         if (Model.CoTheXacNhan)
                         {
-                            <form asp-action="XacNhan" asp-route-id="@don.MaDatSan" method="post"
-                                  onsubmit="return confirm('Xác nhận đơn đặt sân #@(don.MaDatSan)?');">
-                                <button type="submit" class="btn btn-xanh rounded-pill px-4 fw-semibold shadow-sm">✔️ Xác nhận đơn</button>
+                            <form asp-action="DuyetDon" asp-route-id="@don.MaDatSan" method="post"
+                                  onsubmit="return confirm('Duyệt đơn đặt sân #@(don.MaDatSan)?');">
+                                <button type="submit" class="btn btn-xanh rounded-pill px-4 fw-semibold shadow-sm">
+                                    ✔️ Duyệt đơn đặt sân
+                                </button>
                             </form>
                         }
                         else
                         {
                             <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
-                                    title="Đơn chưa đủ điều kiện, xem mục kiểm tra phía trên">✔️ Chưa thể xác nhận</button>
+                                    title="Đơn chưa đủ điều kiện, xem mục kiểm tra phía trên">✔️ Chưa thể duyệt đơn</button>
                         }
                     }
 
+                    <!-- Hoàn thành -->
                     @if (Model.CoTheHoanThanh)
                     {
                         <form asp-action="HoanThanhDon" asp-route-id="@don.MaDatSan" method="post"
@@ -530,17 +584,15 @@
                             <button type="submit" class="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">✅ Hoàn thành</button>
                         </form>
                     }
-                    else if (don.TrangThai == "Đang xử lý")
-                    {
-                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
-                                title="Chưa đến giờ sử dụng sân">✅ Chưa đến giờ hoàn thành</button>
-                    }
 
+                    <!-- Từ chối / Hủy đơn -->
                     @if (Model.CoTheHuy)
                     {
-                        <form asp-action="HuyDon" asp-route-id="@don.MaDatSan" method="post"
+                        <form asp-action="TuChoi" asp-route-id="@don.MaDatSan" method="post"
                               onsubmit="return confirm('@cauHoiHuy');">
-                            <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">🗑️ Hủy / Từ chối đơn</button>
+                            <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
+                                🗑️ Từ chối / Hủy đơn
+                            </button>
                         </form>
                     }
                 </div>
@@ -558,65 +610,48 @@
             const khung = document.getElementById('khungTien');
             const tienSan = Number(khung.dataset.tienSan);
             const tienCoc = Number(khung.dataset.tienCoc);
-            const fmt = n => n.toLocaleString('vi-VN') + ' VNĐ';
-            const badge = document.getElementById('dvChuaLuu');
-            let thayDoi = false;
+            const lblTongDichVu = document.getElementById('tongDichVu');
+            const lblTongCong = document.getElementById('tongCong');
+            const lblCanThanhToan = document.getElementById('canThanhToan');
+
+            function dinhDangTien(n) {
+                return new Intl.NumberFormat('vi-VN').format(Math.max(0, Math.round(n))) + ' VNĐ';
+            }
 
             function tinhLai() {
                 let tongDv = 0;
-                form.querySelectorAll('.dv-row').forEach(function (row) {
-                    const o = row.querySelector('.dv-sl');
-                    let sl = parseInt(o.value, 10);
-                    if (isNaN(sl) || sl < 0) sl = 0;
-                    if (sl > 99) sl = 99;
-                    const tien = sl * Number(row.dataset.gia);
-                    tongDv += tien;
-                    row.querySelector('.dv-thanhtien').textContent = fmt(tien);
+                form.querySelectorAll('.dv-row').forEach(row => {
+                    const donGia = Number(row.dataset.dongia);
+                    const input = row.querySelector('.dv-input');
+                    const sl = Math.max(0, Math.min(99, Number(input.value) || 0));
+                    input.value = sl;
+
+                    const thanhTien = sl * donGia;
+                    tongDv += thanhTien;
+                    row.querySelector('.dv-thanhtien').textContent = dinhDangTien(thanhTien);
                     row.classList.toggle('dv-chon', sl > 0);
                 });
-                const tong = tienSan + tongDv;
-                document.getElementById('dvTamTinh').textContent = fmt(tongDv);
-                document.getElementById('tongDichVu').textContent = fmt(tongDv);
-                document.getElementById('tongCong').textContent = fmt(tong);
-                const can = document.getElementById('canThanhToan');
-                if (can) can.textContent = fmt(Math.max(tong - tienCoc, 0));
+
+                const tongCong = tienSan + tongDv;
+                const conPhaiTra = Math.max(0, tongCong - tienCoc);
+
+                if (lblTongDichVu) lblTongDichVu.textContent = dinhDangTien(tongDv);
+                if (lblTongCong) lblTongCong.textContent = dinhDangTien(tongCong);
+                if (lblCanThanhToan) lblCanThanhToan.textContent = dinhDangTien(conPhaiTra);
             }
 
-            function danhDauThayDoi() {
-                thayDoi = true;
-                badge.classList.remove('d-none');
-                tinhLai();
-            }
-
-            form.addEventListener('input', function (e) {
-                if (e.target.classList.contains('dv-sl')) danhDauThayDoi();
-            });
-
-            form.addEventListener('click', function (e) {
-                const btn = e.target.closest('.dv-giam, .dv-tang');
+            form.addEventListener('click', e => {
+                const btn = e.target.closest('.btn-dv');
                 if (!btn) return;
-                const o = btn.parentElement.querySelector('.dv-sl');
-                let sl = parseInt(o.value, 10) || 0;
-                sl += btn.classList.contains('dv-tang') ? 1 : -1;
-                o.value = Math.min(99, Math.max(0, sl));
-                danhDauThayDoi();
+                const input = btn.closest('.dv-qty').querySelector('.dv-input');
+                let sl = Number(input.value) || 0;
+                sl += btn.classList.contains('btn-tang') ? 1 : -1;
+                input.value = Math.max(0, Math.min(99, sl));
+                tinhLai();
             });
 
-            // Bấm Tạm lưu: bỏ cảnh báo rời trang
-            form.addEventListener('submit', function () { thayDoi = false; });
-
-            // Đang có thay đổi chưa tạm lưu mà bấm Xác nhận / Hoàn thành / Hủy -> chặn lại và nhắc
-            document.addEventListener('submit', function (e) {
-                if (thayDoi && e.target !== form) {
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
-                    alert('Bạn có thay đổi dịch vụ chưa được lưu. Vui lòng bấm "Tạm lưu" trước khi xử lý đơn.');
-                }
-            }, true);
-
-            // Đóng tab / tải lại / bấm liên kết khi chưa lưu -> trình duyệt hỏi lại
-            window.addEventListener('beforeunload', function (e) {
-                if (thayDoi) { e.preventDefault(); e.returnValue = ''; }
+            form.addEventListener('input', e => {
+                if (e.target.classList.contains('dv-input')) tinhLai();
             });
         })();
     </script>
