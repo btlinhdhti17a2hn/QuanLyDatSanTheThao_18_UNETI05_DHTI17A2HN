@@ -4,8 +4,6 @@
 // Nội dung thực hiện: Module 3 - Quản lý thông tin khách hàng, xem và cập nhật hồ sơ cá nhân, danh sách khách hàng, tìm kiếm và phân trang
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
@@ -150,32 +148,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             {
                 TempData["Error"] = "Bạn không có quyền truy cập trang quản lý khách hàng!";
                 return RedirectToAction("Index", "Home");
-            }
-
-            var query = _context.KhachHangs
-                .Include(k => k.TaiKhoan)
-                .AsQueryable();
-
-            // 1. Tìm kiếm LINQ theo Họ tên, Số điện thoại hoặc Email
-            if (!string.IsNullOrWhiteSpace(tuKhoa))
-            {
-                tuKhoa = tuKhoa.Trim();
-                query = query.Where(k => k.HoTen.Contains(tuKhoa)
-                                      || k.SoDienThoai.Contains(tuKhoa)
-                                      || (k.Email != null && k.Email.Contains(tuKhoa)));
-            }
-
-            // 2. Lọc LINQ theo Trạng thái hoạt động
-            if (!string.IsNullOrEmpty(trangThai))
-            {
-                if (trangThai == "HoatDong")
-                {
-                    query = query.Where(k => k.TrangThai == true);
-                }
-                else if (trangThai == "BiKhoa")
-                {
-                    query = query.Where(k => k.TrangThai == false);
-                }
             }
 
             int tongSoBanGhi = await _repository.DemTongSoAsync(tuKhoa, trangThai);

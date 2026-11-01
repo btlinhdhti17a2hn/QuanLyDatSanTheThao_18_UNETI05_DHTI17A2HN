@@ -1,23 +1,23 @@
-﻿// Họ và tên: Lê Bích Ngọc
+﻿
+// Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
 // Nội dung thực hiện: Controller TaiKhoan - Xử lý đăng nhập, đăng xuất và phân quyền
 
-using AspNetCoreGeneratedDocument;
 using Microsoft.AspNetCore.Mvc;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
-
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
     public class TaiKhoanController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ITaiKhoanRepository _repository;
 
-        public TaiKhoanController(ApplicationDbContext context)
+        public TaiKhoanController(ITaiKhoanRepository repository)
         {
-            _context = context;
+            _repository = repository;
         }
 
         // Hiển thị giao diện Đăng nhập
@@ -53,7 +53,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (!string.IsNullOrEmpty(tenDangNhap) && !string.IsNullOrEmpty(matKhau))
             {
                 // Sử dụng LINQ để truy vấn kiểm tra tài khoản trong Database[cite: 1]
-                var user = _context.TaiKhoans.FirstOrDefault(x => x.TenDangNhap == tenDangNhap && x.MatKhau == matKhau);
+                var user = _repository.GetByDangNhap(tenDangNhap, matKhau);
 
                 if (user != null)
                 {
@@ -133,7 +133,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Kiểm tra xem Tên đăng nhập đã tồn tại trong CSDL chưa (dùng LINQ)
-            var existingUser = _context.TaiKhoans.FirstOrDefault(x => x.TenDangNhap == tenDangNhap);
+            var existingUser = _repository.GetByTenDangNhap(tenDangNhap);
             if (existingUser != null)
             {
                 ViewBag.Error = "Tên đăng nhập này đã có người sử dụng, vui lòng chọn tên khác!";
@@ -151,8 +151,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 TrangThai = true
             };
 
-            _context.TaiKhoans.Add(taiKhoanMoi);
-            await _context.SaveChangesAsync(); // Lưu để lấy ra MaTaiKhoan vừa sinh ra
+            await _repository.AddTaiKhoanAsync(taiKhoanMoi);
 
             // 2. Tạo bản ghi Khách hàng tương ứng liên kết với Tài khoản vừa tạo
             var khachHangMoi = new KhachHang
@@ -166,8 +165,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 TrangThai = true
             };
 
-            _context.KhachHangs.Add(khachHangMoi);
-            await _context.SaveChangesAsync();
+            await _repository.AddKhachHangAsync(khachHangMoi);
 
             // Đăng ký thành công thì thông báo và chuyển hướng sang trang Đăng nhập
             TempData["Success"] = "Đăng ký tài khoản thành công! Vui lòng đăng nhập.";
@@ -196,7 +194,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return RedirectToAction("DangNhap", "TaiKhoan");
             }
 
-            var dsTaiKhoan = _context.TaiKhoans.OrderByDescending(t => t.MaTaiKhoan).ToList();
+            var dsTaiKhoan = _repository.GetAll();
             return View(dsTaiKhoan);
         }
 
@@ -207,7 +205,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         {
             if (!KiemTraQuyenAdmin()) return RedirectToAction("DangNhap", "TaiKhoan");
 
-            var taiKhoan = await _context.TaiKhoans.FindAsync(id);
+            var taiKhoan = await _repository.GetByIdAsync(id);
             if (taiKhoan == null) return NotFound();
 
             // Không cho phép Admin tự khóa tài khoản Admin khác để tránh lỗi hệ thống
@@ -219,7 +217,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Đảo ngược trạng thái (Đang true thành false, đang false thành true)
             taiKhoan.TrangThai = !taiKhoan.TrangThai;
-            await _context.SaveChangesAsync();
+            await _repository.SaveChangesAsync();
 
             TempData["Success"] = "Cập nhật trạng thái tài khoản thành công!";
             return RedirectToAction(nameof(QuanLyTaiKhoan));
