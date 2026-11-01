@@ -11,6 +11,7 @@ using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 using System.Linq.Expressions;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
@@ -32,7 +33,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 donGia * (decimal)SoGio(gioBatDau, gioKetThuc), 0);
         }
 
-        private readonly ApplicationDbContext _context;
+        private readonly IThongKeRepository _thongKeRepository;
 
         // Trạng thái - dùng chung với module Đặt sân (TrangThaiDatSan)
         private const string CHO_XU_LY = "Chờ xử lý";
@@ -41,9 +42,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         private const string HUY = "Đã hủy";
         private const bool SAN_KHA_DUNG = true;
 
-        public ThongKeController(ApplicationDbContext context)
+        public ThongKeController(IThongKeRepository thongKeRepository)
         {
-            _context = context;
+            _thongKeRepository = thongKeRepository;
         }
 
         // ================== PHÂN QUYỀN ==================
@@ -68,20 +69,20 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             var vm = new DashboardViewModel
             {
-                TongLoaiSan = await _context.LoaiSans.CountAsync(),
-                TongSan = await _context.SanTheThaos.CountAsync(),
-                SanKhaDung = await _context.SanTheThaos.CountAsync(s => s.TrangThai == SAN_KHA_DUNG),
-                TongKhachHang = await _context.KhachHangs.CountAsync(),
-                TongDatSan = await _context.DatSans.CountAsync(),
-                DonChoXuLy = await _context.DatSans.CountAsync(d => d.TrangThai == CHO_XU_LY),
-                DonDangXuLy = await _context.DatSans.CountAsync(d => d.TrangThai == DANG_XU_LY),
-                DonHoanThanh = await _context.DatSans.CountAsync(d => d.TrangThai == HOAN_THANH),
-                DonHomNay = await _context.DatSans.CountAsync(d => d.NgayDat >= homNay && d.NgayDat < ngayMai)
+                TongLoaiSan = await _thongKeRepository.LayLoaiSans().CountAsync(),
+                TongSan = await _thongKeRepository.LaySanTheThaos().CountAsync(),
+                SanKhaDung = await _thongKeRepository.LaySanTheThaos().CountAsync(s => s.TrangThai == SAN_KHA_DUNG),
+                TongKhachHang = await _thongKeRepository.LayKhachHangs().CountAsync(),
+                TongDatSan = await _thongKeRepository.LayDatSans().CountAsync(),
+                DonChoXuLy = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == CHO_XU_LY),
+                DonDangXuLy = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == DANG_XU_LY),
+                DonHoanThanh = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == HOAN_THANH),
+                DonHomNay = await _thongKeRepository.LayDatSans().CountAsync(d => d.NgayDat >= homNay && d.NgayDat < ngayMai)
             };
 
             // Doanh thu hoàn thành: cộng DonGia của các đơn "Hoàn thành"
             // (cùng cách tính với trang Thống kê để hai nơi luôn khớp nhau)
-            vm.DoanhThuHoanThanh = await _context.DatSans
+            vm.DoanhThuHoanThanh = await _thongKeRepository.LayDatSans()
                 .Where(d => d.TrangThai == HOAN_THANH)
                 .SumAsync(d => (decimal?)d.DonGia) ?? 0m;
 
@@ -184,14 +185,18 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             };
 
             // Danh sách năm có dữ liệu để chọn
-            vm.DanhSachNam = await _context.DatSans.Select(d => d.NgayDat.Year)
-                                .Distinct().OrderByDescending(y => y).ToListAsync();
+            vm.DanhSachNam = await _thongKeRepository.LayDatSans()
+                                .Select(d => d.NgayDat.Year)
+                                .Distinct()
+                                .OrderByDescending(y => y)
+                                .ToListAsync();
+
             if (!vm.DanhSachNam.Contains(vm.Nam)) vm.DanhSachNam.Insert(0, vm.Nam);
 
-            var datTrongKy = LocTheoKy(_context.DatSans.AsNoTracking(), tuNgay, denLoaiTru);
+            var datTrongKy = LocTheoKy(_thongKeRepository.LayDatSans().AsNoTracking(), tuNgay, denLoaiTru);
 
             // ----- 2. Kỳ trước (để hiện ▲/▼ so sánh) -----
-            var datKyTruoc = LocTheoKy(_context.DatSans.AsNoTracking(), tuTruoc, denTruoc.AddDays(1));
+            var datKyTruoc = LocTheoKy(_thongKeRepository.LayDatSans().AsNoTracking(), tuTruoc, denTruoc.AddDays(1));
             vm.LuotDatKyTruoc = await datKyTruoc.CountAsync();
             vm.DoanhThuKyTruoc = await datKyTruoc
                 .Where(d => d.TrangThai == HOAN_THANH)
@@ -200,7 +205,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // ----- 3. Các thống kê trong kỳ -----
 
             // Số sân theo loại (thông tin hiện có, không phụ thuộc thời gian)
-            vm.SanTheoLoai = await _context.SanTheThaos.AsNoTracking()
+            vm.SanTheoLoai = await _thongKeRepository.LaySanTheThaos().AsNoTracking()
                 .GroupBy(s => s.LoaiSan!.TenLoai)
                 .Select(g => new ThongKeItem { Ten = g.Key, SoLuong = g.Count() })
                 .OrderByDescending(x => x.SoLuong)
@@ -217,9 +222,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Sân ít khách nhất: tính cả sân chưa có lượt nào trong kỳ (SoLuong = 0)
             var luotTheoTen = vm.LuotDatTheoSan.ToDictionary(x => x.Ten, x => x.SoLuong);
-            var tatCaSan = await _context.SanTheThaos.AsNoTracking()
+            var tatCaSan = await _thongKeRepository.LaySanTheThaos().AsNoTracking()
                 .Select(s => s.TenSan)
                 .ToListAsync();
+
             vm.SanItKhach = tatCaSan.Distinct()
                 .Select(ten => new ThongKeItem
                 {
@@ -370,7 +376,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // TongTien = tiền sân (đơn giá x số giờ) + tiền dịch vụ
         private async Task<List<DonTien>> LayDonTienAsync(Expression<Func<DatSan, bool>> dieuKien)
         {
-            var raw = await _context.DatSans.AsNoTracking()
+            var raw = await _thongKeRepository.LayDatSans().AsNoTracking()
                 .Where(dieuKien)
                 .Select(d => new
                 {
