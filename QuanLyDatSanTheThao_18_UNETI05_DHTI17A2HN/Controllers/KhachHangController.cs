@@ -1,23 +1,23 @@
-
 // Họ và tên: Nguyễn Thị Lan Nhi
 // Mã sinh viên: 23103100104
 // Nội dung thực hiện: Module 3 - Quản lý thông tin khách hàng, xem và cập nhật hồ sơ cá nhân, danh sách khách hàng, tìm kiếm và phân trang
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
-using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
     public class KhachHangController : Controller
     {
-        private readonly IKhachHangRepository _repository;
+        private readonly ApplicationDbContext _context;
 
-        public KhachHangController(IKhachHangRepository repository)
+        public KhachHangController(ApplicationDbContext context)
         {
-            _repository = repository;
+            _context = context;
         }
 
         // Kiểm tra quyền Admin hoặc Nhân viên quản lý
@@ -42,7 +42,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Sử dụng LINQ truy vấn thông tin khách hàng liên kết với Tài khoản
-            var khachHang = await _repository.GetByTaiKhoanAsync(maTaiKhoan.Value);
+            var khachHang = await _context.KhachHangs
+                .Include(k => k.TaiKhoan)
+                .FirstOrDefaultAsync(k => k.MaTaiKhoan == maTaiKhoan);
 
             if (khachHang == null)
             {
@@ -86,7 +88,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // BẢO MẬT PHÂN QUYỀN: Kiểm tra khách hàng chỉ được cập nhật hồ sơ của chính mình
-            var khachHang = await _repository.GetHoSoAsync(model.MaKhachHang, maTaiKhoan.Value);
+            var khachHang = await _context.KhachHangs
+                .Include(k => k.TaiKhoan)
+                .FirstOrDefaultAsync(k => k.MaKhachHang == model.MaKhachHang && k.MaTaiKhoan == maTaiKhoan);
 
             if (khachHang == null)
             {
@@ -129,7 +133,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 HttpContext.Session.SetString("HoTen", khachHang.HoTen);
             }
 
-            await _repository.UpdateAsync(khachHang);
+            await _context.SaveChangesAsync();
 
             TempData["Success"] = "Cập nhật thông tin hồ sơ cá nhân thành công!";
             return RedirectToAction(nameof(HoSo));
@@ -150,12 +154,44 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            int tongSoBanGhi = await _repository.DemTongSoAsync(tuKhoa, trangThai);
+            var query = _context.KhachHangs
+                .Include(k => k.TaiKhoan)
+                .AsQueryable();
+
+            // 1. Tìm kiếm LINQ theo Họ tên, Số điện thoại hoặc Email
+            if (!string.IsNullOrWhiteSpace(tuKhoa))
+            {
+                tuKhoa = tuKhoa.Trim();
+                query = query.Where(k => k.HoTen.Contains(tuKhoa)
+                                      || k.SoDienThoai.Contains(tuKhoa)
+                                      || (k.Email != null && k.Email.Contains(tuKhoa)));
+            }
+
+            // 2. Lọc LINQ theo Trạng thái hoạt động
+            if (!string.IsNullOrEmpty(trangThai))
+            {
+                if (trangThai == "HoatDong")
+                {
+                    query = query.Where(k => k.TrangThai == true);
+                }
+                else if (trangThai == "BiKhoa")
+                {
+                    query = query.Where(k => k.TrangThai == false);
+                }
+            }
+
+            // 3. Sắp xếp LINQ: Khách hàng mới nhất lên đầu
+            query = query.OrderByDescending(k => k.MaKhachHang);
+
+            // 4. Phân trang bằng Skip() và Take() trên LINQ (Theo chuẩn Mục 6.6 & 15 của đề bài)
+            int tongSoBanGhi = await query.CountAsync();
             int tongSoTrang = (int)Math.Ceiling((double)tongSoBanGhi / kichThuocTrang);
             trang = Math.Max(1, Math.Min(trang, Math.Max(1, tongSoTrang)));
 
-            var dsKhachHang = await _repository.GetAllAsync(
-                tuKhoa, trangThai, trang, kichThuocTrang);
+            var dsKhachHang = await query
+                .Skip((trang - 1) * kichThuocTrang)
+                .Take(kichThuocTrang)
+                .ToListAsync();
 
             // Truyền dữ liệu tìm kiếm, lọc và phân trang sang View
             ViewBag.TuKhoa = tuKhoa;
@@ -174,7 +210,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         [HttpGet]
         public async Task<IActionResult> ChiTiet(int id)
         {
-            var khachHang = await _repository.GetDetailsAsync(id);
+            var khachHang = await _context.KhachHangs
+                .Include(k => k.TaiKhoan)
+                .Include(k => k.DatSans)
+                    .ThenInclude(d => d.SanTheThao)
+                .FirstOrDefaultAsync(k => k.MaKhachHang == id);
 
             if (khachHang == null)
             {
@@ -210,12 +250,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return RedirectToAction("Index", "Home");
             }
 
-            var khachHang = await _repository.GetByIdAsync(id);
+            var khachHang = await _context.KhachHangs.FindAsync(id);
             if (khachHang == null) return NotFound();
 
             // Đảo ngược trạng thái hoạt động
             khachHang.TrangThai = !khachHang.TrangThai;
-            await _repository.SaveChangesAsync();
+            await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Đã {(khachHang.TrangThai ? "mở khóa" : "khóa")} khách hàng #{khachHang.MaKhachHang} thành công!";
             return RedirectToAction(nameof(Index));

@@ -1,23 +1,23 @@
-﻿
-// Họ và tên: Tạ Đình Kim 
+﻿// Họ và tên: Tạ Đình Kim 
 // Mã sinh viên: 23103100315
 // Nội dung thực hiện: Controller DichVu - CRUD dịch vụ (nước uống, thuê vợt, bóng...) bám sát giao diện thực tế.
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
-using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
     [AuthorizeRole("Admin", "NhanVien")]
     public class DichVuController : Controller
     {
-        private readonly IDichVuRepository _repository;
+        private readonly ApplicationDbContext _context;
 
-        public DichVuController(IDichVuRepository repository)
+        public DichVuController(ApplicationDbContext context)
         {
-            _repository = repository;
+            _context = context;
         }
 
         // ================== PHÂN QUYỀN (kiểm tra tại Controller) ==================
@@ -38,7 +38,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         {
             if (!LaQuanLy()) return TuChoi();
 
-            var ds = await _repository.GetAllAsync();
+            var ds = await _context.DichVus
+                .AsNoTracking()
+                .OrderBy(d => d.MaDichVu)
+                .ToListAsync();
 
             // Gán lại các ViewBag để View không bị lỗi null khi đọc phân trang/tìm kiếm cũ
             ViewBag.TuKhoa = "";
@@ -58,10 +61,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (!LaQuanLy()) return TuChoi();
             if (id == null) return NotFound();
 
-            var dichVu = await _repository.GetByIdAsync(id.Value);
+            var dichVu = await _context.DichVus.AsNoTracking().FirstOrDefaultAsync(d => d.MaDichVu == id);
             if (dichVu == null) return NotFound();
 
-            ViewBag.DaSuDung = await _repository.DemSoLuongDaSuDungAsync(id.Value);
+            ViewBag.DaSuDung = await _context.ChiTietDatSans
+                .Where(c => c.MaDichVu == id).SumAsync(c => (int?)c.SoLuong) ?? 0;
             return View(dichVu);
         }
 
@@ -82,12 +86,13 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             dichVu.TenDichVu = (dichVu.TenDichVu ?? "").Trim();
 
-            if (await _repository.TenDichVuExistsAsync(dichVu.TenDichVu))
+            if (await _context.DichVus.AnyAsync(d => d.TenDichVu == dichVu.TenDichVu))
                 ModelState.AddModelError("TenDichVu", "Tên dịch vụ đã tồn tại.");
 
             if (!ModelState.IsValid) return View(dichVu);
 
-            await _repository.AddAsync(dichVu);
+            _context.Add(dichVu);
+            await _context.SaveChangesAsync();
             TempData["ThanhCong"] = "Thêm dịch vụ thành công.";
             return RedirectToAction(nameof(Index));
         }
@@ -99,7 +104,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (!LaAdmin()) return TuChoi();
             if (id == null) return NotFound();
 
-            var dichVu = await _repository.GetByIdAsync(id.Value);
+            var dichVu = await _context.DichVus.FindAsync(id);
             if (dichVu == null) return NotFound();
             return View(dichVu);
         }
@@ -114,12 +119,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             model.TenDichVu = (model.TenDichVu ?? "").Trim();
 
-            if (await _repository.TenDichVuExistsAsync(model.TenDichVu, id))
+            if (await _context.DichVus.AnyAsync(d => d.TenDichVu == model.TenDichVu && d.MaDichVu != id))
                 ModelState.AddModelError("TenDichVu", "Tên dịch vụ đã tồn tại.");
 
             if (!ModelState.IsValid) return View(model);
 
-            var dichVu = await _repository.GetByIdAsync(id);
+            var dichVu = await _context.DichVus.FindAsync(id);
             if (dichVu == null) return NotFound();
 
             dichVu.TenDichVu = model.TenDichVu;
@@ -127,7 +132,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             dichVu.MoTa = model.MoTa;
             dichVu.TrangThai = model.TrangThai;
 
-            await _repository.UpdateAsync(dichVu);
+            await _context.SaveChangesAsync();
             TempData["ThanhCong"] = "Cập nhật dịch vụ thành công.";
             return RedirectToAction(nameof(Index));
         }
@@ -139,11 +144,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         public async Task<IActionResult> DoiTrangThai(int id)
         {
             if (!LaAdmin()) return TuChoi();
-            var dichVu = await _repository.GetByIdAsync(id);
+            var dichVu = await _context.DichVus.FindAsync(id);
             if (dichVu == null) return NotFound();
 
             dichVu.TrangThai = !dichVu.TrangThai;
-            await _repository.SaveChangesAsync();
+            await _context.SaveChangesAsync();
             TempData["ThanhCong"] = $"Đã chuyển \"{dichVu.TenDichVu}\" sang trạng thái {(dichVu.TrangThai ? "Hoạt động" : "Ngừng cung cấp")}.";
             return RedirectToAction(nameof(Index));
         }
@@ -155,10 +160,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (!LaAdmin()) return TuChoi();
             if (id == null) return NotFound();
 
-            var dichVu = await _repository.GetByIdAsync(id.Value);
+            var dichVu = await _context.DichVus.AsNoTracking().FirstOrDefaultAsync(d => d.MaDichVu == id);
             if (dichVu == null) return NotFound();
 
-            ViewBag.DaSuDung = await _repository.DaDuocSuDungAsync(id.Value);
+            ViewBag.DaSuDung = await _context.ChiTietDatSans.AnyAsync(c => c.MaDichVu == id);
             return View(dichVu);
         }
 
@@ -169,16 +174,17 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         {
             if (!LaAdmin()) return TuChoi();
 
-            var dichVu = await _repository.GetByIdAsync(id);
+            var dichVu = await _context.DichVus.FindAsync(id);
             if (dichVu == null) return NotFound();
 
-            if (await _repository.DaDuocSuDungAsync(id))
+            if (await _context.ChiTietDatSans.AnyAsync(c => c.MaDichVu == id))
             {
                 TempData["Loi"] = "Dịch vụ đã được sử dụng trong đơn đặt sân, không thể xóa. Hãy chuyển sang trạng thái ngừng cung cấp.";
                 return RedirectToAction(nameof(Index));
             }
 
-            await _repository.DeleteAsync(dichVu);
+            _context.DichVus.Remove(dichVu);
+            await _context.SaveChangesAsync();
             TempData["ThanhCong"] = "Đã xóa dịch vụ.";
             return RedirectToAction(nameof(Index));
         }
