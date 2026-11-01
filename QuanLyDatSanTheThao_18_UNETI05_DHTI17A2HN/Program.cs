@@ -1,5 +1,9 @@
+
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // =========================================================
@@ -23,6 +27,16 @@ builder.Services.AddSession(options =>
 
 // Đăng ký HttpContextAccessor (Rất quan trọng: Giúp bạn có thể kiểm tra Session Đăng nhập ngay trên các file giao diện Razor View .cshtml)
 builder.Services.AddHttpContextAccessor();
+
+// Đăng ký Repository
+builder.Services.AddScoped<ILoaiSanRepository, LoaiSanRepository>();
+builder.Services.AddScoped<ISanTheThaoRepository, SanTheThaoRepository>();
+builder.Services.AddScoped<IDichVuRepository, DichVuRepository>();
+builder.Services.AddScoped<IKhachHangRepository, KhachHangRepository>();
+builder.Services.AddScoped<ITaiKhoanRepository, TaiKhoanRepository>();
+builder.Services.AddScoped<IDatSanRepository, DatSanRepository>();
+builder.Services.AddScoped<ITiepNhanDatSanRepository, TiepNhanDatSanRepository>();
+builder.Services.AddScoped<IThongKeRepository, ThongKeRepository>();
 
 // Khai báo sử dụng mô hình MVC
 builder.Services.AddControllersWithViews();
