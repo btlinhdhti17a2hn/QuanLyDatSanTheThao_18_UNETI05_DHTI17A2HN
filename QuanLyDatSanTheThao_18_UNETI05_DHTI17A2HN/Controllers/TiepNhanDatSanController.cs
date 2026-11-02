@@ -7,14 +7,17 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
+    [AuthorizeRole("Admin", "NhanVien")]
     public class TiepNhanDatSanController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly ITiepNhanDatSanRepository _repository;
 
         // Số đơn hiển thị trên 1 trang
         private const int KichThuocTrang = 10;
@@ -44,9 +47,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             [DaHuy] = Array.Empty<string>()
         };
 
-        public TiepNhanDatSanController(ApplicationDbContext context)
+        public TiepNhanDatSanController(ITiepNhanDatSanRepository repository)
         {
-            _context = context;
+            _repository = repository;
         }
 
         // ==========================================================
@@ -101,7 +104,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Chuẩn hóa điều kiện lọc
             tenKhach = tenKhach?.Trim();
             tenSan = tenSan?.Trim();
-            if (!string.IsNullOrEmpty(trangThai) && !TatCaTrangThai.Contains(trangThai)) trangThai = null;
+            if (!string.IsNullOrEmpty(trangThai) && !TatCaTrangThai.Contains(trangThai))
+            {
+                trangThai = null;
+            }
 
             // Nếu người dùng chọn từ ngày > đến ngày thì hoán đổi lại và báo cho người dùng biết
             if (tuNgay.HasValue && denNgay.HasValue && tuNgay.Value.Date > denNgay.Value.Date)
@@ -110,79 +116,49 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 vm.CanhBaoLoc = "Khoảng ngày bị nhập ngược nên hệ thống đã tự đảo lại cho đúng.";
             }
 
-            // LINQ: truy vấn gốc, kèm các bảng liên quan để hiển thị tên thay cho mã khóa ngoại
-            IQueryable<DatSan> query = _context.DatSans
-                .AsNoTracking()
-                .Include(d => d.KhachHang)
-                .Include(d => d.SanTheThao)
-                    .ThenInclude(s => s.LoaiSan);
-
-            // Tìm theo người dùng/khách hàng (họ tên hoặc số điện thoại)
-            if (!string.IsNullOrEmpty(tenKhach))
-            {
-                query = query.Where(d => d.KhachHang.HoTen.Contains(tenKhach)
-                                      || d.KhachHang.SoDienThoai.Contains(tenKhach));
-            }
-
-            // Tìm theo đối tượng chính (sân thể thao)
-            if (!string.IsNullOrEmpty(tenSan))
-            {
-                query = query.Where(d => d.SanTheThao.TenSan.Contains(tenSan));
-            }
-
-            // Lọc theo dữ liệu nền (loại sân)
-            if (maLoaiSan.HasValue)
-            {
-                query = query.Where(d => d.SanTheThao.MaLoaiSan == maLoaiSan.Value);
-            }
-
-            // Lọc theo trạng thái
-            if (!string.IsNullOrEmpty(trangThai))
-            {
-                query = query.Where(d => d.TrangThai == trangThai);
-            }
-
-            // Lọc theo khoảng ngày sử dụng sân
-            if (tuNgay.HasValue)
-            {
-                var tu = tuNgay.Value.Date;
-                query = query.Where(d => d.GioBatDau >= tu);
-            }
-            if (denNgay.HasValue)
-            {
-                var den = denNgay.Value.Date.AddDays(1);
-                query = query.Where(d => d.GioBatDau < den);
-            }
-
-            // Sắp xếp theo ngày hoặc tên
+            // Chuẩn hóa sắp xếp
             sapXep = string.IsNullOrEmpty(sapXep) ? "ngaydat_moi" : sapXep;
-            query = sapXep switch
-            {
-                "ngaydat_cu" => query.OrderBy(d => d.NgayDat).ThenBy(d => d.MaDatSan),
-                "ngaysd_moi" => query.OrderByDescending(d => d.GioBatDau).ThenByDescending(d => d.MaDatSan),
-                "ngaysd_cu" => query.OrderBy(d => d.GioBatDau).ThenBy(d => d.MaDatSan),
-                "khach_az" => query.OrderBy(d => d.KhachHang.HoTen).ThenBy(d => d.MaDatSan),
-                "khach_za" => query.OrderByDescending(d => d.KhachHang.HoTen).ThenBy(d => d.MaDatSan),
-                "san_az" => query.OrderBy(d => d.SanTheThao.TenSan).ThenBy(d => d.MaDatSan),
-                "san_za" => query.OrderByDescending(d => d.SanTheThao.TenSan).ThenBy(d => d.MaDatSan),
-                _ => query.OrderByDescending(d => d.NgayDat).ThenByDescending(d => d.MaDatSan)
-            };
 
-            // Phân trang trên truy vấn bằng Skip() và Take(), không tải toàn bộ dữ liệu
-            int tongSoBanGhi = await query.CountAsync();
-            int tongSoTrang = Math.Max(1, (int)Math.Ceiling((double)tongSoBanGhi / KichThuocTrang));
+            // Tìm kiếm, lọc, sắp xếp và phân trang được thực hiện trong Repository
+            var ketQuaTimKiem = await _repository.TimKiemDatSanAsync(
+                tenKhach,
+                tenSan,
+                maLoaiSan,
+                trangThai,
+                tuNgay,
+                denNgay,
+                sapXep,
+                trang,
+                KichThuocTrang);
+
+            int tongSoBanGhi = ketQuaTimKiem.TongSoBanGhi;
+            int tongSoTrang = Math.Max(
+                1,
+                (int)Math.Ceiling((double)tongSoBanGhi / KichThuocTrang));
+
             trang = Math.Max(1, Math.Min(trang, tongSoTrang));
 
-            vm.DanhSach = await query
-                .Skip((trang - 1) * KichThuocTrang)
-                .Take(KichThuocTrang)
-                .ToListAsync();
+            // Nếu trang được điều chỉnh, truy vấn lại đúng trang hợp lệ
+            if (trang != Math.Max(1, Math.Min(
+                (int)Math.Ceiling((double)tongSoBanGhi / KichThuocTrang),
+                Math.Max(1, trang))))
+            {
+                ketQuaTimKiem = await _repository.TimKiemDatSanAsync(
+                    tenKhach,
+                    tenSan,
+                    maLoaiSan,
+                    trangThai,
+                    tuNgay,
+                    denNgay,
+                    sapXep,
+                    trang,
+                    KichThuocTrang);
+            }
 
-            // Thống kê nhanh số đơn theo từng trạng thái bằng GroupBy + Count
-            var thongKe = await _context.DatSans
-                .GroupBy(d => d.TrangThai)
-                .Select(g => new { TrangThai = g.Key, SoLuong = g.Count() })
-                .ToDictionaryAsync(x => x.TrangThai, x => x.SoLuong);
+            vm.DanhSach = ketQuaTimKiem.DanhSach;
+
+            // Thống kê nhanh số đơn theo từng trạng thái
+            var thongKe = await _repository.ThongKeTheoTrangThaiAsync();
 
             vm.SoChoXuLy = thongKe.GetValueOrDefault(ChoXuLy);
             vm.SoDangXuLy = thongKe.GetValueOrDefault(DangXuLy);
@@ -190,10 +166,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.SoDaHuy = thongKe.GetValueOrDefault(DaHuy);
 
             // Dữ liệu nền cho select lọc loại sân
-            vm.DanhSachLoaiSan = await _context.LoaiSans
-                .AsNoTracking()
-                .OrderBy(l => l.TenLoai)
-                .ToListAsync();
+            vm.DanhSachLoaiSan = await _repository.LayDanhSachLoaiSanAsync();
 
             // Giữ lại điều kiện để View hiển thị lại
             vm.TenKhach = tenKhach;
@@ -219,13 +192,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             var chan = KiemTraQuyen();
             if (chan != null) return chan;
 
-            var don = await _context.DatSans
-                .Include(d => d.KhachHang)
-                .Include(d => d.SanTheThao)
-                    .ThenInclude(s => s.LoaiSan)
-                .Include(d => d.ChiTietDatSans)
-                    .ThenInclude(ct => ct.DichVu)
-                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+            var don = await _repository.LayChiTietDatSanAsync(id);
 
             if (don == null) return NotFound();
 
@@ -249,11 +216,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (vm.CoTheSuaDichVu)
             {
                 var daCo = don.ChiTietDatSans.Select(ct => ct.MaDichVu).ToList();
-                vm.DanhSachDichVu = await _context.DichVus
-                    .AsNoTracking()
-                    .Where(dv => dv.TrangThai || daCo.Contains(dv.MaDichVu))
-                    .OrderBy(dv => dv.TenDichVu)
-                    .ToListAsync();
+
+                vm.DanhSachDichVu = await _repository.LayDanhSachDichVuAsync(daCo);
             }
 
             // Chỉ phân tích điều kiện khi đơn còn đang chờ xác nhận
@@ -317,9 +281,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             var chan = KiemTraQuyen();
             if (chan != null) return chan;
 
-            var don = await _context.DatSans
-                .Include(d => d.ChiTietDatSans)
-                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+            var don = await _repository.LayDatSanKemChiTietDichVuAsync(id);
 
             if (don == null) return NotFound();
 
@@ -349,7 +311,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             {
                 if (!chon.TryGetValue(ct.MaDichVu, out int soLuong) || !daCo.Add(ct.MaDichVu))
                 {
-                    _context.ChiTietDatSans.Remove(ct);
+                    _repository.XoaChiTietDatSan(ct);
                     continue;
                 }
 
@@ -359,11 +321,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // 2. Dịch vụ mới: lấy đơn giá hiện hành, chỉ nhận dịch vụ đang kinh doanh
             var maMoi = chon.Keys.Where(k => !daCo.Contains(k)).ToList();
+
             if (maMoi.Any())
             {
-                var dsDichVu = await _context.DichVus
-                    .Where(dv => maMoi.Contains(dv.MaDichVu))
-                    .ToDictionaryAsync(dv => dv.MaDichVu);
+                var dsDichVu = await _repository.LayDichVuTheoDanhSachMaAsync(maMoi);
 
                 foreach (var ma in maMoi)
                 {
@@ -374,6 +335,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     }
 
                     int soLuong = chon[ma];
+
                     don.ChiTietDatSans.Add(new ChiTietDatSan
                     {
                         MaDichVu = dv.MaDichVu,
@@ -385,32 +347,34 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 }
             }
 
-            await _context.SaveChangesAsync();
+            await _repository.LuuThayDoiAsync();
 
             TempData["Success"] = chon.Count == 0
                 ? $"Đã tạm lưu đơn #{id}: hiện chưa có dịch vụ nào được chọn."
                 : $"Đã tạm lưu {chon.Count} dịch vụ cho đơn #{id}. Bạn có thể tiếp tục chỉnh sửa hoặc xử lý đơn sau.";
+
             return RedirectToAction(nameof(ChiTiet), new { id });
         }
 
         // ==========================================================
         // HÀM DÙNG CHUNG: CẬP NHẬT TRẠNG THÁI THEO ĐÚNG LUỒNG
         // ==========================================================
-        private async Task<IActionResult> DoiTrangThaiAsync(int id, string trangThaiMoi, string? quayLai, string mauThongBao)
+        private async Task<IActionResult> DoiTrangThaiAsync(
+            int id,
+            string trangThaiMoi,
+            string? quayLai,
+            string mauThongBao)
         {
             var chan = KiemTraQuyen();
             if (chan != null) return chan;
 
-            var don = await _context.DatSans
-                .Include(d => d.KhachHang)
-                .Include(d => d.SanTheThao)
-                .Include(d => d.ChiTietDatSans)
-                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+            var don = await _repository.LayDatSanXuLyAsync(id);
 
             if (don == null) return NotFound();
 
             // Kiểm tra luồng trạng thái + các điều kiện nghiệp vụ trước khi cho phép chuyển
             string? loi = await KiemTraChuyenTrangThaiAsync(don, trangThaiMoi);
+
             if (loi != null)
             {
                 TempData["Error"] = loi;
@@ -419,9 +383,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Chỉ cập nhật đúng trường trạng thái, không xóa bất kỳ dữ liệu lịch sử nào
             don.TrangThai = trangThaiMoi;
-            await _context.SaveChangesAsync();
+            await _repository.LuuThayDoiAsync();
 
             TempData["Success"] = string.Format(mauThongBao, don.MaDatSan);
+
             return QuayLaiTrang(quayLai, id);
         }
 
@@ -442,6 +407,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 case DangXuLy:
                     // 2. Phải đạt toàn bộ điều kiện trước khi xác nhận (Mục 8.3, 8.5)
                     var ketQua = await PhanTichDonAsync(don);
+
                     if (ketQua.Loi.Any())
                     {
                         return $"Không thể xác nhận đơn #{don.MaDatSan}: " + string.Join(" ", ketQua.Loi);
@@ -487,6 +453,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // 2. Sân thể thao
             var san = don.SanTheThao;
+
             if (san == null || !san.TrangThai)
             {
                 kq.Loi.Add("Sân thể thao không tồn tại hoặc đã ngừng hoạt động.");
@@ -520,30 +487,30 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 kq.Loi.Add("Đơn đã quá thời gian sử dụng sân, chỉ có thể hủy đơn.");
             }
 
-            // 5. Trùng lịch: LINQ Any/ToList, loại trừ chính đơn này và các đơn đã hủy
-            var donTrung = _context.DatSans
-                .Where(d => d.MaDatSan != don.MaDatSan
-                         && d.MaSan == don.MaSan
-                         && d.TrangThai != DaHuy
-                         && d.GioBatDau < don.GioKetThuc
-                         && d.GioKetThuc > don.GioBatDau);
+            // 5. Trùng lịch: loại trừ chính đơn này và các đơn đã hủy
+            bool coDonTrung = await _repository.CoDonTrungLichAsync(
+                don.MaDatSan,
+                don.MaSan,
+                don.GioBatDau,
+                don.GioKetThuc,
+                DaHuy);
 
-            if (await donTrung.AnyAsync())
+            if (coDonTrung)
             {
-                kq.DonTrungLich = await donTrung
-                    .Include(d => d.KhachHang)
-                    .OrderBy(d => d.GioBatDau)
-                    .Take(5)
-                    .ToListAsync();
+                kq.DonTrungLich = await _repository.LayDanhSachDonTrungLichAsync(
+                    don.MaDatSan,
+                    don.MaSan,
+                    don.GioBatDau,
+                    don.GioKetThuc,
+                    DaHuy);
 
                 kq.Loi.Add("Sân đã có lịch khác trùng khoảng thời gian này.");
             }
 
             // 6. Tiền cọc không vượt tổng tiền dự kiến (tiền sân + dịch vụ)
             double soGio = (don.GioKetThuc - don.GioBatDau).TotalHours;
-            decimal tienDichVu = await _context.ChiTietDatSans
-                .Where(ct => ct.MaDatSan == don.MaDatSan)
-                .SumAsync(ct => (decimal?)ct.ThanhTien) ?? 0;
+
+            decimal tienDichVu = await _repository.TinhTongTienDichVuAsync(don.MaDatSan);
             decimal tongDuKien = Math.Round((decimal)Math.Max(soGio, 0) * don.DonGia, 0) + tienDichVu;
 
             if (don.TienCoc < 0)
@@ -558,12 +525,13 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // 7. Kiểm soát khả năng đáp ứng: đếm số lượt đặt khác của sân trong ngày
             var dauNgay = don.GioBatDau.Date;
             var cuoiNgay = dauNgay.AddDays(1);
-            kq.SoLuotTrongNgay = await _context.DatSans.CountAsync(d =>
-                d.MaDatSan != don.MaDatSan
-                && d.MaSan == don.MaSan
-                && d.TrangThai != DaHuy
-                && d.GioBatDau >= dauNgay
-                && d.GioBatDau < cuoiNgay);
+
+            kq.SoLuotTrongNgay = await _repository.DemLuotDatTrongNgayAsync(
+                don.MaDatSan,
+                don.MaSan,
+                dauNgay,
+                cuoiNgay,
+                DaHuy);
 
             if (kq.SoLuotTrongNgay + 1 > GioiHanLuotMoiNgay)
             {
@@ -584,6 +552,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             {
                 return LocalRedirect(quayLai);
             }
+
             return RedirectToAction(nameof(ChiTiet), new { id });
         }
     }

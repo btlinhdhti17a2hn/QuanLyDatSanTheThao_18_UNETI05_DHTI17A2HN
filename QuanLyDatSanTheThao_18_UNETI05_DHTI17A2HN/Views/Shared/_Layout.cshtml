@@ -12,206 +12,384 @@
     <link rel="stylesheet" href="~/QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.styles.css" asp-append-version="true" />
 
     <style>
-        /* ===== CHUNG ===== */
-        html { position: static; min-height: 0; }
-        body {
-            margin-bottom: 0 !important;
-            overflow-x: hidden;
-        }
+            /* ===== CHUNG ===== */
+            html {
+                position: static;
+                min-height: 0;
+            }
 
-        /* ===== THANH MENU ===== */
-        .main-nav {
-            background: #fff;
-            border-bottom: 3px solid #22c55e;
-            box-shadow: 0 4px 18px rgba(22, 163, 74, .12);
-            padding: .6rem 0;
-        }
-        .main-nav .navbar-brand {
-            font-weight: 800;
-            font-size: 1.35rem;
-            letter-spacing: .5px;
-        }
-        .main-nav .navbar-brand .brand-text {
-            background: linear-gradient(90deg, #14532d, #16a34a 55%, #65a30d);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        .main-nav .nav-link {
-            color: #374151;
-            font-weight: 600;
-            border-radius: 50px;
-            padding: .5rem 1.1rem !important;
-            margin: 0 .15rem;
-            transition: background .2s ease, color .2s ease;
-        }
-        .main-nav .nav-link:hover {
-            background: #f0fdf4;
-            color: #15803d;
-        }
-        .main-nav .nav-link.active {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            color: #fff;
-            box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
-        }
-        .main-nav .nav-link.admin-link { color: #15803d; }
-        .main-nav .nav-link.admin-link.active { color: #fff; }
+            body {
+                margin-bottom: 0 !important;
+                overflow-x: hidden;
+            }
 
-        .btn-login-nav {
-            background: linear-gradient(135deg, #16a34a, #22c55e);
-            color: #fff !important;
-            font-weight: 700;
-            border-radius: 50px;
-            padding: .5rem 1.5rem !important;
-            box-shadow: 0 6px 16px rgba(22, 163, 74, .35);
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-        .btn-login-nav:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(22, 163, 74, .45);
-            background: linear-gradient(135deg, #16a34a, #22c55e) !important;
-        }
+            /* ===== THANH MENU ===== */
+            .main-nav {
+                background: #fff;
+                border-bottom: 3px solid #22c55e;
+                box-shadow: 0 4px 18px rgba(22, 163, 74, .12);
+                padding: .6rem 0;
+            }
 
-        .user-toggle {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-            background: #f0fdf4;
-            border: 1px solid #d1fae5;
-            color: #166534 !important;
-            font-weight: 700;
-            border-radius: 50px;
-            padding: .3rem 1rem .3rem .35rem !important;
-        }
-        .user-toggle:hover { background: #dcfce7; }
-        .user-avatar {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 800;
-            background: linear-gradient(135deg, #16a34a, #4ade80);
-            box-shadow: 0 3px 8px rgba(22, 163, 74, .4);
-        }
+                .main-nav .navbar-brand {
+                    font-weight: 800;
+                    font-size: 1.35rem;
+                    letter-spacing: .5px;
+                }
 
-        .main-nav .dropdown-menu {
-            border: none;
-            border-radius: 16px;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, .15);
-            padding: .5rem;
-            margin-top: .6rem;
-        }
-        .main-nav .dropdown-item {
-            border-radius: 10px;
-            padding: .55rem 1rem;
-            font-weight: 600;
-        }
-        .main-nav .dropdown-item:hover { background: #f0fdf4; color: #15803d; }
-        .main-nav .dropdown-item.text-danger:hover { background: #fef2f2; color: #dc2626 !important; }
+                    .main-nav .navbar-brand .brand-text {
+                        background: linear-gradient(90deg, #14532d, #16a34a 55%, #65a30d);
+                        -webkit-background-clip: text;
+                        background-clip: text;
+                        color: transparent;
+                    }
 
-        /* ===== CHÂN TRANG ===== */
-        .site-footer {
-            position: static;
-            width: 100%;
-            margin-top: 3rem;
-            color: #d1fae5;
-            background: linear-gradient(135deg, #052e16, #14532d 60%, #166534);
-            border-top: 4px solid #22c55e;
-            line-height: 1.6;
-            white-space: normal;
-        }
-        .site-footer .footer-main { padding: 3rem 0 1.5rem; }
-        .site-footer .f-brand {
-            font-size: 1.4rem;
-            font-weight: 800;
-            color: #fff;
-            text-decoration: none;
-        }
-        .site-footer .f-desc { color: #bbf7d0; opacity: .9; margin-top: .8rem; font-size: .93rem; }
-        .site-footer .f-sports { margin-top: 1rem; display: flex; gap: .5rem; flex-wrap: wrap; }
-        .site-footer .f-sports span {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.3rem;
-            background: rgba(255, 255, 255, .1);
-            transition: transform .2s ease, background .2s ease;
-        }
-        .site-footer .f-sports span:hover { transform: translateY(-4px); background: rgba(255, 255, 255, .2); }
+                .main-nav .nav-link {
+                    color: #374151;
+                    font-weight: 600;
+                    border-radius: 50px;
+                    padding: .5rem 1.1rem !important;
+                    margin: 0 .15rem;
+                    transition: background .2s ease, color .2s ease;
+                }
 
-        .site-footer h6 {
-            color: #fff;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .6px;
-            font-size: .9rem;
-            margin-bottom: 1.1rem;
-            position: relative;
-            padding-bottom: .6rem;
-        }
-        .site-footer h6::after {
-            content: "";
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            width: 36px;
-            height: 3px;
-            border-radius: 3px;
-            background: linear-gradient(90deg, #4ade80, #a3e635);
-        }
-        .site-footer .f-links { list-style: none; padding: 0; margin: 0; }
-        .site-footer .f-links li { margin-bottom: .55rem; }
-        .site-footer .f-links a {
-            color: #d1fae5;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color .2s ease, padding-left .2s ease;
-        }
-        .site-footer .f-links a::before { content: "›"; margin-right: .5rem; color: #4ade80; font-weight: 800; }
-        .site-footer .f-links a:hover { color: #fff; padding-left: .3rem; }
+                    .main-nav .nav-link:hover {
+                        background: #f0fdf4;
+                        color: #15803d;
+                    }
 
-        .site-footer .f-contact { display: flex; gap: .75rem; margin-bottom: .8rem; font-size: .93rem; }
-        .site-footer .f-contact .ic { flex-shrink: 0; }
-        .site-footer .f-time {
-            display: flex;
-            justify-content: space-between;
-            gap: 1rem;
-            padding: .45rem 0;
-            border-bottom: 1px dashed rgba(255, 255, 255, .18);
-            font-size: .93rem;
-        }
-        .site-footer .f-time:last-child { border-bottom: none; }
-        .site-footer .f-time strong { color: #fff; white-space: nowrap; }
+                    .main-nav .nav-link.active {
+                        background: linear-gradient(135deg, #16a34a, #22c55e);
+                        color: #fff;
+                        box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
+                    }
 
-        .site-footer .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, .15);
-            padding: 1.1rem 0;
-            font-size: .88rem;
-            color: #bbf7d0;
-        }
-        .site-footer .footer-bottom a { color: #fff; font-weight: 700; text-decoration: none; }
-        .site-footer .footer-bottom a:hover { text-decoration: underline; }
-        .btn-top {
-            border: none;
-            border-radius: 50px;
-            padding: .4rem 1.1rem;
-            font-weight: 700;
-            font-size: .85rem;
-            color: #14532d;
-            background: linear-gradient(135deg, #bbf7d0, #a3e635);
-            transition: transform .2s ease, box-shadow .2s ease;
-        }
-        .btn-top:hover { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(0, 0, 0, .3); }
+                    .main-nav .nav-link.admin-link {
+                        color: #15803d;
+                    }
 
-        @@media (max-width: 575.98px) {
-            .main-nav .nav-link { margin: .15rem 0; }
-        }
+                        .main-nav .nav-link.admin-link.active {
+                            color: #fff;
+                        }
+
+            .btn-login-nav {
+                background: linear-gradient(135deg, #16a34a, #22c55e);
+                color: #fff !important;
+                font-weight: 700;
+                border-radius: 50px;
+                padding: .5rem 1.5rem !important;
+                box-shadow: 0 6px 16px rgba(22, 163, 74, .35);
+                transition: transform .2s ease, box-shadow .2s ease;
+            }
+
+                .btn-login-nav:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 10px 20px rgba(22, 163, 74, .45);
+                    background: linear-gradient(135deg, #16a34a, #22c55e) !important;
+                }
+
+            .user-toggle {
+                display: flex;
+                align-items: center;
+                gap: .6rem;
+                background: #f0fdf4;
+                border: 1px solid #d1fae5;
+                color: #166534 !important;
+                font-weight: 700;
+                border-radius: 50px;
+                padding: .3rem 1rem .3rem .35rem !important;
+            }
+
+                .user-toggle:hover {
+                    background: #dcfce7;
+                }
+
+            .user-avatar {
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                color: #fff;
+                font-weight: 800;
+                background: linear-gradient(135deg, #16a34a, #4ade80);
+                box-shadow: 0 3px 8px rgba(22, 163, 74, .4);
+            }
+
+            .main-nav .dropdown-menu {
+                border: none;
+                border-radius: 16px;
+                box-shadow: 0 12px 30px rgba(0, 0, 0, .15);
+                padding: .5rem;
+                margin-top: .6rem;
+            }
+
+            .main-nav .dropdown-item {
+                border-radius: 10px;
+                padding: .55rem 1rem;
+                font-weight: 600;
+            }
+
+                .main-nav .dropdown-item:hover {
+                    background: #f0fdf4;
+                    color: #15803d;
+                }
+
+                .main-nav .dropdown-item.text-danger:hover {
+                    background: #fef2f2;
+                    color: #dc2626 !important;
+                }
+
+            /* ===== CHÂN TRANG ===== */
+            .site-footer {
+                position: static;
+                width: 100%;
+                margin-top: 3rem;
+                color: #d1fae5;
+                background: linear-gradient(135deg, #052e16, #14532d 60%, #166534);
+                border-top: 4px solid #22c55e;
+                line-height: 1.6;
+                white-space: normal;
+            }
+
+                .site-footer .footer-main {
+                    padding: 3rem 0 1.5rem;
+                }
+
+                .site-footer .f-brand {
+                    font-size: 1.4rem;
+                    font-weight: 800;
+                    color: #fff;
+                    text-decoration: none;
+                }
+
+                .site-footer .f-desc {
+                    color: #bbf7d0;
+                    opacity: .9;
+                    margin-top: .8rem;
+                    font-size: .93rem;
+                }
+
+                .site-footer .f-sports {
+                    margin-top: 1rem;
+                    display: flex;
+                    gap: .5rem;
+                    flex-wrap: wrap;
+                }
+
+                    .site-footer .f-sports span {
+                        width: 40px;
+                        height: 40px;
+                        border-radius: 12px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.3rem;
+                        background: rgba(255, 255, 255, .1);
+                        transition: transform .2s ease, background .2s ease;
+                    }
+
+                        .site-footer .f-sports span:hover {
+                            transform: translateY(-4px);
+                            background: rgba(255, 255, 255, .2);
+                        }
+
+                .site-footer h6 {
+                    color: #fff;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: .6px;
+                    font-size: .9rem;
+                    margin-bottom: 1.1rem;
+                    position: relative;
+                    padding-bottom: .6rem;
+                }
+
+                    .site-footer h6::after {
+                        content: "";
+                        position: absolute;
+                        left: 0;
+                        bottom: 0;
+                        width: 36px;
+                        height: 3px;
+                        border-radius: 3px;
+                        background: linear-gradient(90deg, #4ade80, #a3e635);
+                    }
+
+                .site-footer .f-links {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0;
+                }
+
+                    .site-footer .f-links li {
+                        margin-bottom: .55rem;
+                    }
+
+                    .site-footer .f-links a {
+                        color: #d1fae5;
+                        text-decoration: none;
+                        font-weight: 500;
+                        transition: color .2s ease, padding-left .2s ease;
+                    }
+
+                        .site-footer .f-links a::before {
+                            content: "›";
+                            margin-right: .5rem;
+                            color: #4ade80;
+                            font-weight: 800;
+                        }
+
+                        .site-footer .f-links a:hover {
+                            color: #fff;
+                            padding-left: .3rem;
+                        }
+
+                .site-footer .f-contact {
+                    display: flex;
+                    gap: .75rem;
+                    margin-bottom: .8rem;
+                    font-size: .93rem;
+                }
+
+                    .site-footer .f-contact .ic {
+                        flex-shrink: 0;
+                    }
+
+                .site-footer .f-time {
+                    display: flex;
+                    justify-content: space-between;
+                    gap: 1rem;
+                    padding: .45rem 0;
+                    border-bottom: 1px dashed rgba(255, 255, 255, .18);
+                    font-size: .93rem;
+                }
+
+                    .site-footer .f-time:last-child {
+                        border-bottom: none;
+                    }
+
+                    .site-footer .f-time strong {
+                        color: #fff;
+                        white-space: nowrap;
+                    }
+
+                .site-footer .footer-bottom {
+                    border-top: 1px solid rgba(255, 255, 255, .15);
+                    padding: 1.1rem 0;
+                    font-size: .88rem;
+                    color: #bbf7d0;
+                }
+
+                    .site-footer .footer-bottom a {
+                        color: #fff;
+                        font-weight: 700;
+                        text-decoration: none;
+                    }
+
+                        .site-footer .footer-bottom a:hover {
+                            text-decoration: underline;
+                        }
+
+            .btn-top {
+                border: none;
+                border-radius: 50px;
+                padding: .4rem 1.1rem;
+                font-weight: 700;
+                font-size: .85rem;
+                color: #14532d;
+                background: linear-gradient(135deg, #bbf7d0, #a3e635);
+                transition: transform .2s ease, box-shadow .2s ease;
+            }
+
+                .btn-top:hover {
+                    transform: translateY(-3px);
+                    box-shadow: 0 8px 18px rgba(0, 0, 0, .3);
+                }
+
+            /* ===== DASHBOARD: MENU BÊN TRÁI ===== */
+            .admin-shell {
+                display: flex;
+                align-items: stretch;
+                width: 100%;
+            }
+
+            .admin-sidebar {
+                flex: 0 0 250px;
+                width: 250px;
+                background: linear-gradient(180deg, #052e16, #14532d 70%, #166534);
+                padding: 1.25rem .85rem;
+                
+                position: sticky;
+                top: 0;
+                align-self: flex-start;
+                height: 100vh;
+                overflow-y: auto;
+            }
+
+                .admin-sidebar .side-title {
+                    color: #fff;
+                    font-weight: 800;
+                    font-size: 1.05rem;
+                    padding: .25rem .75rem 1rem;
+                    border-bottom: 1px solid rgba(255, 255, 255, .15);
+                    margin-bottom: .5rem;
+                }
+
+                .admin-sidebar .side-group {
+                    color: #86efac;
+                    font-size: .72rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    letter-spacing: .8px;
+                    padding: 1rem .75rem .4rem;
+                }
+
+                .admin-sidebar .side-link {
+                    display: block;
+                    color: #d1fae5;
+                    text-decoration: none;
+                    font-weight: 600;
+                    padding: .6rem .85rem;
+                    border-radius: 12px;
+                    margin-bottom: .15rem;
+                    transition: background .2s ease, color .2s ease;
+                }
+
+                    .admin-sidebar .side-link:hover {
+                        background: rgba(255, 255, 255, .1);
+                        color: #fff;
+                    }
+
+                    .admin-sidebar .side-link.active {
+                        background: linear-gradient(135deg, #16a34a, #22c55e);
+                        color: #fff;
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, .25);
+                    }
+
+            .admin-content {
+                flex: 1;
+                min-width: 0;
+                padding: 1rem 1.5rem;
+            }
+
+            @@media (max-width: 991.98px) {
+                .admin-shell {
+                    flex-direction: column;
+                }
+
+                .admin-sidebar {
+                    flex: none;
+                    width: 100%;
+                }
+            }
+
+            @@media (max-width: 575.98px) {
+                .main-nav .nav-link {
+                    margin: .15rem 0;
+                }
+            }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -229,6 +407,13 @@
         var tenNguoiDung = HttpContextAccessor.HttpContext?.Session?.GetString("HoTen");
         var vaiTro = vaiTroMenu;
         string chuCaiDau = string.IsNullOrWhiteSpace(tenNguoiDung) ? "?" : tenNguoiDung.Trim().Substring(0, 1).ToUpper();
+
+        // Các trang thuộc khu quản trị: hiện thanh menu bên trái cho Admin / Nhân viên
+        bool laQuanLy = vaiTroMenu == "Admin" || vaiTroMenu == "NhanVien";
+        var trangQuanTri = new[] { "ThongKe", "LoaiSan", "DichVu", "TiepNhanDatSan", "SanTheThao" };
+        bool coSidebar = laQuanLy && (trangQuanTri.Contains(controllerHienTai)
+            || (controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan")
+            || (controllerHienTai == "KhachHang" && (actionHienTai == "Index" || actionHienTai == "ChiTiet")));
     }
 
     <header>
@@ -250,36 +435,11 @@
                         <li class="nav-item">
                             <a class="nav-link @hoatDongController("SanTheThao")" asp-area="" asp-controller="SanTheThao" asp-action="Index">Danh sách sân</a>
                         </li>
-                        @if (vaiTroMenu == "Admin" || vaiTroMenu == "NhanVien")
+
+                        @if (laQuanLy)
                         {
                             <li class="nav-item">
-                                <a class="nav-link admin-link @hoatDongController("TiepNhanDatSan")" asp-controller="TiepNhanDatSan" asp-action="Index">Tiếp nhận đặt sân</a>
-                            </li>
-                        }
-                        @if (vaiTroMenu == "Admin")
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link admin-link @hoatDongController("LoaiSan")" asp-controller="LoaiSan" asp-action="Index">Quản lý loại sân</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link admin-link @hoatDongController("DichVu")" asp-controller="DichVu" asp-action="Index">Quản lý dịch vụ</a>
-                            </li>
-                            <li class="nav-item dropdown">
-                                <a class="nav-link admin-link dropdown-toggle @hoatDongController("ThongKe")" href="#" role="button"
-                                   data-bs-toggle="dropdown" aria-expanded="false">
-                                    Thống kê
-                                </a>
-                                <ul class="dropdown-menu">
-                                    <li>
-                                        <a class="dropdown-item" asp-area="" asp-controller="ThongKe" asp-action="Index">Tổng quan</a>
-                                    </li>
-                                    <li>
-                                        <a class="dropdown-item" asp-area="" asp-controller="ThongKe" asp-action="ThongKe">Chi tiết</a>
-                                    </li>
-                                </ul>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link admin-link @(controllerHienTai == "TaiKhoan" && actionHienTai == "QuanLyTaiKhoan" ? "active" : "")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a>
+                                <a class="nav-link admin-link @hoatDongController("ThongKe")" asp-controller="ThongKe" asp-action="Index">📊 Quản trị</a>
                             </li>
                         }
 
@@ -309,10 +469,6 @@
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                                     <li><a class="dropdown-item" asp-controller="KhachHang" asp-action="HoSo">👤 Thông tin cá nhân</a></li>
                                     <li><a class="dropdown-item" asp-controller="DatSan" asp-action="LichSuDatSan">📅 Lịch sử đặt sân</a></li>
-                                    @if (vaiTro == "Admin" || vaiTro == "NhanVien")
-                                    {
-                                        <li><a class="dropdown-item" href="#">📊 Trang quản trị (Dashboard)</a></li>
-                                    }
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item text-danger" asp-controller="TaiKhoan" asp-action="DangXuat">🚪 Đăng xuất</a></li>
                                 </ul>
@@ -324,11 +480,47 @@
         </nav>
     </header>
 
-    <div class="container flex-grow-1">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
+    @if (coSidebar)
+    {
+        <div class="admin-shell flex-grow-1">
+            <aside class="admin-sidebar">
+                <div class="side-title">📊 Dashboard</div>
+
+                <div class="side-group">Tổng quan</div>
+                <a class="side-link @hoatDong("ThongKe", "Index")" asp-controller="ThongKe" asp-action="Index">📊 Tổng quan</a>
+                @if (vaiTroMenu == "Admin")
+                {
+                    <a class="side-link @hoatDong("ThongKe", "ThongKe")" asp-controller="ThongKe" asp-action="ThongKe">📈 Thống kê chi tiết</a>
+                }
+
+                <div class="side-group">Nghiệp vụ</div>
+                <a class="side-link @hoatDongController("TiepNhanDatSan")" asp-controller="TiepNhanDatSan" asp-action="Index">🧾 Tiếp nhận đặt sân</a>
+                <a class="side-link @hoatDongController("SanTheThao")" asp-controller="SanTheThao" asp-action="Index">🏟️ Quản lý sân</a>
+                <a class="side-link @hoatDongController("KhachHang")" asp-controller="KhachHang" asp-action="Index">👥 Khách hàng</a>
+
+                @if (vaiTroMenu == "Admin")
+                {
+                    <div class="side-group">Dữ liệu nền &amp; tài khoản</div>
+                    <a class="side-link @hoatDongController("LoaiSan")" asp-controller="LoaiSan" asp-action="Index">🏷️ Loại sân</a>
+                    <a class="side-link @hoatDongController("DichVu")" asp-controller="DichVu" asp-action="Index">🧴 Dịch vụ</a>
+                    <a class="side-link @hoatDong("TaiKhoan", "QuanLyTaiKhoan")" asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">🔐 Tài khoản</a>
+                }
+            </aside>
+            <div class="admin-content">
+                <main role="main" class="pb-3">
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="container flex-grow-1">
+            <main role="main" class="pb-3">
+                @RenderBody()
+            </main>
+        </div>
+    }
 
     <!-- ===== CHÂN TRANG ===== -->
     <footer class="site-footer">
@@ -366,7 +558,7 @@
                         @if (vaiTroMenu == "Admin")
                         {
                             <li><a asp-controller="LoaiSan" asp-action="Index">Quản lý loại sân</a></li>
-                            <li><a asp-controller="TaiKhoan" asp-action="Index">Quản lý tài khoản</a></li>
+                            <li><a asp-controller="TaiKhoan" asp-action="QuanLyTaiKhoan">Quản lý tài khoản</a></li>
                         }
                     </ul>
                 </div>

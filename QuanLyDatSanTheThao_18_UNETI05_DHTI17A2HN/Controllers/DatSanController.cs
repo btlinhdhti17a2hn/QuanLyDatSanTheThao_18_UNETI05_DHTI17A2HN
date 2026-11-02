@@ -5,18 +5,21 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
+    [AuthorizeRole]
     public class DatSanController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IDatSanRepository _datSanRepository;
 
-        public DatSanController(ApplicationDbContext context)
+        public DatSanController(IDatSanRepository datSanRepository)
         {
-            _context = context;
+            _datSanRepository = datSanRepository;
         }
 
         // Hàm tiện ích: Lấy thông tin khách hàng đang đăng nhập dựa trên Session MaTaiKhoan
@@ -25,9 +28,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             int? maTaiKhoan = HttpContext.Session.GetInt32("MaTaiKhoan");
             if (maTaiKhoan == null) return null;
 
-            return await _context.KhachHangs
-                .Include(k => k.TaiKhoan)
-                .FirstOrDefaultAsync(k => k.MaTaiKhoan == maTaiKhoan);
+            return await _datSanRepository.LayKhachHangTheoTaiKhoanAsync(maTaiKhoan.Value);
         }
 
         // ==========================================================
@@ -62,11 +63,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Lấy danh sách các sân đang hoạt động để hiển thị trên dropdown
-            ViewBag.DanhSachSan = await _context.SanTheThaos
-                .Include(s => s.LoaiSan)
-                .Where(s => s.TrangThai)
-                .OrderBy(s => s.TenSan)
-                .ToListAsync();
+            ViewBag.DanhSachSan = await _datSanRepository.LayDanhSachSanHoatDongAsync();
 
             var model = new DatSanViewModel
             {
@@ -78,7 +75,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (maSan.HasValue)
             {
                 model.MaSan = maSan.Value;
-                var san = await _context.SanTheThaos.Include(s => s.LoaiSan).FirstOrDefaultAsync(s => s.MaSan == maSan.Value);
+                var san = await _datSanRepository.LaySanTheoMaAsync(maSan.Value);
+
                 if (san != null)
                 {
                     model.TenSan = san.TenSan;
@@ -118,11 +116,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Nạp lại danh sách sân phòng trường hợp validation thất bại
-            ViewBag.DanhSachSan = await _context.SanTheThaos
-                .Include(s => s.LoaiSan)
-                .Where(s => s.TrangThai)
-                .OrderBy(s => s.TenSan)
-                .ToListAsync();
+            ViewBag.DanhSachSan = await _datSanRepository.LayDanhSachSanHoatDongAsync();
 
             if (!ModelState.IsValid)
             {
@@ -130,7 +124,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // 1. Kiểm tra đối tượng sân thể thao tồn tại và đang hoạt động
-            var san = await _context.SanTheThaos.Include(s => s.LoaiSan).FirstOrDefaultAsync(s => s.MaSan == model.MaSan);
+            var san = await _datSanRepository.LaySanTheoMaAsync(model.MaSan);
+
             if (san == null || !san.TrangThai)
             {
                 ModelState.AddModelError("MaSan", "Sân thể thao được chọn hiện không tồn tại hoặc đã ngừng hoạt động!");
@@ -172,11 +167,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Ràng buộc Mục 8.3 & 15: KIỂM TRA TRÙNG LỊCH BẰNG LINQ
             // Không cho cùng 1 sân có 2 lịch đặt giao nhau về thời gian (loại trừ các đơn 'Đã hủy')
-            bool daBiTrungLich = await _context.DatSans.AnyAsync(d =>
-                d.MaSan == model.MaSan
-                && d.TrangThai != "Đã hủy"
-                && d.GioBatDau < dtKetThuc
-                && d.GioKetThuc > dtBatDau);
+            bool daBiTrungLich = await _datSanRepository.KiemTraTrungLichAsync(
+                model.MaSan,
+                dtBatDau,
+                dtKetThuc);
 
             if (daBiTrungLich)
             {
@@ -202,8 +196,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 TrangThai = "Chờ xử lý"
             };
 
-            _context.DatSans.Add(datSanMoi);
-            await _context.SaveChangesAsync();
+            await _datSanRepository.ThemDatSanAsync(datSanMoi);
 
             TempData["Success"] = $"Đặt sân thành công (Mã đơn: #{datSanMoi.MaDatSan})! Vui lòng chuẩn bị tiền cọc {tienCoc:N0} VNĐ để nhân viên xác nhận.";
             return RedirectToAction(nameof(LichSuDatSan));
@@ -224,29 +217,20 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // LINQ: Truy vấn danh sách giao dịch thuộc chính khách hàng này
-            var query = _context.DatSans
-                .Include(d => d.SanTheThao)
-                    .ThenInclude(s => s.LoaiSan)
-                .Where(d => d.MaKhachHang == khachHang.MaKhachHang);
+            // Lọc theo trạng thái và phân trang được thực hiện trong Repository
+            int tongSoBanGhi = await _datSanRepository.DemLichSuDatSanAsync(
+                khachHang.MaKhachHang,
+                trangThai);
 
-            // Lọc theo trạng thái giao dịch
-            if (!string.IsNullOrEmpty(trangThai))
-            {
-                query = query.Where(d => d.TrangThai == trangThai);
-            }
-
-            // Sắp xếp đơn mới nhất lên đầu
-            query = query.OrderByDescending(d => d.NgayDat);
-
-            // Phân trang bằng Skip và Take trên LINQ
-            int tongSoBanGhi = await query.CountAsync();
+            // Sắp xếp đơn mới nhất lên đầu và phân trang
             int tongSoTrang = (int)Math.Ceiling((double)tongSoBanGhi / kichThuocTrang);
             trang = Math.Max(1, Math.Min(trang, Math.Max(1, tongSoTrang)));
 
-            var dsLichDat = await query
-                .Skip((trang - 1) * kichThuocTrang)
-                .Take(kichThuocTrang)
-                .ToListAsync();
+            var dsLichDat = await _datSanRepository.LayLichSuDatSanAsync(
+                khachHang.MaKhachHang,
+                trangThai,
+                trang,
+                kichThuocTrang);
 
             ViewBag.TrangThai = trangThai;
             ViewBag.TrangHienTai = trang;
@@ -263,13 +247,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         [HttpGet]
         public async Task<IActionResult> ChiTiet(int id)
         {
-            var donDat = await _context.DatSans
-                .Include(d => d.SanTheThao)
-                    .ThenInclude(s => s.LoaiSan)
-                .Include(d => d.KhachHang)
-                .Include(d => d.ChiTietDatSans)
-                    .ThenInclude(ct => ct.DichVu)
-                .FirstOrDefaultAsync(d => d.MaDatSan == id);
+            var donDat = await _datSanRepository.LayChiTietDatSanAsync(id);
 
             if (donDat == null)
             {
@@ -279,9 +257,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // BẢO MẬT PHÂN QUYỀN (Mục 7.5):
             // Admin/Nhân viên được xem tất cả; Khách hàng chỉ xem được đơn của chính mình
             var vaiTro = HttpContext.Session.GetString("VaiTro");
+
             if (vaiTro != "Admin" && vaiTro != "NhanVien")
             {
                 var khachHang = await LayKhachHangHienTaiAsync();
+
                 if (khachHang == null || donDat.MaKhachHang != khachHang.MaKhachHang)
                 {
                     TempData["Error"] = "Bạn không có quyền xem thông tin đơn đặt sân của người khác!";
@@ -301,13 +281,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         public async Task<IActionResult> Huy(int id)
         {
             var khachHang = await LayKhachHangHienTaiAsync();
+
             if (khachHang == null)
             {
                 TempData["Error"] = "Phiên làm việc đã hết hạn, vui lòng đăng nhập lại!";
                 return RedirectToAction("DangNhap", "TaiKhoan");
             }
 
-            var donDat = await _context.DatSans.FindAsync(id);
+            var donDat = await _datSanRepository.LayDatSanTheoMaAsync(id);
+
             if (donDat == null)
             {
                 return NotFound();
@@ -329,7 +311,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Cập nhật trạng thái sang 'Đã hủy'
             donDat.TrangThai = "Đã hủy";
-            await _context.SaveChangesAsync();
+            await _datSanRepository.LuuThayDoiAsync();
 
             TempData["Success"] = $"Đã hủy thành công đơn đặt sân #{donDat.MaDatSan}!";
             return RedirectToAction(nameof(LichSuDatSan));
@@ -345,8 +327,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 TimeSpan.TryParse(gioBatDau, out TimeSpan tsBatDau) &&
                 TimeSpan.TryParse(gioKetThuc, out TimeSpan tsKetThuc))
             {
-                var san = await _context.SanTheThaos.FindAsync(maSan);
-                if (san == null) return Json(new { hopLe = false, thongBao = "Không tìm thấy sân!" });
+                var san = await _datSanRepository.LaySanTheoMaAsync(maSan);
+
+                if (san == null)
+                {
+                    return Json(new { hopLe = false, thongBao = "Không tìm thấy sân!" });
+                }
 
                 DateTime start = dtNgay.Date + tsBatDau;
                 DateTime end = dtNgay.Date + tsKetThuc;
@@ -361,11 +347,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     return Json(new { hopLe = false, thongBao = $"Sân chỉ mở cửa từ {san.GioMoCua:hh\\:mm} đến {san.GioDongCua:hh\\:mm}!" });
                 }
 
-                bool biTrung = await _context.DatSans.AnyAsync(d =>
-                    d.MaSan == maSan &&
-                    d.TrangThai != "Đã hủy" &&
-                    d.GioBatDau < end &&
-                    d.GioKetThuc > start);
+                bool biTrung = await _datSanRepository.KiemTraTrungLichAsync(
+                    maSan,
+                    start,
+                    end);
 
                 if (biTrung)
                 {
