@@ -1,0 +1,277 @@
+@*
+// Họ và tên: Nguyễn Thị Lan Nhi
+// Mã sinh viên: 23103100104
+// Nội dung thực hiện: Module 3 - Giao diện Thanh toán tiền cọc tối ưu riêng cho màn hình Điện thoại (Mở ra khi quét mã QR)
+*@
+
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.ThanhToanViewModel
+
+@{
+    Layout = null; // Giao diện web app độc lập tối ưu 100% cho điện thoại di động
+    bool daThanhCong = ViewBag.ThanhCong == true || Model.TrangThaiThanhToan == "Chờ xác nhận" || Model.TrangThaiThanhToan == "Đã thanh toán";
+    var soGio = (Model.GioKetThuc - Model.GioBatDau).TotalHours;
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Thanh toán cọc đơn #@Model.MaDatSan - UNETI Sport</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <style>
+        body {
+            background-color: #f1f5f9;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #1e293b;
+            padding-bottom: 30px;
+        }
+        .mobile-container {
+            max-width: 480px;
+            margin: 0 auto;
+            background: #ffffff;
+            min-height: 100vh;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.08);
+            position: relative;
+        }
+        .header-fintech {
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #ffffff;
+            padding: 24px 20px 36px 20px;
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            text-align: center;
+            position: relative;
+        }
+        .main-card {
+            margin-top: -24px;
+            padding: 0 16px;
+        }
+        .card-inner {
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+        }
+        .amount-tag {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #16a34a;
+            line-height: 1.2;
+        }
+        .bank-box {
+            background: #f8fafc;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 16px;
+            padding: 14px;
+        }
+        .btn-confirm {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            border: none;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 1.05rem;
+            padding: 14px;
+            border-radius: 999px;
+            box-shadow: 0 8px 20px rgba(34, 197, 94, 0.35);
+            width: 100%;
+        }
+        .btn-confirm:active {
+            transform: scale(0.98);
+        }
+        .success-circle {
+            width: 80px;
+            height: 80px;
+            background: #dcfce7;
+            color: #16a34a;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.8rem;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 20px rgba(22, 163, 74, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Header di động -->
+        <div class="header-fintech">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge bg-white text-success fw-bold px-3 py-1 rounded-pill">
+                    <i class="bi bi-shield-check me-1"></i> UNETI Sport Pay
+                </span>
+                <span class="small opacity-75">Đơn #@Model.MaDatSan</span>
+            </div>
+            <h4 class="fw-bold mb-1">Xác nhận thanh toán tiền cọc</h4>
+            <p class="small mb-0 opacity-90">Hệ thống đặt sân thể thao tự động</p>
+        </div>
+
+        <div class="main-card">
+            @if (daThanhCong)
+            {
+                <!-- MÀN HÌNH CHÚC MỪNG KHI KHÁCH ĐÃ BẤM XÁC NHẬN -->
+                <div class="card-inner text-center py-4">
+                    <div class="success-circle">
+                        <i class="bi bi-check-lg"></i>
+                    </div>
+                    <h4 class="fw-bold text-success mb-2">Gửi thanh toán thành công!</h4>
+                    <p class="text-muted small mb-3">
+                        Yêu cầu xác nhận cọc cho đơn <strong>#@Model.MaDatSan</strong> đã được ghi nhận. Quản trị viên sẽ kiểm tra và duyệt sân cho bạn trong ít phút.
+                    </p>
+
+                    <div class="alert alert-success py-2 px-3 rounded-4 small fw-semibold mb-4 text-start">
+                        <i class="bi bi-laptop me-1"></i> Màn hình máy tính của bạn đã được cập nhật tự động!
+                    </div>
+
+                    <div class="bank-box text-start mb-4">
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-muted small">Sân thể thao:</span>
+                            <span class="fw-bold small text-dark">@Model.TenSan</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-muted small">Khung giờ:</span>
+                            <span class="fw-semibold small text-primary">@Model.GioBatDau.ToString("HH:mm") - @Model.GioKetThuc.ToString("HH:mm")</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-muted small">Số tiền cọc:</span>
+                            <span class="fw-bold text-success">@Model.SoTienThanhToan.ToString("N0") đ</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1 border-bottom">
+                            <span class="text-muted small">Trạng thái thanh toán:</span>
+                            <span class="badge bg-warning text-dark">⏳ Chờ xác nhận</span>
+                        </div>
+                        <div class="d-flex justify-content-between py-1">
+                            <span class="text-muted small">Thời điểm:</span>
+                            <span class="small text-muted">@DateTime.Now.ToString("dd/MM/yyyy HH:mm")</span>
+                        </div>
+                    </div>
+
+                    <p class="text-muted small mb-0">Bạn có thể đóng tab trình duyệt này trên điện thoại.</p>
+                </div>
+            }
+            else
+            {
+                <!-- FORM THANH TOÁN MÔ PHỎNG TRÊN ĐIỆN THOẠI -->
+                <div class="card-inner mb-4">
+                    <!-- Số tiền cọc cần chuyển -->
+                    <div class="text-center py-2 mb-3 border-bottom pb-3">
+                        <div class="small text-muted text-uppercase fw-semibold mb-1">Số tiền cọc cần chuyển (30%)</div>
+                        <div class="amount-tag">@Model.TienCoc.ToString("N0") <span class="fs-4">VNĐ</span></div>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 small">
+                            Đã tính tự động theo quy định
+                        </span>
+                    </div>
+
+                    <!-- Tóm tắt đơn đặt sân -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between mb-1 small">
+                            <span class="text-muted">🏟️ Sân thể thao:</span>
+                            <strong class="text-dark">@Model.TenSan</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1 small">
+                            <span class="text-muted">📅 Ngày chơi:</span>
+                            <strong class="text-dark">@Model.NgaySuDung.ToString("dd/MM/yyyy")</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1 small">
+                            <span class="text-muted">⏰ Khung giờ:</span>
+                            <strong class="text-primary">@Model.GioBatDau.ToString("HH:mm") - @Model.GioKetThuc.ToString("HH:mm") (@soGio.ToString("0.#")h)</strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-1 small">
+                            <span class="text-muted">👤 Người đặt:</span>
+                            <strong class="text-dark">@Model.HoTenKhachHang</strong>
+                        </div>
+                    </div>
+
+                    <!-- Thông tin tài khoản nhận cọc -->
+                    <div class="bank-box mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="fw-bold small text-success"><i class="bi bi-bank2 me-1"></i> TÀI KHOẢN NHẬN CỌC</span>
+                            <span class="badge bg-primary text-white">MB Bank</span>
+                        </div>
+                        <div class="mb-1 small">
+                            <span class="text-muted">Số tài khoản:</span>
+                            <strong class="text-success fs-6 ms-1 font-monospace" id="txtStk">@Model.SoTaiKhoan</strong>
+                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none ms-2" onclick="copyText('@Model.SoTaiKhoan', this)">[Chép]</button>
+                        </div>
+                        <div class="mb-1 small">
+                            <span class="text-muted">Chủ tài khoản:</span>
+                            <strong class="text-dark ms-1">@Model.ChuTaiKhoan</strong>
+                        </div>
+                        <div class="small">
+                            <span class="text-muted">Nội dung CK:</span>
+                            <strong class="text-primary font-monospace ms-1" id="txtNd">@Model.NoiDungChuyenKhoan</strong>
+                            <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none ms-2" onclick="copyText('@Model.NoiDungChuyenKhoan', this)">[Chép]</button>
+                        </div>
+                    </div>
+
+                    <!-- Form xác nhận -->
+                    <form asp-action="XacNhanThanhToanDiDong" method="post" id="formMobilePay">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" asp-for="MaDatSan" />
+                        <input type="hidden" asp-for="MaThanhToan" />
+
+                        <div class="mb-3">
+                            <label asp-for="SoTienThanhToan" class="form-label small fw-bold text-secondary mb-1">
+                                Số tiền bạn thực tế chuyển (VNĐ):
+                            </label>
+                            <input asp-for="SoTienThanhToan" type="number" step="1000" class="form-control form-control-lg fw-bold text-success text-center" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="PhuongThuc" class="form-label small fw-bold text-secondary mb-1">
+                                Phương thức thanh toán:
+                            </label>
+                            <select asp-for="PhuongThuc" class="form-select">
+                                <option value="Chuyển khoản QR">Chuyển khoản qua App Ngân hàng</option>
+                                <option value="Ví điện tử MoMo">Ví điện tử MoMo</option>
+                                <option value="Ví điện tử ZaloPay">Ví điện tử ZaloPay</option>
+                                <option value="Tiền mặt tại quầy">Nộp tiền mặt</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="NoiDungChuyenKhoan" class="form-label small fw-bold text-secondary mb-1">
+                                Nội dung lệnh chuyển:
+                            </label>
+                            <input asp-for="NoiDungChuyenKhoan" type="text" class="form-control font-monospace fw-bold text-primary text-center" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="GhiChu" class="form-label small fw-bold text-secondary mb-1">
+                                Lời nhắn / Ghi chú (nếu có):
+                            </label>
+                            <input asp-for="GhiChu" type="text" class="form-control form-control-sm" placeholder="VD: Đã chuyển khoản thành công..." />
+                        </div>
+
+                        <button type="submit" class="btn btn-confirm mt-2">
+                            🚀 Tôi đã chuyển khoản cọc
+                        </button>
+                    </form>
+                </div>
+            }
+        </div>
+
+        <div class="text-center text-muted small px-3">
+            Hệ thống Quản lý đặt sân thể thao UNETI &middot; Nhóm 5 - Đề 18
+        </div>
+    </div>
+
+    <script>
+        function copyText(val, btn) {
+            navigator.clipboard.writeText(val).then(function() {
+                const old = btn.innerText;
+                btn.innerText = '✔ Đã chép!';
+                btn.classList.add('text-success');
+                setTimeout(() => {
+                    btn.innerText = old;
+                    btn.classList.remove('text-success');
+                }, 1500);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-﻿// Họ và tên: Lê Bích Ngọc
+// Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
 // Nội dung thực hiện: Cấu hình ApplicationDbContext, ánh xạ cơ sở dữ liệu (DbSet) và khởi tạo dữ liệu mẫu (Seed Data).
 using Microsoft.EntityFrameworkCore;

@@ -1,7 +1,7 @@
 @*
 // Họ và tên: Nguyễn Thị Lan Nhi
 // Mã sinh viên: 23103100104
-// Nội dung thực hiện: Module 3 - Giao diện Chi tiết đơn đặt sân (Thông tin sân, thời gian, trạng thái, chi phí và dịch vụ đi kèm)
+// Nội dung thực hiện: Module 3 - Giao diện Chi tiết đơn đặt sân (Thông tin sân, thời gian, trạng thái, chi phí, dịch vụ đi kèm và xem mã QR chuyển cọc)
 *@
 
 @model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.DatSan
@@ -58,78 +58,76 @@
             </div>
         </div>
 
-        <div class="card-body p-4 p-md-5">
-            <!-- Thông tin hai bên: Khách hàng và Sân -->
-            <div class="row g-4 mb-4 pb-4 border-bottom">
-                <!-- Thông tin khách hàng -->
-                <div class="col-md-6">
-                    <h6 class="fw-bold text-success text-uppercase small mb-3">👤 Thông tin khách hàng đặt sân</h6>
+        <div class="card-body p-4">
+            <!-- 1. Thông tin Sân & Thời gian sử dụng -->
+            <div class="row g-4 mb-4">
+                <div class="col-md-6 border-end-md">
+                    <h5 class="fw-bold text-success mb-3">🏟️ Thông tin Sân thể thao</h5>
                     <div class="p-3 bg-light rounded-3">
-                        <p class="mb-2"><strong>Họ và tên:</strong> @(Model.KhachHang?.HoTen ?? "Khách vãng lai")</p>
-                        <p class="mb-2"><strong>Số điện thoại:</strong> @(Model.KhachHang?.SoDienThoai ?? "—")</p>
-                        <p class="mb-0"><strong>Email:</strong> @(Model.KhachHang?.Email ?? "—")</p>
+                        <div class="mb-2">
+                            <span class="text-muted">Tên sân:</span>
+                            <strong class="text-dark">@(Model.SanTheThao?.TenSan ?? $"Sân #{Model.MaSan}")</strong>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">Loại sân:</span>
+                            <span class="badge bg-secondary">@(Model.SanTheThao?.LoaiSan?.TenLoai ?? "Chưa phân loại")</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="text-muted">Địa chỉ:</span>
+                            <span>@(Model.SanTheThao?.DiaChi ?? "Khu thể thao UNETI")</span>
+                        </div>
+                        <div>
+                            <span class="text-muted">Đơn giá áp dụng:</span>
+                            <strong class="text-primary">@Model.DonGia.ToString("N0") VNĐ/giờ</strong>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Thông tin sân thể thao -->
                 <div class="col-md-6">
-                    <h6 class="fw-bold text-success text-uppercase small mb-3">🏟️ Thông tin sân thi đấu</h6>
+                    <h5 class="fw-bold text-success mb-3">⏰ Thời gian sử dụng sân</h5>
                     <div class="p-3 bg-light rounded-3">
-                        <p class="mb-2"><strong>Tên sân:</strong> @(Model.SanTheThao?.TenSan ?? $"Sân #{Model.MaSan}")</p>
-                        <p class="mb-2"><strong>Loại sân:</strong> @(Model.SanTheThao?.LoaiSan?.TenLoai ?? "—")</p>
-                        <p class="mb-0"><strong>Địa chỉ sân:</strong> @(Model.SanTheThao?.DiaChi ?? "—")</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Khung giờ thuê sân -->
-            <div class="mb-4 pb-4 border-bottom">
-                <h6 class="fw-bold text-success text-uppercase small mb-3">⏰ Thời gian sử dụng sân</h6>
-                <div class="row g-3 text-center">
-                    <div class="col-sm-4">
-                        <div class="border rounded-3 p-3">
-                            <small class="text-muted d-block">Ngày sử dụng</small>
-                            <strong class="fs-5 text-dark">@Model.GioBatDau.ToString("dd/MM/yyyy")</strong>
+                        <div class="mb-2">
+                            <span class="text-muted">Ngày sử dụng:</span>
+                            <strong class="text-dark">@Model.GioBatDau.ToString("dd/MM/yyyy")</strong>
                         </div>
-                    </div>
-                    <div class="col-sm-4">
-                        <div class="border rounded-3 p-3">
-                            <small class="text-muted d-block">Khung giờ</small>
-                            <strong class="fs-5 text-primary">@Model.GioBatDau.ToString("HH:mm") - @Model.GioKetThuc.ToString("HH:mm")</strong>
+                        <div class="mb-2">
+                            <span class="text-muted">Khung giờ:</span>
+                            <strong class="text-success fs-6">@Model.GioBatDau.ToString("HH:mm") &rarr; @Model.GioKetThuc.ToString("HH:mm")</strong>
                         </div>
-                    </div>
-                    <div class="col-sm-4">
-                        <div class="border rounded-3 p-3">
-                            <small class="text-muted d-block">Thời lượng thuê</small>
-                            <strong class="fs-5 text-dark">@soGio.ToString("0.#") giờ</strong>
+                        <div>
+                            <span class="text-muted">Thời lượng thuê:</span>
+                            <span class="badge bg-primary px-3 py-1">@soGio.ToString("0.#") giờ</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Dịch vụ đi kèm (nếu có) -->
+            <!-- 2. Danh sách dịch vụ sử dụng đi kèm (nếu có) -->
             @if (Model.ChiTietDatSans != null && Model.ChiTietDatSans.Any())
             {
-                <div class="mb-4 pb-4 border-bottom">
-                    <h6 class="fw-bold text-success text-uppercase small mb-3">🥤 Dịch vụ sử dụng thêm</h6>
-                    <div class="table-responsive">
-                        <table class="table table-bordered align-middle mb-0">
-                            <thead class="table-light small">
+                <div class="mb-4">
+                    <h5 class="fw-bold text-success mb-3">🥤 Dịch vụ tiện ích đi kèm</h5>
+                    <div class="table-responsive border rounded-3">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
                                 <tr>
-                                    <th>Dịch vụ</th>
+                                    <th>STT</th>
+                                    <th>Tên dịch vụ</th>
                                     <th class="text-center">Số lượng</th>
                                     <th class="text-end">Đơn giá</th>
                                     <th class="text-end">Thành tiền</th>
                                 </tr>
                             </thead>
                             <tbody>
+                                @{ int stt = 1; }
                                 @foreach (var ct in Model.ChiTietDatSans)
                                 {
                                     <tr>
-                                        <td>@(ct.DichVu?.TenDichVu ?? $"Dịch vụ #{ct.MaDichVu}")</td>
+                                        <td>@(stt++)</td>
+                                        <td class="fw-semibold">@(ct.DichVu?.TenDichVu ?? $"Dịch vụ #{ct.MaDichVu}")</td>
                                         <td class="text-center">@ct.SoLuong</td>
                                         <td class="text-end">@ct.DonGia.ToString("N0") VNĐ</td>
-                                        <td class="text-end fw-semibold">@ct.ThanhTien.ToString("N0") VNĐ</td>
+                                        <td class="text-end fw-bold text-dark">@ct.ThanhTien.ToString("N0") VNĐ</td>
                                     </tr>
                                 }
                             </tbody>
@@ -138,12 +136,12 @@
                 </div>
             }
 
-            <!-- Bảng tổng kết tiền -->
+            <!-- 3. Tóm tắt tổng chi phí và tiền cọc -->
             <div class="row justify-content-end mb-4">
-                <div class="col-md-6 col-lg-5">
-                    <div class="p-3 bg-light rounded-3">
+                <div class="col-md-5">
+                    <div class="p-3 bg-light rounded-3 border">
                         <div class="d-flex justify-content-between mb-2">
-                            <span class="text-muted">Tiền thuê sân:</span>
+                            <span class="text-muted">Tiền thuê sân (@soGio.ToString("0.#")h):</span>
                             <span class="fw-semibold">@tienSan.ToString("N0") VNĐ</span>
                         </div>
                         @if (tienDichVu > 0)
@@ -166,19 +164,24 @@
             </div>
 
             <!-- Nút thao tác -->
-            <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top">
                 <a asp-action="LichSuDatSan" class="btn btn-outline-secondary rounded-pill px-4">
                     &laquo; Quay lại lịch sử đặt sân
                 </a>
 
                 @if (Model.TrangThai == "Chờ xử lý")
                 {
-                    <form asp-action="Huy" asp-route-id="@Model.MaDatSan" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn đặt sân này không?');">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
-                            🗑️ Hủy đơn đặt sân
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2">
+                        <a asp-action="XacNhanDatCoc" asp-route-id="@Model.MaDatSan" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm" style="background: linear-gradient(135deg, #7c3aed, #9333ea); border: none;">
+                            📱 Xem lại mã QR chuyển cọc
+                        </a>
+                        <form asp-action="Huy" asp-route-id="@Model.MaDatSan" method="post" onsubmit="return confirm('Bạn có chắc chắn muốn hủy đơn đặt sân này không?');">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-outline-danger rounded-pill px-4 fw-semibold shadow-sm">
+                                🗑️ Hủy đơn
+                            </button>
+                        </form>
+                    </div>
                 }
             </div>
         </div>
