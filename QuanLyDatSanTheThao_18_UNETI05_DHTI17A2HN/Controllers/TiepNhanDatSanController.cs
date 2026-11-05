@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
@@ -208,8 +209,13 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.TienDichVu = don.ChiTietDatSans.Sum(ct => ct.ThanhTien);
             vm.TongTien = vm.TienSan + vm.TienDichVu;
 
-            // Tổng tiền khách còn phải thanh toán (đã trừ tiền cọc)
-            vm.ConPhaiThanhToan = Math.Max(vm.TongTien - don.TienCoc, 0);
+            // Tổng tiền khách còn phải thanh toán (đã trừ giảm giá từ điểm - nếu đơn đã hoàn thành - và tiền cọc)
+            vm.ConPhaiThanhToan = Math.Max(vm.TongTien - don.TienGiamDiem - don.TienCoc, 0);
+
+            // Điểm tích lũy: số điểm khách có và mức được phép dùng cho đơn này
+            vm.DiemKhachHienCo = don.KhachHang.DiemTichLuy;
+            vm.TienGiamToiDa = DiemTichLuyNghiepVu.TinhTienGiamToiDa(vm.TongTien);
+            vm.DiemToiDaDuocDung = DiemTichLuyNghiepVu.TinhDiemToiDaDuocDung(vm.TongTien, vm.DiemKhachHienCo);
 
             // Thêm / sửa dịch vụ chỉ khi đơn chưa kết thúc
             vm.CoTheSuaDichVu = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
@@ -228,7 +234,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Nút thao tác phải phù hợp với trạng thái hiện tại
             vm.CoTheXacNhan = don.TrangThai == ChoXuLy && !vm.KetQua.Loi.Any();
-            vm.CoTheHoanThanh = don.TrangThai == DangXuLy && don.GioBatDau <= now;
+            vm.CoTheHoanThanh = don.TrangThai == DangXuLy && don.DuThoiGianHoanThanh(now);
 
             // Đơn Chờ xử lý hoặc Đang xử lý đều có thể hủy / từ chối,
             // kể cả khi sân đang được sử dụng (Hoàn thành / Đã hủy là trạng thái cuối)
@@ -253,10 +259,61 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public Task<IActionResult> HoanThanhDon(int id, string? quayLai)
+        public async Task<IActionResult> HoanThanhDon(int id, int diemSuDung, string? quayLai)
         {
-            return DoiTrangThaiAsync(id, HoanThanh, quayLai,
-                "Đơn đặt sân #{0} đã được cập nhật sang trạng thái 'Hoàn thành'.");
+            var chan = KiemTraQuyen();
+            if (chan != null) return chan;
+
+            var don = await _repository.LayDatSanXuLyAsync(id);
+
+            if (don == null) return NotFound();
+
+            // Kiểm tra luồng trạng thái + đã đến giờ sử dụng sân
+            string? loi = await KiemTraChuyenTrangThaiAsync(don, HoanThanh);
+
+            if (loi != null)
+            {
+                TempData["Error"] = loi;
+                return QuayLaiTrang(quayLai, id);
+            }
+
+            // ---- Tính tiền & điểm tích lũy ----
+            // Tổng đơn = tiền sân (số giờ x đơn giá) + tiền dịch vụ
+            decimal tienSan = Math.Round((decimal)Math.Max((don.GioKetThuc - don.GioBatDau).TotalHours, 0) * don.DonGia, 0);
+            decimal tongTien = tienSan + don.ChiTietDatSans.Sum(ct => ct.ThanhTien);
+            var khachHang = don.KhachHang;
+
+            // Kiểm tra số điểm dùng: đủ điểm và không giảm quá 30% tổng đơn
+            string? loiDiem = DiemTichLuyNghiepVu.KiemTraDiemSuDung(diemSuDung, tongTien, khachHang.DiemTichLuy);
+
+            if (loiDiem != null)
+            {
+                TempData["Error"] = $"Không thể hoàn thành đơn #{id}: {loiDiem}";
+                return QuayLaiTrang(quayLai, id);
+            }
+
+            decimal tienGiam = DiemTichLuyNghiepVu.TinhTienGiam(diemSuDung);
+            decimal tienThucChi = tongTien - tienGiam;                       // số tiền khách thực sự chi cho đơn
+            int diemCong = DiemTichLuyNghiepVu.TinhDiemCong(tienThucChi);    // 100.000đ -> 10 điểm
+
+            don.TrangThai = HoanThanh;
+            don.DiemSuDung = diemSuDung;
+            don.TienGiamDiem = tienGiam;
+            don.DiemCong = diemCong;
+
+            // Trừ điểm đã dùng, cộng điểm mới - cùng một lần lưu nên đơn và điểm của khách luôn nhất quán
+            khachHang.DiemTichLuy = khachHang.DiemTichLuy - diemSuDung + diemCong;
+
+            await _repository.LuuThayDoiAsync();
+
+            string thongBao = $"Đơn đặt sân #{id} đã hoàn thành. Tổng tiền {tongTien:N0} VNĐ";
+            if (diemSuDung > 0)
+                thongBao += $", đã dùng {diemSuDung:N0} điểm (giảm {tienGiam:N0} VNĐ)";
+            thongBao += $". Khách được cộng {diemCong:N0} điểm, tổng điểm hiện có: {khachHang.DiemTichLuy:N0}.";
+
+            TempData["Success"] = thongBao;
+
+            return QuayLaiTrang(quayLai, id);
         }
 
         // ==========================================================
@@ -415,9 +472,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     break;
 
                 case HoanThanh:
-                    if (don.GioBatDau > now)
+                    // Phải sử dụng sân ít nhất 80% tổng thời gian đã đặt mới được hoàn thành
+                    if (!don.DuThoiGianHoanThanh(now))
                     {
-                        return $"Đơn #{don.MaDatSan} chưa đến giờ sử dụng sân ({don.GioBatDau:dd/MM/yyyy HH:mm}) nên chưa thể hoàn thành.";
+                        return $"Đơn #{don.MaDatSan} chưa thể hoàn thành: khách phải sử dụng sân ít nhất 80% thời gian đã đặt, " +
+                               $"nghĩa là chỉ hoàn thành được từ {don.MocDuocHoanThanh:HH:mm dd/MM/yyyy}.";
                     }
                     break;
 

@@ -75,6 +75,16 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         // Số tiền khách còn phải thanh toán = Tổng cộng - Tiền cọc (không âm)
         public decimal ConPhaiThanhToan { get; set; }
 
+        // ===== ĐIỂM TÍCH LŨY =====
+        // Điểm khách đang có
+        public int DiemKhachHienCo { get; set; }
+
+        // Số điểm tối đa được dùng cho đơn này (không quá điểm đang có và không quá 30% tổng đơn)
+        public int DiemToiDaDuocDung { get; set; }
+
+        // Số tiền giảm tối đa (30% tổng đơn)
+        public decimal TienGiamToiDa { get; set; }
+
         // Cho phép thêm / sửa dịch vụ khi đơn chưa kết thúc (Chờ xử lý, Đang xử lý)
         public bool CoTheSuaDichVu { get; set; }
 

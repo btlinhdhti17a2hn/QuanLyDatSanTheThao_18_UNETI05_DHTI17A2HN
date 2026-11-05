@@ -64,7 +64,13 @@
 }
 
 <style>
-    .tn-flow { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .tn-flow {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
     .tn-step {
         display: flex;
         align-items: center;
@@ -76,20 +82,38 @@
         background: #f3f4f6;
         color: #9ca3af;
     }
-    .tn-step.done { background: #dcfce7; color: #15803d; }
-    .tn-step.current {
-        background: linear-gradient(135deg, #16a34a, #22c55e);
-        color: #fff;
-        box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
+
+        .tn-step.done {
+            background: #dcfce7;
+            color: #15803d;
+        }
+
+        .tn-step.current {
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, .35);
+        }
+
+        .tn-step.cancel {
+            background: #fee2e2;
+            color: #b91c1c;
+        }
+
+    .tn-arrow {
+        color: #9ca3af;
+        font-weight: 800;
     }
-    .tn-step.cancel { background: #fee2e2; color: #b91c1c; }
-    .tn-arrow { color: #9ca3af; font-weight: 800; }
+
     .btn-xanh {
         background: linear-gradient(135deg, #16a34a, #22c55e);
         border: none;
         color: #fff;
     }
-    .btn-xanh:hover { color: #fff; filter: brightness(.95); }
+
+        .btn-xanh:hover {
+            color: #fff;
+            filter: brightness(.95);
+        }
 
     /* Bảng xanh lá dùng chung với các trang quản lý khác của hệ thống */
     .table-card {
@@ -99,21 +123,35 @@
         overflow: hidden;
         background: #fff;
     }
-    .table-pretty { margin: 0; }
-    .table-pretty thead th {
-        background: linear-gradient(135deg, #dcfce7, #bbf7d0);
-        color: #166534;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: .78rem;
-        letter-spacing: .6px;
-        border: none;
-        padding: 1rem .9rem;
-        white-space: nowrap;
+
+    .table-pretty {
+        margin: 0;
     }
-    .table-pretty tbody td { padding: .9rem; border-color: #f1f5f9; }
-    .table-pretty tbody tr { transition: background .2s ease; }
-    .table-pretty tbody tr:hover { background: #f0fdf4; }
+
+        .table-pretty thead th {
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #166534;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: .78rem;
+            letter-spacing: .6px;
+            border: none;
+            padding: 1rem .9rem;
+            white-space: nowrap;
+        }
+
+        .table-pretty tbody td {
+            padding: .9rem;
+            border-color: #f1f5f9;
+        }
+
+        .table-pretty tbody tr {
+            transition: background .2s ease;
+        }
+
+            .table-pretty tbody tr:hover {
+                background: #f0fdf4;
+            }
 
     /* Dịch vụ: biểu tượng, ô số lượng, dòng được chọn */
     .dv-ico {
@@ -128,15 +166,24 @@
         font-size: 1.4rem;
         line-height: 1;
     }
-    .dv-qty { width: 140px; }
-    .dv-qty .form-control {
-        text-align: center;
-        font-weight: 700;
-        color: #14532d;
-        border-color: #bbf7d0;
-        box-shadow: none;
+
+    .dv-qty {
+        width: 140px;
     }
-    .dv-qty .form-control:focus { border-color: #22c55e; box-shadow: 0 0 0 .2rem rgba(34, 197, 94, .2); }
+
+        .dv-qty .form-control {
+            text-align: center;
+            font-weight: 700;
+            color: #14532d;
+            border-color: #bbf7d0;
+            box-shadow: none;
+        }
+
+            .dv-qty .form-control:focus {
+                border-color: #22c55e;
+                box-shadow: 0 0 0 .2rem rgba(34, 197, 94, .2);
+            }
+
     .btn-dv {
         background: #fff;
         color: #16a34a;
@@ -144,9 +191,20 @@
         font-weight: 800;
         line-height: 1;
     }
-    .btn-dv:hover { background: #dcfce7; color: #14532d; border-color: #86efac; }
-    .dv-row.dv-chon { background: #f0fdf4; }
-    .dv-row.dv-chon .dv-thanhtien { color: #14532d; }
+
+        .btn-dv:hover {
+            background: #dcfce7;
+            color: #14532d;
+            border-color: #86efac;
+        }
+
+    .dv-row.dv-chon {
+        background: #f0fdf4;
+    }
+
+        .dv-row.dv-chon .dv-thanhtien {
+            color: #14532d;
+        }
 </style>
 
 <div class="container py-4">
@@ -379,7 +437,9 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @{ int stt = 0; }
+                                    @{
+                                        int stt = 0;
+                                    }
                                     @foreach (var dv in Model.DanhSachDichVu)
                                     {
                                         bool daChon = dvTrongDon.TryGetValue(dv.MaDichVu, out var ctCu);
@@ -484,6 +544,17 @@
                             <span class="fw-bold text-dark">Tổng cộng:</span>
                             <strong class="fs-5 text-primary" id="tongCong">@Model.TongTien.ToString("N0") VNĐ</strong>
                         </div>
+                        @if (don.TrangThai == "Hoàn thành")
+                        {
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Giảm từ điểm (@don.DiemSuDung.ToString("N0") điểm):</span>
+                                <span class="fw-semibold text-success">- @don.TienGiamDiem.ToString("N0") VNĐ</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">Điểm được cộng từ đơn này:</span>
+                                <span class="fw-semibold text-primary">+ @don.DiemCong.ToString("N0") điểm</span>
+                            </div>
+                        }
                         <div class="d-flex justify-content-between mb-2 border-top pt-2">
                             <span class="fw-bold text-danger">Tiền cọc:</span>
                             <strong class="fs-5 text-danger">@don.TienCoc.ToString("N0") VNĐ</strong>
@@ -493,7 +564,7 @@
                             <div class="d-flex justify-content-between align-items-center border-top border-2 pt-2">
                                 <span class="fw-bold text-success">
                                     Tổng tiền cần thanh toán:
-                                    <small class="text-muted fw-normal d-block">(Tổng cộng − Tiền cọc)</small>
+                                    <small class="text-muted fw-normal d-block">@(don.TienGiamDiem > 0 ? "(Tổng cộng − Giảm từ điểm − Tiền cọc)" : "(Tổng cộng − Tiền cọc)")</small>
                                 </span>
                                 <strong class="fs-4 text-success" id="canThanhToan">@Model.ConPhaiThanhToan.ToString("N0") VNĐ</strong>
                             </div>
@@ -501,6 +572,58 @@
                     </div>
                 </div>
             </div>
+
+            @* ===== ĐIỂM TÍCH LŨY: chọn số điểm dùng trước khi bấm "Hoàn thành" ===== *@
+            @if (Model.CoTheHoanThanh)
+            {
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                <div class="p-3 bg-light rounded-3 mb-4" id="khungDiem"
+                     data-tong="@Model.TongTien.ToString(inv)"
+                     data-diem-co="@Model.DiemKhachHienCo"
+                     data-diem-toi-da="@Model.DiemToiDaDuocDung"
+                     data-gia-tri-diem="@QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers.DiemTichLuyNghiepVu.GiaTriMotDiem.ToString(inv)"
+                     data-tien-moi-diem="@QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers.DiemTichLuyNghiepVu.SoTienMoiDiem.ToString(inv)">
+                    <h6 class="fw-bold text-success text-uppercase small mb-2">⭐ Sử dụng điểm tích lũy</h6>
+                    <div class="small text-muted mb-2">
+                        Khách đang có <strong>@Model.DiemKhachHienCo.ToString("N0")</strong> điểm.
+                        Quy đổi: 1.000 điểm = 10.000 VNĐ; chỉ được giảm tối đa 30% tổng đơn
+                        (<strong>@Model.TienGiamToiDa.ToString("N0") VNĐ</strong>)
+                        &rarr; dùng tối đa <strong>@Model.DiemToiDaDuocDung.ToString("N0")</strong> điểm cho đơn này.
+                    </div>
+
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="input-group" style="max-width: 280px;">
+                            <span class="input-group-text">Dùng</span>
+                            @* form="formHoanThanh": ô nhập nằm ngoài thẻ form nhưng vẫn được gửi cùng nút Hoàn thành *@
+                            <input type="number" id="diemSuDung" name="diemSuDung" form="formHoanThanh"
+                                   class="form-control" value="0" min="0" max="@Model.DiemToiDaDuocDung" step="1"
+                                   disabled="@(Model.DiemToiDaDuocDung == 0)" />
+                            <span class="input-group-text">điểm</span>
+                        </div>
+                        <button type="button" id="btnDungToiDa" class="btn btn-outline-success btn-sm rounded-pill px-3"
+                                disabled="@(Model.DiemToiDaDuocDung == 0)">
+                            Dùng tối đa
+                        </button>
+                    </div>
+
+                    @if (Model.DiemToiDaDuocDung == 0)
+                    {
+                        <div class="small text-muted mt-2">
+                            @(Model.DiemKhachHienCo == 0 ? "Khách chưa có điểm để sử dụng." : "Đơn này chưa đủ điều kiện để dùng điểm.")
+                        </div>
+                    }
+
+                    <div id="diemCanhBao" class="small text-danger mt-2" style="display:none"></div>
+
+                    <div class="small border-top mt-3 pt-2">
+                        <div class="d-flex justify-content-between"><span>Tổng cộng</span><span id="tt-tong">@Model.TongTien.ToString("N0") VNĐ</span></div>
+                        <div class="d-flex justify-content-between"><span>Giảm từ điểm</span><span id="tt-giam" class="text-success">- 0 VNĐ</span></div>
+                        <div class="d-flex justify-content-between"><span>Tiền cọc</span><span>- @Model.DonDat.TienCoc.ToString("N0") VNĐ</span></div>
+                        <div class="d-flex justify-content-between fw-bold"><span>Khách cần thanh toán</span><span id="tt-thanhtoan" class="text-success">@Model.ConPhaiThanhToan.ToString("N0") VNĐ</span></div>
+                        <div class="d-flex justify-content-between"><span>Điểm sẽ được cộng</span><span id="tt-cong" class="text-primary">+ @QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Helpers.DiemTichLuyNghiepVu.TinhDiemCong(Model.TongTien).ToString("N0") điểm</span></div>
+                    </div>
+                </div>
+            }
 
             <!-- Nút thao tác: chỉ hiện nút phù hợp với trạng thái hiện tại -->
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top">
@@ -519,21 +642,24 @@
                         else
                         {
                             <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
-                                    title="Đơn chưa đủ điều kiện, xem mục kiểm tra phía trên">✔️ Chưa thể xác nhận</button>
+                                    title="Đơn chưa đủ điều kiện, xem mục kiểm tra phía trên">
+                                ✔️ Chưa thể xác nhận
+                            </button>
                         }
                     }
 
                     @if (Model.CoTheHoanThanh)
                     {
-                        <form asp-action="HoanThanhDon" asp-route-id="@don.MaDatSan" method="post"
+                        <form id="formHoanThanh" asp-action="HoanThanhDon" asp-route-id="@don.MaDatSan" method="post"
                               onsubmit="return confirm('Hoàn thành đơn đặt sân #@(don.MaDatSan)?');">
                             <button type="submit" class="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">✅ Hoàn thành</button>
                         </form>
                     }
                     else if (don.TrangThai == "Đang xử lý")
                     {
-                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
-                                title="Chưa đến giờ sử dụng sân">✅ Chưa đến giờ hoàn thành</button>
+                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled>
+                            ✅ Hoàn thành
+                        </button>
                     }
 
                     @if (Model.CoTheHuy)
@@ -620,4 +746,48 @@
             });
         })();
     </script>
+    <script>
+        // Xem trước tiền / điểm khi nhập số điểm sử dụng (máy chủ vẫn kiểm tra lại khi bấm Hoàn thành)
+        (function () {
+            const khung = document.getElementById('khungDiem');
+            if (!khung) return;
+
+            const tong = Number(khung.dataset.tong);
+            const diemCo = parseInt(khung.dataset.diemCo, 10);
+            const toiDa = parseInt(khung.dataset.diemToiDa, 10);
+            const giaTriDiem = Number(khung.dataset.giaTriDiem);
+            const tienMoiDiem = Number(khung.dataset.tienMoiDiem);
+            const tienCoc = Number(document.getElementById('khungTien').dataset.tienCoc);
+
+            const o = document.getElementById('diemSuDung');
+            const btn = document.getElementById('btnDungToiDa');
+            const canhBao = document.getElementById('diemCanhBao');
+            const fmt = n => Math.round(n).toLocaleString('vi-VN');
+
+            function capNhat() {
+                let diem = parseInt(o.value, 10);
+                if (isNaN(diem) || diem < 0) diem = 0;
+
+                if (diem > toiDa) {
+                    canhBao.style.display = 'block';
+                    canhBao.textContent = diem > diemCo
+                        ? 'Khách chỉ có ' + fmt(diemCo) + ' điểm.'
+                        : 'Chỉ được dùng tối đa ' + fmt(toiDa) + ' điểm (giảm không quá 30% tổng đơn).';
+                    diem = toiDa; // chỉ để xem trước
+                } else {
+                    canhBao.style.display = 'none';
+                }
+
+                const giam = diem * giaTriDiem;
+                const thucChi = tong - giam;
+                document.getElementById('tt-giam').textContent = '- ' + fmt(giam) + ' VNĐ';
+                document.getElementById('tt-thanhtoan').textContent = fmt(Math.max(thucChi - tienCoc, 0)) + ' VNĐ';
+                document.getElementById('tt-cong').textContent = '+ ' + fmt(Math.floor(Math.max(thucChi, 0) / tienMoiDiem)) + ' điểm';
+            }
+
+            o.addEventListener('input', capNhat);
+            btn.addEventListener('click', function () { o.value = toiDa; capNhat(); });
+        })();
+    </script>
 }
+
