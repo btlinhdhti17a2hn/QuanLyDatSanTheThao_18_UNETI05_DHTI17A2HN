@@ -1,6 +1,6 @@
 // Họ và tên: Nguyễn Thị Lan Nhi
 // Mã sinh viên: 23103100104
-// Nội dung thực hiện: Module 3 - Controller Đặt sân (Nghiệp vụ tạo đặt sân, kiểm tra trùng lịch LINQ, giờ mở cửa, theo dõi lịch sử đặt và hủy đặt sân)
+// Nội dung thực hiện: Module 3 - Controller Đặt sân (Nghiệp vụ tạo đặt sân, kiểm tra trùng lịch LINQ, hiển thị mã QR TPBank chuyển cọc, theo dõi lịch sử đặt và hủy đặt sân)
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +16,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
     public class DatSanController : Controller
     {
         private readonly IDatSanRepository _datSanRepository;
+
+        // Thông tin ngân hàng của Nguyễn Thị Lan Nhi (SV3 - Module 3)
+        private const string NGAN_HANG = "TPBank (Ngân hàng Tiên Phong)";
+        private const string SO_TAI_KHOAN = "00004101429";
+        private const string CHU_TAI_KHOAN = "NGUYEN THI LAN NHI";
 
         public DatSanController(IDatSanRepository datSanRepository)
         {
@@ -90,7 +95,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
         // ==========================================================
         // 2. TẠO ĐẶT SÂN - POST
-        // Hỗ trợ cả 2 Action 'Create' và 'TaoMoi'
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -166,7 +170,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // Ràng buộc Mục 8.3 & 15: KIỂM TRA TRÙNG LỊCH BẰNG LINQ
-            // Không cho cùng 1 sân có 2 lịch đặt giao nhau về thời gian (loại trừ các đơn 'Đã hủy')
             bool daBiTrungLich = await _datSanRepository.KiemTraTrungLichAsync(
                 model.MaSan,
                 dtBatDau,
@@ -178,12 +181,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return View("TaoMoi", model);
             }
 
-            // 3. Tính toán chi phí: Tổng tiền dự kiến và Tiền cọc (30% tổng tiền, không vượt tổng tiền dự kiến theo Mục 8.3)
+            // 3. Tính toán chi phí: Tổng tiền dự kiến và Tiền cọc (30% tổng tiền)
             decimal tongTien = Math.Round((decimal)soGio * san.DonGia, 0);
             decimal tienCoc = Math.Round(tongTien * 0.3m, 0);
 
             // 4. Khởi tạo đối tượng DatSan theo đúng quy định Mục 7:
-            // Thời điểm tạo do hệ thống tự sinh (DateTime.Now), trạng thái khởi tạo là 'Chờ xử lý'
             var datSanMoi = new DatSan
             {
                 MaKhachHang = khachHang.MaKhachHang,
@@ -198,13 +200,56 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             await _datSanRepository.ThemDatSanAsync(datSanMoi);
 
-            TempData["Success"] = $"Đặt sân thành công (Mã đơn: #{datSanMoi.MaDatSan})! Vui lòng chuẩn bị tiền cọc {tienCoc:N0} VNĐ để nhân viên xác nhận.";
-            return RedirectToAction(nameof(LichSuDatSan));
+            TempData["Success"] = $"Đặt sân thành công (Mã đơn: #{datSanMoi.MaDatSan})! Vui lòng quét mã QR để chuyển khoản tiền cọc.";
+            
+            // Chuyển hướng sang trang hiển thị mã QR đặt cọc của bạn
+            return RedirectToAction(nameof(XacNhanDatCoc), new { id = datSanMoi.MaDatSan });
         }
 
         // ==========================================================
-        // 3. THEO DÕI LỊCH ĐẶT SÂN (LỊCH SỬ ĐẶT SÂN CỦA KHÁCH HÀNG)
-        // Mục 7.5: Chỉ được xem dữ liệu của chính mình
+        // 3. HIỂN THỊ MÃ QR CHUYỂN KHOẢN TIỀN CỌC (TPBANK CỦA NGUYỄN THỊ LAN NHI)
+        // ==========================================================
+        [HttpGet]
+        public async Task<IActionResult> XacNhanDatCoc(int id)
+        {
+            var donDat = await _datSanRepository.LayChiTietDatSanAsync(id);
+            if (donDat == null)
+            {
+                return NotFound();
+            }
+
+            var khachHang = await LayKhachHangHienTaiAsync();
+            var vaiTro = HttpContext.Session.GetString("VaiTro");
+            if (vaiTro != "Admin" && vaiTro != "NhanVien")
+            {
+                if (khachHang == null || donDat.MaKhachHang != khachHang.MaKhachHang)
+                {
+                    TempData["Error"] = "Bạn không có quyền xem thông tin đặt sân này!";
+                    return RedirectToAction(nameof(LichSuDatSan));
+                }
+            }
+
+            // Sinh link VietQR chuẩn động của TPBank với số tiền cọc và mã đơn
+            string noiDungChuyenKhoan = $"DATSAN{donDat.MaDatSan}";
+            string vietQrUrl = $"https://img.vietqr.io/image/TPB-{SO_TAI_KHOAN}-compact2.png?amount={(long)donDat.TienCoc}&addInfo={noiDungChuyenKhoan}&accountName={Uri.EscapeDataString(CHU_TAI_KHOAN)}";
+
+            ViewBag.NganHang = NGAN_HANG;
+            ViewBag.SoTaiKhoan = SO_TAI_KHOAN;
+            ViewBag.ChuTaiKhoan = CHU_TAI_KHOAN;
+            ViewBag.NoiDungChuyenKhoan = noiDungChuyenKhoan;
+            ViewBag.VietQrUrl = vietQrUrl;
+
+            return View("XacNhanDatCoc", donDat);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ThanhToan(int id)
+        {
+            return await XacNhanDatCoc(id);
+        }
+
+        // ==========================================================
+        // 4. THEO DÕI LỊCH ĐẶT SÂN (LỊCH SỬ ĐẶT SÂN CỦA KHÁCH HÀNG)
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> LichSuDatSan(string? trangThai, int trang = 1, int kichThuocTrang = 8)
@@ -216,13 +261,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return RedirectToAction("DangNhap", "TaiKhoan");
             }
 
-            // LINQ: Truy vấn danh sách giao dịch thuộc chính khách hàng này
-            // Lọc theo trạng thái và phân trang được thực hiện trong Repository
             int tongSoBanGhi = await _datSanRepository.DemLichSuDatSanAsync(
                 khachHang.MaKhachHang,
                 trangThai);
 
-            // Sắp xếp đơn mới nhất lên đầu và phân trang
             int tongSoTrang = (int)Math.Ceiling((double)tongSoBanGhi / kichThuocTrang);
             trang = Math.Max(1, Math.Min(trang, Math.Max(1, tongSoTrang)));
 
@@ -241,8 +283,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // 4. XEM CHI TIẾT ĐƠN ĐẶT SÂN
-        // Bảo mật URL Mục 7.5: Chặn đổi id xem trộm đơn người khác
+        // 5. XEM CHI TIẾT ĐƠN ĐẶT SÂN
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> ChiTiet(int id)
@@ -254,8 +295,6 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return NotFound();
             }
 
-            // BẢO MẬT PHÂN QUYỀN (Mục 7.5):
-            // Admin/Nhân viên được xem tất cả; Khách hàng chỉ xem được đơn của chính mình
             var vaiTro = HttpContext.Session.GetString("VaiTro");
 
             if (vaiTro != "Admin" && vaiTro != "NhanVien")
@@ -269,12 +308,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 }
             }
 
-            return View(donDat);
+            return View("ChiTiet", donDat);
         }
 
         // ==========================================================
-        // 5. HỦY ĐẶT SÂN
-        // Mục 7.4: Chỉ được hủy trong các trạng thái cho phép
+        // 6. HỦY ĐẶT SÂN
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
@@ -295,21 +333,18 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return NotFound();
             }
 
-            // BẢO MẬT: Kiểm tra đơn thuộc chính khách hàng này
             if (donDat.MaKhachHang != khachHang.MaKhachHang)
             {
                 TempData["Error"] = "Bạn không thể hủy đơn đặt sân của người khác!";
                 return RedirectToAction(nameof(LichSuDatSan));
             }
 
-            // RÀNG BUỘC MỤC 7.4: Chỉ được hủy khi đơn ở trạng thái 'Chờ xử lý'
             if (donDat.TrangThai != "Chờ xử lý")
             {
                 TempData["Error"] = $"Không thể hủy đơn đặt sân đang ở trạng thái '{donDat.TrangThai}'. Vui lòng liên hệ ban quản lý để được hỗ trợ!";
                 return RedirectToAction(nameof(ChiTiet), new { id });
             }
 
-            // Cập nhật trạng thái sang 'Đã hủy'
             donDat.TrangThai = "Đã hủy";
             await _datSanRepository.LuuThayDoiAsync();
 
@@ -318,7 +353,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // 6. API AJAX: KIỂM TRA TRÙNG LỊCH VÀ TÍNH TIỀN NHANH
+        // 7. API AJAX: KIỂM TRA TRÙNG LỊCH VÀ TÍNH TIỀN NHANH
         // ==========================================================
         [HttpGet]
         public async Task<IActionResult> KiemTraGiaVaTrungLich(int maSan, string ngay, string gioBatDau, string gioKetThuc)

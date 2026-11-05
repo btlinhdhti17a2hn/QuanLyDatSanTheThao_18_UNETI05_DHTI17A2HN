@@ -1,0 +1,279 @@
+@*
+// Họ và tên: Nguyễn Thị Lan Nhi
+// Mã sinh viên: 23103100104
+// Nội dung thực hiện: Module 3 - Giao diện Thanh toán tiền cọc mô phỏng qua Mã QR (Căn giữa tinh gọn, quét bằng điện thoại + Tự động đồng bộ Realtime)
+*@
+
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.ThanhToanViewModel
+
+@{
+    ViewData["Title"] = $"Thanh toán cọc đơn #{Model.MaDatSan}";
+    var soGio = (Model.GioKetThuc - Model.GioBatDau).TotalHours;
+}
+
+<style>
+    .qr-card-container {
+        max-width: 560px;
+        margin: 0 auto;
+    }
+    .qr-card {
+        background: #ffffff;
+        border: 2px solid #bbf7d0;
+        border-radius: 28px;
+        box-shadow: 0 15px 40px rgba(22, 163, 74, 0.12);
+        overflow: hidden;
+    }
+    .qr-header {
+        background: linear-gradient(135deg, #16a34a, #15803d);
+        color: white;
+        padding: 24px 24px 20px 24px;
+        text-align: center;
+        border-bottom-left-radius: 24px;
+        border-bottom-right-radius: 24px;
+    }
+    .bank-badge {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 4px 14px;
+        border-radius: 20px;
+        font-weight: 700;
+        font-size: 0.8rem;
+        display: inline-block;
+        backdrop-filter: blur(4px);
+    }
+    .amount-highlight {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #fef08a;
+        line-height: 1.2;
+    }
+    .qr-box {
+        background: #ffffff;
+        padding: 16px;
+        border-radius: 20px;
+        border: 2px dashed #86efac;
+        display: inline-block;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    }
+    .copy-btn {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .copy-btn:hover {
+        background-color: #dcfce7 !important;
+        border-color: #22c55e !important;
+    }
+    .sync-badge {
+        animation: pulse-green 2s infinite;
+    }
+    @@keyframes pulse-green {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.03); opacity: 0.85; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<div class="container py-4">
+    <!-- Breadcrumb điều hướng -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none text-success">Trang chủ</a></li>
+            <li class="breadcrumb-item"><a asp-action="LichSuDatSan" class="text-decoration-none text-success">Lịch sử đặt sân</a></li>
+            <li class="breadcrumb-item"><a asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="text-decoration-none text-success">Đơn #@Model.MaDatSan</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Thanh toán cọc</li>
+        </ol>
+    </nav>
+
+    <!-- Thông báo kết nối Realtime khi điện thoại thao tác -->
+    <div id="realtimeAlert" class="alert alert-success shadow-sm rounded-4 mb-4 d-none qr-card-container">
+        <div class="d-flex align-items-center">
+            <div class="spinner-grow text-success me-3" role="status"></div>
+            <div>
+                <strong class="d-block">🎉 Đã nhận thông tin thanh toán từ điện thoại!</strong>
+                <span class="small">Hệ thống đang tự động đồng bộ và chuyển sang lịch sử đặt sân...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- KHUNG THANH TOÁN QR CĂN GIỮA MÀN HÌNH -->
+    <div class="qr-card-container">
+        <div class="qr-card shadow-sm">
+            <!-- Header card: Thông tin tóm tắt & Số tiền cọc -->
+            <div class="qr-header">
+                <span class="bank-badge mb-2">⚡ QUÉT QR THANH TOÁN TRÊN ĐIỆN THOẠI</span>
+                <h4 class="fw-bold mb-1">Đơn đặt sân #@Model.MaDatSan</h4>
+                <div class="small opacity-75 mb-2">
+                    🏟️ @Model.TenSan &bull; ⏰ @Model.GioBatDau.ToString("HH:mm") - @Model.GioKetThuc.ToString("HH:mm") (@Model.NgaySuDung.ToString("dd/MM/yyyy"))
+                </div>
+                <div class="mt-2">
+                    <small class="d-block text-white-50">Số tiền cọc cần chuyển (30%):</small>
+                    <span class="amount-highlight">@Model.TienCoc.ToString("N0") VNĐ</span>
+                </div>
+            </div>
+
+            <!-- Body card: Khối mã QR & Chi tiết chuyển khoản -->
+            <div class="p-4 text-center">
+                <!-- Tabs chuyển đổi giữa Mở Web Điện Thoại và App VietQR -->
+                <ul class="nav nav-pills nav-fill mb-3 bg-light p-1 rounded-pill" id="qrTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active rounded-pill small fw-bold py-2" id="tab-phone-tab" data-bs-toggle="pill" data-bs-target="#tab-phone" type="button" role="tab">
+                            📱 Mở web trên điện thoại
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link rounded-pill small fw-bold py-2" id="tab-bank-tab" data-bs-toggle="pill" data-bs-target="#tab-bank" type="button" role="tab">
+                            💳 Chuyển khoản VietQR
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="qrTabsContent">
+                    <!-- TAB 1: QUÉT MÃ QR MỞ TRANG WEB TRÊN ĐIỆN THOẠI -->
+                    <div class="tab-pane fade show active" id="tab-phone" role="tabpanel">
+                        <div class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1 mb-2">
+                            <i class="bi bi-camera-fill me-1"></i> Quét bằng Camera iPhone / Android / Zalo
+                        </div>
+
+                        <!-- Khung ảnh QR mở trang web -->
+                        <div class="qr-box my-2">
+                            <img src="@Model.MobileQrCodeUrl" 
+                                 alt="QR Mở trang thanh toán điện thoại" 
+                                 class="img-fluid rounded-3" 
+                                 style="max-width: 250px; width: 100%; height: auto;" />
+                            <div class="mt-2 text-muted" style="font-size: 0.85rem;">
+                                <i class="bi bi-phone text-success"></i> Quét xong sẽ tự mở trang thanh toán trên điện thoại
+                            </div>
+                        </div>
+
+                        <!-- Link truy cập trực tiếp nếu test trên PC -->
+                        <div class="bg-light rounded-3 p-2 text-start border mt-2 small">
+                            <div class="text-muted small mb-1">🔗 Link trang web thanh toán di động:</div>
+                            <div class="d-flex align-items-center gap-1">
+                                <input type="text" class="form-control form-control-sm font-monospace text-truncate bg-white" id="inputMobileUrl" value="@Model.MobileUrl" readonly />
+                                <a href="@Model.MobileUrl" target="_blank" class="btn btn-sm btn-outline-success px-2 py-1" title="Mở thử trong tab mới">
+                                    <i class="bi bi-box-arrow-up-right"></i> Mở thử
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" onclick="copyText('@Model.MobileUrl', this)" title="Sao chép link">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: QUÉT QUA APP NGÂN HÀNG VIETQR -->
+                    <div class="tab-pane fade" id="tab-bank" role="tabpanel">
+                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 mb-2">
+                            <i class="bi bi-qr-code-scan me-1"></i> Quét bằng App MB Bank, VCB, BIDV, MoMo...
+                        </div>
+
+                        <div class="qr-box my-2">
+                            <img src="@Model.VietQrCodeUrl" 
+                                 alt="VietQR Chuyển khoản" 
+                                 class="img-fluid rounded-3" 
+                                 style="max-width: 250px; width: 100%; height: auto;" />
+                            <div class="mt-2 text-muted" style="font-size: 0.85rem;">
+                                <i class="bi bi-shield-check text-success"></i> Đã điền sẵn số tiền cọc: @Model.TienCoc.ToString("N0") VNĐ
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bảng thông tin tài khoản ngân hàng -->
+                <div class="bg-light rounded-3 p-3 text-start border mt-3">
+                    <div class="mb-2 pb-2 border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted d-block">Ngân hàng thụ hưởng:</small>
+                            <strong class="text-dark">@Model.TenNganHang</strong>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary fw-bold">MB Bank</span>
+                    </div>
+
+                    <div class="mb-2 pb-2 border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted d-block">Số tài khoản:</small>
+                            <strong class="text-success fs-5 font-monospace" id="txtStk">@Model.SoTaiKhoan</strong>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary copy-btn rounded-pill px-2 py-1" onclick="copyText('@Model.SoTaiKhoan', this)">
+                            <i class="bi bi-clipboard"></i> Chép STK
+                        </button>
+                    </div>
+
+                    <div class="mb-2 pb-2 border-bottom">
+                        <small class="text-muted d-block">Chủ tài khoản:</small>
+                        <strong class="text-dark">@Model.ChuTaiKhoan</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted d-block">Nội dung chuyển khoản:</small>
+                            <strong class="text-primary fs-6 font-monospace" id="txtNoiDung">@Model.NoiDungChuyenKhoan</strong>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary copy-btn rounded-pill px-2 py-1" onclick="copyText('@Model.NoiDungChuyenKhoan', this)">
+                            <i class="bi bi-clipboard"></i> Chép ND
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Trạng thái đồng bộ tự động -->
+                <div class="mt-3 p-2 rounded-pill bg-success-subtle text-success small fw-semibold sync-badge">
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    Đang chờ bạn quét mã và bấm xác nhận trên điện thoại...
+                </div>
+
+                <!-- Nút thao tác điều hướng -->
+                <div class="mt-4 pt-2 border-top d-flex justify-content-between align-items-center">
+                    <a asp-action="LichSuDatSan" class="btn btn-outline-secondary rounded-pill px-4 btn-sm">
+                        &laquo; Để thanh toán sau
+                    </a>
+                    <a asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="btn btn-link text-decoration-none text-muted small">
+                        Xem chi tiết đơn &raquo;
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text).then(function () {
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '✔ Đã chép!';
+                btn.classList.add('btn-success');
+                setTimeout(function () {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('btn-success');
+                }, 1500);
+            });
+        }
+
+        // ==========================================================
+        // REALTIME POLLING: Tự động phát hiện khi khách bấm thanh toán trên điện thoại
+        // ==========================================================
+        (function() {
+            const maDatSan = @Model.MaDatSan;
+            const currentStatus = '@Model.TrangThaiThanhToan';
+            if (currentStatus === 'Đã thanh toán') return;
+
+            const pollInterval = setInterval(function() {
+                fetch('@Url.Action("KiemTraTrangThai", "DatSan")?id=' + maDatSan)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.hopLe && data.daBaoThanhToan) {
+                            clearInterval(pollInterval);
+                            const alertBox = document.getElementById('realtimeAlert');
+                            if (alertBox) {
+                                alertBox.classList.remove('d-none');
+                            }
+                            setTimeout(function() {
+                                window.location.href = '@Url.Action("LichSuDatSan", "DatSan")';
+                            }, 1800);
+                        }
+                    })
+                    .catch(err => console.log('Polling check error:', err));
+            }, 2000);
+        })();
+    </script>
+}

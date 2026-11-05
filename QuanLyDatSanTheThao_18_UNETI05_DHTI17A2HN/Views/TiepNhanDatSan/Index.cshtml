@@ -1,4 +1,4 @@
-﻿@*
+@*
 // Họ và tên: Vũ Ánh Ngọc
 // Mã sinh viên: 23103100106
 // Nội dung thực hiện: Module 4 - Giao diện Danh sách đặt sân cần xử lý (tìm kiếm, lọc, sắp xếp, phân trang, thao tác theo trạng thái)
@@ -178,7 +178,7 @@
             </a>
         </div>
         <div class="col-6 col-lg-3">
-            <a asp-action="Index" asp-route-trangThai="Đã hủy" class="tn-stat @(Model.TrangThai == "Đã hủy" ? "active" : "")">
+            <a asp-action="Index" asp-route-trangThai="Đã hủy" class="tn-stat @(Model.TrangThai == "Đang hủy" || Model.TrangThai == "Đã hủy" ? "active" : "")">
                 <div class="so text-danger">@Model.SoDaHuy</div>
                 <div class="nhan">❌ Đã hủy</div>
             </a>
@@ -355,7 +355,7 @@
             </table>
         </div>
 
-        <!-- Phân trang: có Trước / Sau, số trang, trang hiện tại; giữ nguyên điều kiện khi chuyển trang -->
+        <!-- Phân trang -->
         @if (Model.TongSoTrang > 1)
         {
             <div class="card-footer bg-white border-0 py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -404,4 +404,3 @@
         }
     </div>
 </div>
-
