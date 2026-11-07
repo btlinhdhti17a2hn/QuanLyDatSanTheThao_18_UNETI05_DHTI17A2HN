@@ -231,6 +231,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories
                 && d.GioBatDau < cuoiNgay);
         }
 
+        // Kiểm tra mã giao dịch ngân hàng đã được dùng xác nhận thanh toán cho đơn khác hay chưa
+        public async Task<bool> MaGiaoDichDaDuocDungAsync(string maGiaoDich, int maDatSanHienTai)
+        {
+            return await _context.DatSans.AnyAsync(d =>
+                d.MaDatSan != maDatSanHienTai
+                && d.DaThanhToan
+                && d.MaGiaoDichNganHang == maGiaoDich);
+        }
+
         // Lưu tất cả thay đổi
         public async Task LuuThayDoiAsync()
         {

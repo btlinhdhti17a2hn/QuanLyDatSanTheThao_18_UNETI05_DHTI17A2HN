@@ -29,6 +29,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         // Mục 8.5: Giới hạn số lượt đặt (chưa hủy) của 1 sân trong 1 ngày
         private const int GioiHanLuotMoiNgay = 8;
 
+        // Tài khoản nhận tiền hiển thị trên mã QR thanh toán (giống DatSanController)
+        private const string NganHangNhanTien = "TPBank (Ngân hàng Tiên Phong)";
+        private const string SoTaiKhoanNhanTien = "00004101429";
+        private const string ChuTaiKhoanNhanTien = "NGUYEN THI LAN NHI";
+
         // Các trạng thái của đơn đặt sân (khớp với dữ liệu mẫu và Module 3)
         private const string ChoXuLy = "Chờ xử lý";
         private const string DangXuLy = "Đang xử lý";
@@ -217,8 +222,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             vm.TienGiamToiDa = DiemTichLuyNghiepVu.TinhTienGiamToiDa(vm.TongTien);
             vm.DiemToiDaDuocDung = DiemTichLuyNghiepVu.TinhDiemToiDaDuocDung(vm.TongTien, vm.DiemKhachHienCo);
 
-            // Thêm / sửa dịch vụ chỉ khi đơn chưa kết thúc
-            vm.CoTheSuaDichVu = don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy;
+            // Thêm / sửa dịch vụ chỉ khi đơn chưa kết thúc và CHƯA thanh toán
+            // (đã thu tiền theo tổng đơn thì không được đổi dịch vụ làm lệch số tiền)
+            vm.CoTheSuaDichVu = (don.TrangThai == ChoXuLy || don.TrangThai == DangXuLy) && !don.DaThanhToan;
             if (vm.CoTheSuaDichVu)
             {
                 var daCo = don.ChiTietDatSans.Select(ct => ct.MaDichVu).ToList();
@@ -234,7 +240,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             // Nút thao tác phải phù hợp với trạng thái hiện tại
             vm.CoTheXacNhan = don.TrangThai == ChoXuLy && !vm.KetQua.Loi.Any();
-            vm.CoTheHoanThanh = don.TrangThai == DangXuLy && don.DuThoiGianHoanThanh(now);
+            // Đủ thời gian sử dụng: chưa thanh toán -> hiện nút "Thanh toán"; đã thanh toán -> mới được "Hoàn thành"
+            bool duThoiGian = don.TrangThai == DangXuLy && don.DuThoiGianHoanThanh(now);
+            vm.CoTheThanhToan = duThoiGian && !don.DaThanhToan;
+            vm.CoTheHoanThanh = duThoiGian && don.DaThanhToan;
 
             // Đơn Chờ xử lý hoặc Đang xử lý đều có thể hủy / từ chối,
             // kể cả khi sân đang được sử dụng (Hoàn thành / Đã hủy là trạng thái cuối)
@@ -255,11 +264,72 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
-        // 4. HOÀN THÀNH ĐƠN: Đang xử lý -> Hoàn thành
+        // 4A. THANH TOÁN (HIỂN THỊ MÃ QR) - Nhân viên chọn "Thanh toán" trên trang chi tiết
+        // Khách quét mã QR chuyển khoản; nhân viên tự kiểm tra giao dịch ngân hàng rồi mới xác nhận ở bước 4B.
+        // Số điểm tích lũy khách muốn dùng được truyền qua tham số diemSuDung (đã kiểm tra hợp lệ).
+        // ==========================================================
+        [HttpGet]
+        public async Task<IActionResult> ThanhToan(int id, int diemSuDung = 0)
+        {
+            var chan = KiemTraQuyen();
+            if (chan != null) return chan;
+
+            var don = await _repository.LayChiTietDatSanAsync(id);
+
+            if (don == null) return NotFound();
+
+            string? loi = KiemTraDuocThanhToan(don);
+
+            if (loi != null)
+            {
+                TempData["Error"] = loi;
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            var (tienSan, tienDichVu, tongTien) = TinhTienDon(don);
+
+            string? loiDiem = DiemTichLuyNghiepVu.KiemTraDiemSuDung(diemSuDung, tongTien, don.KhachHang.DiemTichLuy);
+
+            if (loiDiem != null)
+            {
+                TempData["Error"] = $"Không thể thanh toán đơn #{id}: {loiDiem}";
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            decimal tienGiam = DiemTichLuyNghiepVu.TinhTienGiam(diemSuDung);
+            decimal soTienCanThu = Math.Max(tongTien - tienGiam - don.TienCoc, 0);
+            string noiDung = $"DATSAN{don.MaDatSan}TT";
+
+            var vm = new ThanhToanTiepNhanViewModel
+            {
+                DonDat = don,
+                SoGio = (don.GioKetThuc - don.GioBatDau).TotalHours,
+                TienSan = tienSan,
+                TienDichVu = tienDichVu,
+                TongTien = tongTien,
+                DiemSuDung = diemSuDung,
+                TienGiamDiem = tienGiam,
+                SoTienCanThu = soTienCanThu,
+                NganHang = NganHangNhanTien,
+                SoTaiKhoan = SoTaiKhoanNhanTien,
+                ChuTaiKhoan = ChuTaiKhoanNhanTien,
+                NoiDungChuyenKhoan = noiDung,
+                VietQrUrl = soTienCanThu > 0
+                    ? $"https://img.vietqr.io/image/TPB-{SoTaiKhoanNhanTien}-compact2.png?amount={(long)soTienCanThu}&addInfo={noiDung}&accountName={Uri.EscapeDataString(ChuTaiKhoanNhanTien)}"
+                    : ""
+            };
+
+            return View(vm);
+        }
+
+        // ==========================================================
+        // 4B. NHÂN VIÊN XÁC NHẬN ĐÃ NHẬN TIỀN (thủ công, sau khi kiểm tra giao dịch ngân hàng)
+        // Ghi nhận đã thanh toán + chốt số điểm dùng (trừ điểm của khách ngay tại bước này).
+        // Có xác nhận này thì nút "Hoàn thành" mới được mở.
         // ==========================================================
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> HoanThanhDon(int id, int diemSuDung, string? quayLai)
+        public async Task<IActionResult> XacNhanThanhToan(int id, int diemSuDung, string? maGiaoDich, bool daKiemTra)
         {
             var chan = KiemTraQuyen();
             if (chan != null) return chan;
@@ -268,7 +338,100 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             if (don == null) return NotFound();
 
-            // Kiểm tra luồng trạng thái + đã đến giờ sử dụng sân
+            string? loi = KiemTraDuocThanhToan(don);
+
+            if (loi != null)
+            {
+                TempData["Error"] = loi;
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            // Tính lại toàn bộ số tiền ở máy chủ, không tin dữ liệu gửi từ trình duyệt
+            var (_, _, tongTien) = TinhTienDon(don);
+            var khachHang = don.KhachHang;
+
+            string? loiDiem = DiemTichLuyNghiepVu.KiemTraDiemSuDung(diemSuDung, tongTien, khachHang.DiemTichLuy);
+
+            if (loiDiem != null)
+            {
+                TempData["Error"] = $"Không thể thanh toán đơn #{id}: {loiDiem}";
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            decimal tienGiam = DiemTichLuyNghiepVu.TinhTienGiam(diemSuDung);
+            decimal soTienCanThu = Math.Max(tongTien - tienGiam - don.TienCoc, 0);
+
+            maGiaoDich = maGiaoDich?.Trim();
+
+            if (soTienCanThu > 0)
+            {
+                // Bắt buộc nhân viên đã kiểm tra và nhập mã giao dịch ngân hàng để đối soát về sau
+                if (!daKiemTra)
+                {
+                    TempData["Error"] = "Vui lòng tích xác nhận bạn đã kiểm tra giao dịch ngân hàng và đã nhận đủ tiền.";
+                    return RedirectToAction(nameof(ThanhToan), new { id, diemSuDung });
+                }
+
+                if (string.IsNullOrEmpty(maGiaoDich))
+                {
+                    TempData["Error"] = "Vui lòng nhập mã giao dịch ngân hàng (xem trong sao kê / app ngân hàng).";
+                    return RedirectToAction(nameof(ThanhToan), new { id, diemSuDung });
+                }
+
+                if (maGiaoDich.Length > 100)
+                {
+                    TempData["Error"] = "Mã giao dịch không được dài quá 100 ký tự.";
+                    return RedirectToAction(nameof(ThanhToan), new { id, diemSuDung });
+                }
+
+                // Một giao dịch ngân hàng chỉ được dùng cho một đơn
+                if (await _repository.MaGiaoDichDaDuocDungAsync(maGiaoDich, id))
+                {
+                    TempData["Error"] = $"Mã giao dịch '{maGiaoDich}' đã được dùng để xác nhận cho một đơn khác.";
+                    return RedirectToAction(nameof(ThanhToan), new { id, diemSuDung });
+                }
+            }
+            else
+            {
+                // Tiền cọc / điểm đã đủ chi trả, không cần thu thêm nên không có giao dịch ngân hàng
+                maGiaoDich = null;
+            }
+
+            don.DaThanhToan = true;
+            don.SoTienDaThu = soTienCanThu;
+            don.NgayThanhToan = DateTime.Now;
+            don.MaGiaoDichNganHang = maGiaoDich;
+            don.NguoiXacNhanThanhToan = HttpContext.Session.GetString("HoTen");
+
+            // Chốt điểm dùng cho đơn: trừ điểm ngay vì khách đã thanh toán theo số tiền đã giảm
+            don.DiemSuDung = diemSuDung;
+            don.TienGiamDiem = tienGiam;
+            khachHang.DiemTichLuy -= diemSuDung;
+
+            await _repository.LuuThayDoiAsync();
+
+            TempData["Success"] = soTienCanThu > 0
+                ? $"Đã xác nhận thanh toán đơn #{id}: đã nhận {soTienCanThu:N0} VNĐ (mã giao dịch {maGiaoDich}). Bây giờ bạn có thể bấm 'Hoàn thành'."
+                : $"Đơn #{id} không cần thu thêm tiền (tiền cọc và điểm đã đủ chi trả). Bây giờ bạn có thể bấm 'Hoàn thành'.";
+
+            return RedirectToAction(nameof(ChiTiet), new { id });
+        }
+
+        // ==========================================================
+        // 4C. HOÀN THÀNH ĐƠN: Đang xử lý -> Hoàn thành (chỉ khi ĐÃ thanh toán)
+        // ==========================================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> HoanThanhDon(int id, string? quayLai)
+        {
+            var chan = KiemTraQuyen();
+            if (chan != null) return chan;
+
+            var don = await _repository.LayDatSanXuLyAsync(id);
+
+            if (don == null) return NotFound();
+
+            // Kiểm tra luồng trạng thái + đã đến giờ sử dụng sân + đã thanh toán
             string? loi = await KiemTraChuyenTrangThaiAsync(don, HoanThanh);
 
             if (loi != null)
@@ -278,37 +441,26 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             // ---- Tính tiền & điểm tích lũy ----
-            // Tổng đơn = tiền sân (số giờ x đơn giá) + tiền dịch vụ
+            // Điểm khách dùng đã được CHỐT và TRỪ lúc nhân viên xác nhận thanh toán,
+            // nên ở bước này chỉ cộng điểm thưởng dựa trên số tiền khách thực chi.
             decimal tienSan = Math.Round((decimal)Math.Max((don.GioKetThuc - don.GioBatDau).TotalHours, 0) * don.DonGia, 0);
             decimal tongTien = tienSan + don.ChiTietDatSans.Sum(ct => ct.ThanhTien);
             var khachHang = don.KhachHang;
 
-            // Kiểm tra số điểm dùng: đủ điểm và không giảm quá 30% tổng đơn
-            string? loiDiem = DiemTichLuyNghiepVu.KiemTraDiemSuDung(diemSuDung, tongTien, khachHang.DiemTichLuy);
-
-            if (loiDiem != null)
-            {
-                TempData["Error"] = $"Không thể hoàn thành đơn #{id}: {loiDiem}";
-                return QuayLaiTrang(quayLai, id);
-            }
-
-            decimal tienGiam = DiemTichLuyNghiepVu.TinhTienGiam(diemSuDung);
-            decimal tienThucChi = tongTien - tienGiam;                       // số tiền khách thực sự chi cho đơn
+            decimal tienThucChi = tongTien - don.TienGiamDiem;               // số tiền khách thực sự chi cho đơn
             int diemCong = DiemTichLuyNghiepVu.TinhDiemCong(tienThucChi);    // 100.000đ -> 10 điểm
 
             don.TrangThai = HoanThanh;
-            don.DiemSuDung = diemSuDung;
-            don.TienGiamDiem = tienGiam;
             don.DiemCong = diemCong;
 
-            // Trừ điểm đã dùng, cộng điểm mới - cùng một lần lưu nên đơn và điểm của khách luôn nhất quán
-            khachHang.DiemTichLuy = khachHang.DiemTichLuy - diemSuDung + diemCong;
+            // Cộng điểm mới - cùng một lần lưu nên đơn và điểm của khách luôn nhất quán
+            khachHang.DiemTichLuy += diemCong;
 
             await _repository.LuuThayDoiAsync();
 
             string thongBao = $"Đơn đặt sân #{id} đã hoàn thành. Tổng tiền {tongTien:N0} VNĐ";
-            if (diemSuDung > 0)
-                thongBao += $", đã dùng {diemSuDung:N0} điểm (giảm {tienGiam:N0} VNĐ)";
+            if (don.DiemSuDung > 0)
+                thongBao += $", đã dùng {don.DiemSuDung:N0} điểm (giảm {don.TienGiamDiem:N0} VNĐ)";
             thongBao += $". Khách được cộng {diemCong:N0} điểm, tổng điểm hiện có: {khachHang.DiemTichLuy:N0}.";
 
             TempData["Success"] = thongBao;
@@ -345,6 +497,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (don.TrangThai != ChoXuLy && don.TrangThai != DangXuLy)
             {
                 TempData["Error"] = $"Đơn #{id} đang ở trạng thái '{don.TrangThai}' nên không thể thay đổi dịch vụ.";
+                return RedirectToAction(nameof(ChiTiet), new { id });
+            }
+
+            if (don.DaThanhToan)
+            {
+                TempData["Error"] = $"Đơn #{id} đã được thanh toán nên không thể thay đổi dịch vụ.";
                 return RedirectToAction(nameof(ChiTiet), new { id });
             }
 
@@ -438,11 +596,25 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return QuayLaiTrang(quayLai, id);
             }
 
-            // Chỉ cập nhật đúng trường trạng thái, không xóa bất kỳ dữ liệu lịch sử nào
+            // Hủy đơn ĐÃ thanh toán: trả lại điểm khách đã dùng và nhắc nhân viên hoàn tiền thủ công
+            string ghiChuThem = "";
+
+            if (trangThaiMoi == DaHuy && don.DaThanhToan)
+            {
+                if (don.DiemSuDung > 0 && don.KhachHang != null)
+                {
+                    don.KhachHang.DiemTichLuy += don.DiemSuDung;
+                }
+
+                ghiChuThem = $" Đơn này đã thu {don.SoTienDaThu:N0} VNĐ nên cần hoàn tiền cho khách thủ công"
+                           + (don.DiemSuDung > 0 ? $"; đã hoàn lại {don.DiemSuDung:N0} điểm cho khách." : ".");
+            }
+
+            // Chỉ cập nhật trạng thái (và điểm nếu có), không xóa bất kỳ dữ liệu lịch sử nào
             don.TrangThai = trangThaiMoi;
             await _repository.LuuThayDoiAsync();
 
-            TempData["Success"] = string.Format(mauThongBao, don.MaDatSan);
+            TempData["Success"] = string.Format(mauThongBao, don.MaDatSan) + ghiChuThem;
 
             return QuayLaiTrang(quayLai, id);
         }
@@ -477,6 +649,13 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     {
                         return $"Đơn #{don.MaDatSan} chưa thể hoàn thành: khách phải sử dụng sân ít nhất 80% thời gian đã đặt, " +
                                $"nghĩa là chỉ hoàn thành được từ {don.MocDuocHoanThanh:HH:mm dd/MM/yyyy}.";
+                    }
+
+                    // Phải thanh toán (nhân viên đã xác nhận nhận tiền) mới được hoàn thành
+                    if (!don.DaThanhToan)
+                    {
+                        return $"Đơn #{don.MaDatSan} chưa thể hoàn thành: khách chưa thanh toán. " +
+                               "Hãy bấm 'Thanh toán', kiểm tra giao dịch ngân hàng rồi xác nhận đã nhận tiền.";
                     }
                     break;
 
@@ -602,6 +781,38 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             }
 
             return kq;
+        }
+
+        // Tính tiền sân, tiền dịch vụ và tổng tiền của đơn (cùng cách tính ở mọi nơi để số luôn khớp)
+        private static (decimal TienSan, decimal TienDichVu, decimal TongTien) TinhTienDon(DatSan don)
+        {
+            decimal tienSan = Math.Round((decimal)Math.Max((don.GioKetThuc - don.GioBatDau).TotalHours, 0) * don.DonGia, 0);
+            decimal tienDichVu = don.ChiTietDatSans.Sum(ct => ct.ThanhTien);
+
+            return (tienSan, tienDichVu, tienSan + tienDichVu);
+        }
+
+        // Điều kiện để được thanh toán: đơn Đang xử lý, chưa thanh toán và khách đã dùng đủ 80% thời gian.
+        // Trả về null nếu hợp lệ, ngược lại trả về nội dung lỗi.
+        private static string? KiemTraDuocThanhToan(DatSan don)
+        {
+            if (don.TrangThai != DangXuLy)
+            {
+                return $"Chỉ thanh toán được đơn đang ở trạng thái '{DangXuLy}' (đơn #{don.MaDatSan} đang là '{don.TrangThai}').";
+            }
+
+            if (don.DaThanhToan)
+            {
+                return $"Đơn #{don.MaDatSan} đã được xác nhận thanh toán rồi, bạn có thể bấm 'Hoàn thành'.";
+            }
+
+            if (!don.DuThoiGianHoanThanh(DateTime.Now))
+            {
+                return $"Đơn #{don.MaDatSan} chỉ thanh toán được từ {don.MocDuocHoanThanh:HH:mm dd/MM/yyyy} " +
+                       "(khi khách đã sử dụng sân ít nhất 80% thời gian đã đặt).";
+            }
+
+            return null;
         }
 
         // Quay về trang người dùng vừa thao tác (chỉ chấp nhận đường dẫn nội bộ để tránh open redirect)

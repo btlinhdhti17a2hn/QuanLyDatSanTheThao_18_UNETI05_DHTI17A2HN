@@ -291,11 +291,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("MaDatSan"));
 
-                    b.Property<int>("DiemCong")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DiemSuDung")
-                        .HasColumnType("int");
+                    b.Property<bool>("DaThanhToan")
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("DonGia")
                         .HasColumnType("decimal(18,2)");
@@ -306,6 +303,10 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                     b.Property<DateTime>("GioKetThuc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("MaGiaoDichNganHang")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int>("MaKhachHang")
                         .HasColumnType("int");
 
@@ -315,10 +316,17 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                     b.Property<DateTime>("NgayDat")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal>("TienCoc")
+                    b.Property<DateTime?>("NgayThanhToan")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiXacNhanThanhToan")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal>("SoTienDaThu")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("TienGiamDiem")
+                    b.Property<decimal>("TienCoc")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("TrangThai")
@@ -338,676 +346,631 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                         new
                         {
                             MaDatSan = 1,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 2, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 2, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 2,
                             MaSan = 2,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 2,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 3, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 3, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 3,
                             MaSan = 3,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 3,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 4, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 4, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 4,
                             MaSan = 4,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 4,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 5, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 5, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 5,
                             MaSan = 5,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 5,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 6, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 6, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 6,
                             MaSan = 6,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 6,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 7, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 7, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 7,
                             MaSan = 7,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 7,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 8, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 8, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 8,
                             MaSan = 8,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 8,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 9, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 9, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 9,
                             MaSan = 9,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 9,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 10, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 10, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 10,
                             MaSan = 10,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 10,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 11, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 11, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 11,
                             MaSan = 11,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 11,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 12, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 12, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 12,
                             MaSan = 12,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 12,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 13, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 13, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 13,
                             MaSan = 13,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 13,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 14, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 14, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 14,
                             MaSan = 14,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 14,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 15, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 15, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 15,
                             MaSan = 15,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 15,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 16, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 16, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 16,
                             MaSan = 1,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 16,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 17, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 17, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 17,
                             MaSan = 2,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 17,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 18, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 18, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 18,
                             MaSan = 3,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 18,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 19, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 19, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 19,
                             MaSan = 4,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 19,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 20, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 20, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 20,
                             MaSan = 5,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 20,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 21, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 21, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 21,
                             MaSan = 6,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 21,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 22, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 22, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 22,
                             MaSan = 7,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 22,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 23, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 23, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 23,
                             MaSan = 8,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 23,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 24, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 24, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 24,
                             MaSan = 9,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 24,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 25, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 25, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 25,
                             MaSan = 10,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 25,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 26, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 26, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 26,
                             MaSan = 11,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 26,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 27, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 27, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 27,
                             MaSan = 12,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 27,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 28, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 28, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 28,
                             MaSan = 13,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 28,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 1, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 1, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 29,
                             MaSan = 14,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 29,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 2, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 2, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 30,
                             MaSan = 15,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 30,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 3, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 3, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 1,
                             MaSan = 1,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 31,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 4, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 4, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 2,
                             MaSan = 2,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 32,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 5, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 5, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 3,
                             MaSan = 3,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 33,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 6, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 6, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 4,
                             MaSan = 4,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 34,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 7, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 7, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 5,
                             MaSan = 5,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 35,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 8, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 8, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 6,
                             MaSan = 6,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 36,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 9, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 9, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 7,
                             MaSan = 7,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 37,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 10, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 10, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 8,
                             MaSan = 8,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 38,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 11, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 11, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 9,
                             MaSan = 9,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 39,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 12, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 12, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 10,
                             MaSan = 10,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 40,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 13, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 13, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 11,
                             MaSan = 11,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 41,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 14, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 14, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 12,
                             MaSan = 12,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 42,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 15, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 15, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 13,
                             MaSan = 13,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 43,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 16, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 16, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 14,
                             MaSan = 14,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 44,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 17, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 17, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 15,
                             MaSan = 15,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 45,
-                            DiemCong = 0,
-                            DiemSuDung = 0,
+                            DaThanhToan = false,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 18, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 18, 19, 0, 0, 0, DateTimeKind.Unspecified),
                             MaKhachHang = 16,
                             MaSan = 1,
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
+                            SoTienDaThu = 0m,
                             TienCoc = 100000m,
-                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         });
                 });

@@ -56,6 +56,24 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities
         [NotMapped]
         [Range(0, int.MaxValue)]
         public int DiemCong { get; set; } = 0;
+        // ===== THANH TOÁN (nhân viên đối chiếu giao dịch ngân hàng rồi xác nhận thủ công) =====
+        // Chỉ khi DaThanhToan = true thì đơn mới được bấm "Hoàn thành"
+        public bool DaThanhToan { get; set; } = false;
+
+        // Số tiền nhân viên xác nhận đã nhận (= Tổng cộng - Giảm từ điểm - Tiền cọc)
+        [Range(0, double.MaxValue)]
+        public decimal SoTienDaThu { get; set; } = 0;
+
+        // Thời điểm nhân viên xác nhận đã nhận tiền
+        public DateTime? NgayThanhToan { get; set; }
+
+        // Mã giao dịch ngân hàng (nhân viên đọc từ sao kê / app ngân hàng để đối soát)
+        [StringLength(100)]
+        public string? MaGiaoDichNganHang { get; set; }
+
+        // Tên nhân viên đã xác nhận thanh toán
+        [StringLength(100)]
+        public string? NguoiXacNhanThanhToan { get; set; }
 
         // ===== ĐIỀU KIỆN HOÀN THÀNH ĐƠN (không lưu vào database) =====
         // Chỉ được hoàn thành khi khách đã sử dụng sân ít nhất 80% tổng thời gian đã đặt

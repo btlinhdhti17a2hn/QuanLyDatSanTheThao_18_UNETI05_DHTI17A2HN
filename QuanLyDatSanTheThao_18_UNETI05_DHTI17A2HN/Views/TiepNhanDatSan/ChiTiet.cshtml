@@ -38,6 +38,12 @@
         ? $"Sân hiện đang được sử dụng. Bạn vẫn muốn hủy / từ chối đơn đặt sân #{don.MaDatSan}?"
         : $"Bạn có chắc chắn muốn hủy đơn đặt sân #{don.MaDatSan} không?";
 
+    // Đơn đã thu tiền: cảnh báo phải hoàn tiền thủ công cho khách
+    if (don.DaThanhToan)
+    {
+        cauHoiHuy = $"Đơn #{don.MaDatSan} ĐÃ THANH TOÁN {don.SoTienDaThu:N0} VNĐ. Nếu hủy, bạn phải hoàn tiền cho khách thủ công. Vẫn hủy đơn?";
+    }
+
     // Dịch vụ đã có trong đơn (theo mã dịch vụ) để điền sẵn số lượng
     var dvTrongDon = don.ChiTietDatSans
         .GroupBy(ct => ct.MaDichVu)
@@ -544,12 +550,15 @@
                             <span class="fw-bold text-dark">Tổng cộng:</span>
                             <strong class="fs-5 text-primary" id="tongCong">@Model.TongTien.ToString("N0") VNĐ</strong>
                         </div>
-                        @if (don.TrangThai == "Hoàn thành")
+                        @if (don.TrangThai == "Hoàn thành" || (don.TrangThai == "Đang xử lý" && don.DaThanhToan))
                         {
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Giảm từ điểm (@don.DiemSuDung.ToString("N0") điểm):</span>
                                 <span class="fw-semibold text-success">- @don.TienGiamDiem.ToString("N0") VNĐ</span>
                             </div>
+                        }
+                        @if (don.TrangThai == "Hoàn thành")
+                        {
                             <div class="d-flex justify-content-between mb-2">
                                 <span class="text-muted">Điểm được cộng từ đơn này:</span>
                                 <span class="fw-semibold text-primary">+ @don.DiemCong.ToString("N0") điểm</span>
@@ -573,8 +582,8 @@
                 </div>
             </div>
 
-            @* ===== ĐIỂM TÍCH LŨY: chọn số điểm dùng trước khi bấm "Hoàn thành" ===== *@
-            @if (Model.CoTheHoanThanh)
+            @* ===== ĐIỂM TÍCH LŨY: chọn số điểm dùng trước khi bấm "Thanh toán" ===== *@
+            @if (Model.CoTheThanhToan)
             {
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
                 <div class="p-3 bg-light rounded-3 mb-4" id="khungDiem"
@@ -594,8 +603,8 @@
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <div class="input-group" style="max-width: 280px;">
                             <span class="input-group-text">Dùng</span>
-                            @* form="formHoanThanh": ô nhập nằm ngoài thẻ form nhưng vẫn được gửi cùng nút Hoàn thành *@
-                            <input type="number" id="diemSuDung" name="diemSuDung" form="formHoanThanh"
+                            @* form="formThanhToan": ô nhập nằm ngoài thẻ form nhưng vẫn được gửi cùng nút Thanh toán *@
+                            <input type="number" id="diemSuDung" name="diemSuDung" form="formThanhToan"
                                    class="form-control" value="0" min="0" max="@Model.DiemToiDaDuocDung" step="1"
                                    disabled="@(Model.DiemToiDaDuocDung == 0)" />
                             <span class="input-group-text">điểm</span>
@@ -625,6 +634,28 @@
                 </div>
             }
 
+            @* ===== THÔNG TIN THANH TOÁN (sau khi nhân viên xác nhận đã nhận tiền) ===== *@
+            @if (don.DaThanhToan)
+            {
+                <div class="p-3 rounded-3 mb-4 border" style="background:#f0fdf4; border-color:#bbf7d0 !important;">
+                    <h6 class="fw-bold text-success text-uppercase small mb-2">💳 Thông tin thanh toán</h6>
+                    <div class="small">
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Trạng thái:</span><span class="fw-bold text-success">✅ Đã thanh toán</span></div>
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Số tiền đã thu:</span><span class="fw-semibold">@don.SoTienDaThu.ToString("N0") VNĐ</span></div>
+                        @if (!string.IsNullOrEmpty(don.MaGiaoDichNganHang))
+                        {
+                            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Mã giao dịch ngân hàng:</span><span class="fw-semibold font-monospace">@don.MaGiaoDichNganHang</span></div>
+                        }
+                        @if (don.DiemSuDung > 0)
+                        {
+                            <div class="d-flex justify-content-between mb-1"><span class="text-muted">Điểm đã dùng:</span><span class="fw-semibold">@don.DiemSuDung.ToString("N0") điểm (giảm @don.TienGiamDiem.ToString("N0") VNĐ)</span></div>
+                        }
+                        <div class="d-flex justify-content-between mb-1"><span class="text-muted">Thời điểm xác nhận:</span><span>@(don.NgayThanhToan?.ToString("HH:mm dd/MM/yyyy"))</span></div>
+                        <div class="d-flex justify-content-between"><span class="text-muted">Nhân viên xác nhận:</span><span>@(don.NguoiXacNhanThanhToan ?? "—")</span></div>
+                    </div>
+                </div>
+            }
+
             <!-- Nút thao tác: chỉ hiện nút phù hợp với trạng thái hiện tại -->
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 pt-3 border-top">
                 <a asp-action="Index" class="btn btn-outline-secondary rounded-pill px-4">&laquo; Quay lại danh sách</a>
@@ -648,6 +679,21 @@
                         }
                     }
 
+                    @if (Model.CoTheThanhToan)
+                    {
+                        @* Chọn điểm (nếu có) ở ô phía trên rồi bấm: chuyển sang trang hiện mã QR *@
+                        <form id="formThanhToan" asp-action="ThanhToan" asp-route-id="@don.MaDatSan" method="get">
+                            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">💳 Thanh toán</button>
+                        </form>
+                    }
+                    else if (don.TrangThai == "Đang xử lý" && !don.DaThanhToan)
+                    {
+                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
+                                title="Thanh toán được từ @don.MocDuocHoanThanh.ToString("HH:mm dd/MM/yyyy") (khi khách đã dùng sân đủ 80% thời gian)">
+                            💳 Thanh toán
+                        </button>
+                    }
+
                     @if (Model.CoTheHoanThanh)
                     {
                         <form id="formHoanThanh" asp-action="HoanThanhDon" asp-route-id="@don.MaDatSan" method="post"
@@ -657,9 +703,17 @@
                     }
                     else if (don.TrangThai == "Đang xử lý")
                     {
-                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled>
+                        <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold" disabled
+                                title="@(don.DaThanhToan ? "Chưa đến thời điểm được hoàn thành" : "Cần thanh toán trước khi hoàn thành")">
                             ✅ Hoàn thành
                         </button>
+                    }
+
+                    @* Đơn cũ đã hoàn thành trước khi có bước xác nhận thanh toán: vẫn xem được mã QR như trước *@
+                    @if (don.TrangThai == "Hoàn thành" && !don.DaThanhToan)
+                    {
+                        <a asp-controller="DatSan" asp-action="ThanhToanSauSuDung" asp-route-id="@don.MaDatSan"
+                           class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">📱 Quét mã thanh toán</a>
                     }
 
                     @if (Model.CoTheHuy)

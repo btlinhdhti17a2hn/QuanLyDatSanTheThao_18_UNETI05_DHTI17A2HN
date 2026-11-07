@@ -96,8 +96,36 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 
         // Nút thao tác nào được phép hiển thị/thực hiện theo trạng thái hiện tại
         public bool CoTheXacNhan { get; set; }
-        public bool CoTheHoanThanh { get; set; }
+        public bool CoTheThanhToan { get; set; }   // Đang xử lý + đủ thời gian + CHƯA thanh toán -> hiện nút "Thanh toán"
+        public bool CoTheHoanThanh { get; set; }   // Đang xử lý + đủ thời gian + ĐÃ thanh toán -> mới được bấm "Hoàn thành"
         public bool CoTheHuy { get; set; }
+    }
+
+    // ==========================================================
+    // 3B. VIEWMODEL CHO TRANG THANH TOÁN (HIỂN THỊ MÃ QR, NHÂN VIÊN XÁC NHẬN THỦ CÔNG)
+    // ==========================================================
+    public class ThanhToanTiepNhanViewModel
+    {
+        public DatSan DonDat { get; set; } = null!;
+
+        public double SoGio { get; set; }
+        public decimal TienSan { get; set; }
+        public decimal TienDichVu { get; set; }
+        public decimal TongTien { get; set; }
+
+        // Điểm tích lũy khách dùng cho đơn này (đã được kiểm tra hợp lệ)
+        public int DiemSuDung { get; set; }
+        public decimal TienGiamDiem { get; set; }
+
+        // Số tiền khách phải chuyển khoản = Tổng cộng - Giảm từ điểm - Tiền cọc (không âm)
+        public decimal SoTienCanThu { get; set; }
+
+        // Thông tin tài khoản nhận tiền + mã QR VietQR
+        public string NganHang { get; set; } = "";
+        public string SoTaiKhoan { get; set; } = "";
+        public string ChuTaiKhoan { get; set; } = "";
+        public string NoiDungChuyenKhoan { get; set; } = "";
+        public string VietQrUrl { get; set; } = "";
     }
 
     // ==========================================================

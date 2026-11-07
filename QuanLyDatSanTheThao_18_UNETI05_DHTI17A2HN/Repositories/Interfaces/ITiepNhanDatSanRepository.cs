@@ -54,6 +54,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces
             DateTime cuoiNgay,
             string trangThaiHuy);
 
+        // Mã giao dịch ngân hàng này đã được dùng để xác nhận cho đơn khác chưa
+        Task<bool> MaGiaoDichDaDuocDungAsync(string maGiaoDich, int maDatSanHienTai);
+
         Task LuuThayDoiAsync();
     }
 }

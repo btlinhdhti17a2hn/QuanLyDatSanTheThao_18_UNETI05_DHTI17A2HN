@@ -1,0 +1,246 @@
+﻿@*
+// Nội dung thực hiện: Giao diện mã QR thanh toán số tiền còn lại sau khi khách sử dụng xong sân (đơn đã Hoàn thành)
+*@
+
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities.DatSan
+
+@{
+    ViewData["Title"] = $"Thanh toán đơn #{Model.MaDatSan}";
+    decimal tienSan = (decimal)ViewBag.TienSan;
+    decimal tienDichVu = (decimal)ViewBag.TienDichVu;
+    decimal tongTien = (decimal)ViewBag.TongTien;
+    decimal conPhaiTra = (decimal)ViewBag.ConPhaiTra;
+    bool laNhanVien = (bool)ViewBag.LaNhanVien;
+    bool daThanhToanConLai = ViewBag.DaThanhToanConLai != null && (bool)ViewBag.DaThanhToanConLai;
+    double soGio = (Model.GioKetThuc - Model.GioBatDau).TotalHours;
+}
+
+<style>
+    .pay-card {
+        max-width: 540px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 24px;
+        box-shadow: 0 15px 35px rgba(22, 163, 74, 0.12);
+        border: 2px solid #dcfce7;
+        overflow: hidden;
+    }
+
+    .pay-header {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+        color: #fff;
+        padding: 24px;
+        text-align: center;
+        border-bottom-left-radius: 24px;
+        border-bottom-right-radius: 24px;
+    }
+
+    .pay-amount {
+        font-size: 2.1rem;
+        font-weight: 800;
+        color: #fef08a;
+    }
+
+    .pay-qr-frame {
+        background: #fff;
+        padding: 14px;
+        border-radius: 20px;
+        border: 2px dashed #4ade80;
+        display: inline-block;
+        box-shadow: 0 8px 20px rgba(0,0,0,.05);
+    }
+
+    .copy-btn {
+        cursor: pointer;
+        transition: all .2s;
+    }
+
+        .copy-btn:hover {
+            background-color: #dcfce7 !important;
+            border-color: #16a34a !important;
+            color: #15803d !important;
+        }
+</style>
+
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3" style="max-width: 540px; margin: 0 auto;">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index" class="text-decoration-none text-success">Trang chủ</a></li>
+            @if (laNhanVien)
+            {
+                <li class="breadcrumb-item"><a asp-controller="TiepNhanDatSan" asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="text-decoration-none text-success">Đơn #@Model.MaDatSan</a></li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="text-decoration-none text-success">Đơn #@Model.MaDatSan</a></li>
+            }
+            <li class="breadcrumb-item active" aria-current="page">Thanh toán</li>
+        </ol>
+    </nav>
+
+    <div class="pay-card">
+        <div class="pay-header">
+            <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill bg-white bg-opacity-25 mb-2 small fw-bold">
+                <span>💳 Thanh toán tiền còn lại</span>
+            </div>
+            <h4 class="fw-bold mb-1">Thanh toán đơn #@Model.MaDatSan</h4>
+            <div class="small opacity-75">
+                🏟️ @(Model.SanTheThao?.TenSan ?? $"Sân #{Model.MaSan}") &bull; ⏰ @Model.GioBatDau.ToString("HH:mm") - @Model.GioKetThuc.ToString("HH:mm") (@Model.GioBatDau.ToString("dd/MM/yyyy"))
+            </div>
+            <div class="mt-3">
+                <small class="d-block opacity-75">Số tiền cần thanh toán:</small>
+                <div class="pay-amount">@conPhaiTra.ToString("N0") VNĐ</div>
+            </div>
+        </div>
+
+        <div class="p-4">
+            @if (!laNhanVien && !daThanhToanConLai && conPhaiTra >= 0)
+            {
+                <div class="border rounded-3 p-3 mb-3">
+                    <h6 class="fw-bold text-success mb-2">🎁 Sử dụng điểm tích lũy</h6>
+                    <p class="small text-muted mb-2">Bạn hiện có <strong>@(((int)ViewBag.DiemKhachHienCo).ToString("N0")) điểm</strong>. Mỗi điểm giảm 10 VNĐ; được giảm tối đa 30% tổng đơn.</p>
+                    <form asp-action="CapNhatDiemSuDung" asp-route-id="@Model.MaDatSan" method="post">
+                        <label for="diemSuDung" class="form-label fw-semibold">Số điểm muốn sử dụng</label>
+                        <div class="input-group">
+                            <input type="number" id="diemSuDung" name="diemSuDung" class="form-control" min="0" max="@ViewBag.DiemToiDaDuocDung" value="@Model.DiemSuDung" required />
+                            <button type="submit" class="btn btn-success">Áp dụng điểm</button>
+                        </div>
+                        <div class="form-text">Tối đa @(((int)ViewBag.DiemToiDaDuocDung).ToString("N0")) điểm cho đơn này. Nhập 0 nếu không muốn dùng điểm.</div>
+                    </form>
+                </div>
+            }
+
+            <!-- Bảng kê chi phí -->
+            <div class="bg-light rounded-3 p-3 border small mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Tiền thuê sân (@soGio.ToString("0.#")h)</span>
+                    <span>@tienSan.ToString("N0") VNĐ</span>
+                </div>
+                @if (tienDichVu > 0)
+                {
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted">Dịch vụ đi kèm</span>
+                        <span>@tienDichVu.ToString("N0") VNĐ</span>
+                    </div>
+                }
+                <div class="d-flex justify-content-between mb-1 border-top pt-1">
+                    <span class="fw-semibold">Tổng cộng</span>
+                    <span class="fw-semibold">@tongTien.ToString("N0") VNĐ</span>
+                </div>
+                @if (Model.TienGiamDiem > 0)
+                {
+                    <div class="d-flex justify-content-between mb-1 text-success">
+                        <span>Giảm từ điểm (@Model.DiemSuDung.ToString("N0") điểm)</span>
+                        <span>- @Model.TienGiamDiem.ToString("N0") VNĐ</span>
+                    </div>
+                }
+                <div class="d-flex justify-content-between mb-1 text-danger">
+                    <span>Đã đặt cọc</span>
+                    <span>- @Model.TienCoc.ToString("N0") VNĐ</span>
+                </div>
+                <div class="d-flex justify-content-between border-top border-2 pt-2 mt-1">
+                    <strong class="text-success">Còn phải thanh toán</strong>
+                    <strong class="text-success fs-6">@conPhaiTra.ToString("N0") VNĐ</strong>
+                </div>
+            </div>
+
+            @if (conPhaiTra <= 0)
+            {
+                <div class="alert alert-success text-center rounded-3 mb-0">
+                    🎉 Tiền cọc đã đủ chi trả toàn bộ đơn, <strong>không cần thanh toán thêm</strong>.
+                </div>
+            }
+            else
+            {
+                <div class="text-center">
+                    <div class="badge rounded-pill px-3 py-1 mb-2 text-dark" style="background-color: #dcfce7;">
+                        <i class="bi bi-qr-code-scan me-1"></i> Quét bằng App Ngân hàng hoặc Ví MoMo, ZaloPay
+                    </div>
+
+                    <div class="pay-qr-frame my-2">
+                        <img src="@ViewBag.VietQrUrl" alt="Mã QR thanh toán đơn #@Model.MaDatSan"
+                             class="img-fluid rounded-3" style="max-width: 250px; width: 100%; height: auto;" />
+                        <div class="mt-2 text-muted" style="font-size: 0.85rem;">
+                            Quét mã để tự động điền STK và số tiền <strong>@conPhaiTra.ToString("N0")đ</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-light rounded-3 p-3 text-start border mt-3 small">
+                    <div class="mb-2 pb-2 border-bottom">
+                        <span class="text-muted d-block">Ngân hàng:</span>
+                        <strong class="text-dark">@ViewBag.NganHang</strong>
+                    </div>
+                    <div class="mb-2 pb-2 border-bottom d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted d-block">Số tài khoản:</span>
+                            <strong class="text-primary fs-6 font-monospace">@ViewBag.SoTaiKhoan</strong>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary copy-btn rounded-pill px-2 py-1" data-copy="@ViewBag.SoTaiKhoan">
+                            Chép STK
+                        </button>
+                    </div>
+                    <div class="mb-2 pb-2 border-bottom">
+                        <span class="text-muted d-block">Chủ tài khoản:</span>
+                        <strong class="text-dark">@ViewBag.ChuTaiKhoan</strong>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted d-block">Nội dung chuyển khoản:</span>
+                            <strong class="text-danger font-monospace fs-6">@ViewBag.NoiDungChuyenKhoan</strong>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger copy-btn rounded-pill px-2 py-1" data-copy="@ViewBag.NoiDungChuyenKhoan">
+                            Chép ND
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-info py-2 px-3 mt-3 rounded-3 small mb-0">
+                    Vui lòng giữ nguyên <strong>nội dung chuyển khoản</strong> để quầy đối chiếu giao dịch với đơn #@Model.MaDatSan.
+                </div>
+            }
+
+            @if (laNhanVien && !daThanhToanConLai && conPhaiTra > 0)
+            {
+                <div class="alert alert-warning mt-3 small">
+                    Chỉ bấm xác nhận sau khi đã kiểm tra tài khoản ngân hàng và thấy giao dịch chuyển khoản thành công, đúng số tiền và đúng nội dung đơn.
+                </div>
+                <form asp-controller="TiepNhanDatSan" asp-action="XacNhanDaNhanTien" asp-route-id="@Model.MaDatSan" method="post"
+                      onsubmit="return confirm('Bạn đã kiểm tra ngân hàng và xác nhận đã nhận đủ tiền còn lại của đơn #@(Model.MaDatSan)?');">
+                    <button type="submit" class="btn btn-success w-100 rounded-pill fw-bold">✔️ Xác nhận đã nhận đủ tiền</button>
+                </form>
+            }
+            else if (laNhanVien && daThanhToanConLai)
+            {
+                <div class="alert alert-success mt-3 text-center">Đã xác nhận nhận đủ tiền còn lại cho đơn này.</div>
+            }
+
+            <div class="mt-4 d-flex flex-column gap-2">
+                @if (laNhanVien)
+                {
+                    <a asp-controller="TiepNhanDatSan" asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="btn btn-outline-secondary rounded-pill">&laquo; Về chi tiết đơn</a>
+                    <a asp-controller="TiepNhanDatSan" asp-action="Index" class="btn btn-link text-decoration-none text-muted small">Về danh sách tiếp nhận</a>
+                }
+                else
+                {
+                    <a asp-action="ChiTiet" asp-route-id="@Model.MaDatSan" class="btn btn-outline-secondary rounded-pill">&laquo; Về chi tiết đơn</a>
+                    <a asp-action="LichSuDatSan" class="btn btn-link text-decoration-none text-muted small">Về lịch sử đặt sân</a>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.copy-btn[data-copy]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                navigator.clipboard.writeText(btn.dataset.copy).then(function () {
+                    const old = btn.innerHTML;
+                    btn.innerHTML = '✔ Đã chép!';
+                    setTimeout(function () { btn.innerHTML = old; }, 1500);
+                });
+            });
+        });
+    </script>
+}

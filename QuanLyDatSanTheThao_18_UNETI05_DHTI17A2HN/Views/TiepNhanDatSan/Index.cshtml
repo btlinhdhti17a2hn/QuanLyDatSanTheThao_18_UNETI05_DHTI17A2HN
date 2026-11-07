@@ -316,13 +316,19 @@
                                             </form>
                                         }
 
-                                        @if (choPhepHoanThanh)
+                                        @if (choPhepHoanThanh && d.DaThanhToan)
                                         {
                                             <form asp-action="HoanThanhDon" asp-route-id="@d.MaDatSan" method="post" class="d-inline"
                                                   onsubmit="return confirm('Hoàn thành đơn đặt sân #@(d.MaDatSan)?');">
                                                 <input type="hidden" name="quayLai" value="@quayLaiUrl" />
                                                 <button type="submit" class="btn btn-sm btn-success rounded-pill px-3">Hoàn thành</button>
                                             </form>
+                                        }
+                                        else if (choPhepHoanThanh)
+                                        {
+                                            @* Đủ thời gian nhưng chưa thanh toán: mở trang chi tiết để chọn điểm (nếu có) và thanh toán bằng mã QR *@
+                                            <a asp-action="ChiTiet" asp-route-id="@d.MaDatSan" class="btn btn-sm btn-primary rounded-pill px-3"
+                                               title="Mở đơn để thanh toán bằng mã QR">💳 Thanh toán</a>
                                         }
                                         else if (d.TrangThai == "Đang xử lý")
                                         {
