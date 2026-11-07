@@ -7,6 +7,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces
     {
         TaiKhoan? GetByDangNhap(string tenDangNhap, string matKhau);
         TaiKhoan? GetByTenDangNhap(string tenDangNhap);
+        KhachHang? GetKhachHangByMaTaiKhoan(int maTaiKhoan);
         Task AddTaiKhoanAsync(TaiKhoan taiKhoan);
         Task AddKhachHangAsync(KhachHang khachHang);
         List<TaiKhoan> GetAll();

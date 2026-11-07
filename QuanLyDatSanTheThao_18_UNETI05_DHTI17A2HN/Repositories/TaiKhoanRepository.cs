@@ -33,6 +33,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories
             return _context.TaiKhoans.FirstOrDefault(x =>
                 x.TenDangNhap == tenDangNhap);
         }
+        // Lấy thông tin khách hàng gắn với tài khoản (dùng để xác minh khi quên mật khẩu)
+        public KhachHang? GetKhachHangByMaTaiKhoan(int maTaiKhoan)
+        {
+            return _context.KhachHangs.FirstOrDefault(k => k.MaTaiKhoan == maTaiKhoan);
+        }
 
         // Thêm tài khoản mới
         public async Task AddTaiKhoanAsync(TaiKhoan taiKhoan)

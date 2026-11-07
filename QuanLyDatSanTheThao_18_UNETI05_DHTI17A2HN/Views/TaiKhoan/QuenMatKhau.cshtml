@@ -1,0 +1,130 @@
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Razor View Quên mật khẩu (xác minh và đặt mật khẩu mới)
+*@
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Quên mật khẩu";
+
+    // Giữ lại tên đăng nhập và thông tin xác minh khi form báo lỗi
+    string tenCu = Context.Request.HasFormContentType ? Context.Request.Form["tenDangNhap"].ToString() : "";
+    string xacMinhCu = Context.Request.HasFormContentType ? Context.Request.Form["thongTinXacMinh"].ToString() : "";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SPORTS GROUND</title>
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+</head>
+<body class="auth-body">
+    <div class="auth-shell">
+
+        <partial name="_AuthHero" />
+
+        <section class="auth-card wide">
+            <div class="card-brand"><span class="brand-badge sm">🏟️</span> SPORTS GROUND</div>
+            <p class="card-sub">Nhập thông tin đã đăng ký để xác minh, sau đó đặt mật khẩu mới</p>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="auth-alert error">❌ @ViewBag.Error</div>
+            }
+
+            <form asp-controller="TaiKhoan" asp-action="QuenMatKhau" method="post">
+                <div class="form-grid">
+                    <div class="mb-field">
+                        <label class="field-label" for="oTenDangNhap">Tên đăng nhập <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+                            <input type="text" id="oTenDangNhap" name="tenDangNhap" value="@tenCu" required placeholder="Nhập tên đăng nhập..." autocomplete="username" />
+                        </div>
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label" for="oXacMinh">Email hoặc số điện thoại <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+                            <input type="text" id="oXacMinh" name="thongTinXacMinh" value="@xacMinhCu" required placeholder="Đã dùng khi đăng ký..." autocomplete="off" />
+                        </div>
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label" for="oMatKhau">Mật khẩu mới <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                            <input type="password" id="oMatKhau" name="matKhauMoi" class="has-toggle" required minlength="6" placeholder="Ít nhất 6 ký tự..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oMatKhau" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label" for="oXacNhan">Xác nhận mật khẩu mới <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                            <input type="password" id="oXacNhan" name="xacNhanMatKhau" class="has-toggle" required placeholder="Nhập lại mật khẩu mới..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oXacNhan" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                        <div id="thongBaoKhop" class="match-msg"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary-auth">Đặt lại mật khẩu →</button>
+            </form>
+
+            <div class="auth-hint">
+                💡 Chức năng này dành cho tài khoản khách hàng. Tài khoản Admin / Nhân viên vui lòng liên hệ Quản trị viên để được cấp lại mật khẩu.
+            </div>
+
+            <div class="divider">Đã nhớ mật khẩu?</div>
+            <a class="btn-secondary-auth" asp-controller="TaiKhoan" asp-action="DangNhap">🔑 Quay lại đăng nhập</a>
+
+            <div class="auth-home"><a asp-controller="Home" asp-action="Index">← Về trang chủ</a></div>
+            <div class="auth-copy">© 2026 Sports Ground. Bài tập lớn .NET - Đề 18 (UNETI)</div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            // Nút hiện / ẩn mật khẩu
+            document.querySelectorAll('.btn-eye').forEach(function (nut) {
+                nut.addEventListener('click', function () {
+                    var o = document.getElementById(nut.dataset.target);
+                    var dangAn = o.type === 'password';
+                    o.type = dangAn ? 'text' : 'password';
+                    nut.textContent = dangAn ? '🙈' : '👁️';
+                });
+            });
+
+            // Kiểm tra mật khẩu xác nhận có khớp không
+            var matKhau = document.getElementById('oMatKhau');
+            var xacNhan = document.getElementById('oXacNhan');
+            var thongBao = document.getElementById('thongBaoKhop');
+
+            function kiemTraKhop() {
+                if (!xacNhan.value) {
+                    thongBao.textContent = '';
+                    xacNhan.setCustomValidity('');
+                    return;
+                }
+                if (matKhau.value === xacNhan.value) {
+                    thongBao.textContent = '✔ Mật khẩu khớp';
+                    thongBao.className = 'match-msg match-ok';
+                    xacNhan.setCustomValidity('');
+                } else {
+                    thongBao.textContent = '✖ Mật khẩu chưa khớp';
+                    thongBao.className = 'match-msg match-no';
+                    xacNhan.setCustomValidity('Mật khẩu xác nhận không khớp.');
+                }
+            }
+
+                       matKhau.addEventListener('input', kiemTraKhop);
+            xacNhan.addEventListener('input', kiemTraKhop);
+        })();
+    </script>
+</body>
+</html>

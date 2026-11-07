@@ -173,6 +173,108 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ==========================================================
+        // QUÊN MẬT KHẨU (dành cho khách hàng)
+        // Xác minh bằng tên đăng nhập + email hoặc số điện thoại đã đăng ký, sau đó đặt mật khẩu mới
+        // ==========================================================
+        private const int SoLanSaiToiDa = 5;
+        private const int PhutKhoaSauSaiNhieu = 5;
+
+        [HttpGet]
+        public IActionResult QuenMatKhau()
+        {
+            // Đã đăng nhập rồi thì không cần dùng chức năng này
+            if (HttpContext.Session.GetInt32("MaTaiKhoan") != null)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> QuenMatKhau(string? tenDangNhap, string? thongTinXacMinh, string? matKhauMoi, string? xacNhanMatKhau)
+        {
+            // Chặn thử nhiều lần liên tiếp
+            var khoaDen = HttpContext.Session.GetString("QuenMK_KhoaDen");
+            if (long.TryParse(khoaDen, out long ticks) && DateTime.UtcNow.Ticks < ticks)
+            {
+                ViewBag.Error = $"Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau {PhutKhoaSauSaiNhieu} phút!";
+                return View();
+            }
+
+            tenDangNhap = tenDangNhap?.Trim();
+            thongTinXacMinh = thongTinXacMinh?.Trim();
+
+            if (string.IsNullOrEmpty(tenDangNhap) || string.IsNullOrEmpty(thongTinXacMinh)
+                || string.IsNullOrEmpty(matKhauMoi) || string.IsNullOrEmpty(xacNhanMatKhau))
+            {
+                ViewBag.Error = "Vui lòng điền đầy đủ các thông tin bắt buộc!";
+                return View();
+            }
+
+            if (matKhauMoi != xacNhanMatKhau)
+            {
+                ViewBag.Error = "Mật khẩu xác nhận không khớp!";
+                return View();
+            }
+
+            if (matKhauMoi.Length < 6)
+            {
+                ViewBag.Error = "Mật khẩu mới phải có ít nhất 6 ký tự!";
+                return View();
+            }
+
+            // Xác minh: chỉ tài khoản khách hàng, thông tin phải trùng email hoặc số điện thoại đã đăng ký
+            var taiKhoan = _repository.GetByTenDangNhap(tenDangNhap);
+            bool xacMinhDung = false;
+
+            if (taiKhoan != null && taiKhoan.VaiTro == "KhachHang")
+            {
+                bool trungEmail = !string.IsNullOrEmpty(taiKhoan.Email)
+                    && string.Equals(taiKhoan.Email.Trim(), thongTinXacMinh, StringComparison.OrdinalIgnoreCase);
+
+                var khachHang = _repository.GetKhachHangByMaTaiKhoan(taiKhoan.MaTaiKhoan);
+                bool trungSdt = khachHang != null && khachHang.SoDienThoai.Trim() == thongTinXacMinh;
+
+                xacMinhDung = trungEmail || trungSdt;
+            }
+
+            if (!xacMinhDung || taiKhoan == null)
+            {
+                // Đếm số lần sai, đủ 5 lần thì khóa tạm thời
+                int soLanSai = (HttpContext.Session.GetInt32("QuenMK_SoLanSai") ?? 0) + 1;
+                if (soLanSai >= SoLanSaiToiDa)
+                {
+                    long hetKhoa = DateTime.UtcNow.AddMinutes(PhutKhoaSauSaiNhieu).Ticks;
+                    HttpContext.Session.SetString("QuenMK_KhoaDen", hetKhoa.ToString());
+                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", 0);
+                }
+                else
+                {
+                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", soLanSai);
+                }
+
+                // Thông báo chung, không tiết lộ sai ở tên đăng nhập hay ở thông tin xác minh
+                ViewBag.Error = "Thông tin xác minh không đúng hoặc tài khoản không được hỗ trợ đặt lại mật khẩu!";
+                return View();
+            }
+
+            if (!taiKhoan.TrangThai)
+            {
+                ViewBag.Error = "Tài khoản của bạn đã bị khóa, vui lòng liên hệ Admin!";
+                return View();
+            }
+
+            // Cập nhật mật khẩu mới (đồ án lưu plain text giống chức năng Đăng ký)
+            taiKhoan.MatKhau = matKhauMoi;
+            await _repository.SaveChangesAsync();
+
+            HttpContext.Session.Remove("QuenMK_SoLanSai");
+            TempData["Success"] = "Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.";
+            return RedirectToAction("DangNhap");
+        }
+
+        // ==========================================================
         // PHẦN QUẢN LÝ TÀI KHOẢN (DÀNH RIÊNG CHO ADMIN)
         // ==========================================================
 

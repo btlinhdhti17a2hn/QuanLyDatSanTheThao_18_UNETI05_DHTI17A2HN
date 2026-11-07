@@ -1,0 +1,499 @@
+﻿/* Họ và tên: Lê Bích Ngọc
+   Mã sinh viên: 23103100111
+   Nội dung thực hiện: Giao diện dùng chung cho trang Đăng nhập, Đăng ký và Quên mật khẩu */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+}
+
+    body.auth-body {
+        min-height: 100vh;
+        font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+        color: #1f2937;
+        background: radial-gradient(900px 500px at 10% 10%, rgba(74, 222, 128, .22), transparent 60%), radial-gradient(800px 500px at 95% 95%, rgba(163, 230, 53, .18), transparent 55%), linear-gradient(135deg, #052e16, #14532d 55%, #166534);
+    }
+
+.auth-shell {
+    min-height: 100vh;
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 2.5rem 2rem;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 3rem;
+    align-items: center;
+}
+
+/* ===== NỬA TRÁI: GIỚI THIỆU ===== */
+.auth-hero {
+    color: #fff;
+}
+
+.auth-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: .75rem;
+    color: #fff;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 1.4rem;
+    letter-spacing: .5px;
+}
+
+.brand-badge {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, #a3e635, #4ade80);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, .25);
+}
+
+    .brand-badge.sm {
+        width: 38px;
+        height: 38px;
+        font-size: 1.2rem;
+        border-radius: 10px;
+    }
+
+.auth-title {
+    margin: 1.8rem 0 .6rem;
+    font-size: clamp(2rem, 3.4vw, 3rem);
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+    .auth-title span {
+        color: #bef264;
+    }
+
+.auth-tags {
+    color: #bbf7d0;
+    font-weight: 600;
+}
+
+    .auth-tags i {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin: 0 .6rem;
+        border-radius: 50%;
+        background: #4ade80;
+        vertical-align: middle;
+    }
+
+/* Sân bóng minh họa vẽ bằng CSS */
+.pitch {
+    position: relative;
+    width: 100%;
+    margin-top: 1.8rem;
+    aspect-ratio: 16 / 9;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 4px solid rgba(255, 255, 255, .28);
+    background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .06) 0 12.5%, transparent 12.5% 25%), linear-gradient(180deg, #16a34a, #15803d);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, .35);
+}
+
+    .pitch::before {
+        content: "";
+        position: absolute;
+        inset: 16px;
+        border: 2px solid rgba(255, 255, 255, .75);
+        border-radius: 10px;
+    }
+
+.pitch-line {
+    position: absolute;
+    top: 16px;
+    bottom: 16px;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, .75);
+}
+
+.pitch-circle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 22%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border: 2px solid rgba(255, 255, 255, .75);
+    border-radius: 50%;
+}
+
+.pitch-box {
+    position: absolute;
+    top: 50%;
+    width: 15%;
+    height: 46%;
+    transform: translateY(-50%);
+    border: 2px solid rgba(255, 255, 255, .75);
+}
+
+    .pitch-box.left {
+        left: 16px;
+        border-left: 0;
+    }
+
+    .pitch-box.right {
+        right: 16px;
+        border-right: 0;
+    }
+
+.ball {
+    position: absolute;
+    font-size: 2rem;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .35));
+    animation: floaty 4s ease-in-out infinite;
+}
+
+    .ball.b1 {
+        top: 14%;
+        left: 24%;
+    }
+
+    .ball.b2 {
+        top: 58%;
+        left: 40%;
+        animation-delay: -1s;
+    }
+
+    .ball.b3 {
+        top: 20%;
+        right: 22%;
+        animation-delay: -2s;
+    }
+
+    .ball.b4 {
+        bottom: 12%;
+        right: 30%;
+        animation-delay: -3s;
+    }
+
+@keyframes floaty {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.auth-features {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1.6rem;
+}
+
+.auth-feature {
+    display: flex;
+    gap: .7rem;
+    align-items: flex-start;
+}
+
+    .auth-feature .f-ic {
+        font-size: 1.4rem;
+    }
+
+    .auth-feature strong {
+        display: block;
+        color: #fff;
+    }
+
+    .auth-feature span {
+        color: #bbf7d0;
+        font-size: .85rem;
+        line-height: 1.4;
+    }
+
+/* ===== NỬA PHẢI: THẺ FORM ===== */
+.auth-card {
+    width: 100%;
+    max-width: 520px;
+    justify-self: center;
+    padding: 2.4rem 2.4rem 1.6rem;
+    border-radius: 28px;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, .35);
+}
+
+    .auth-card.wide {
+        max-width: 640px;
+    }
+
+.card-brand {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    font-weight: 800;
+    font-size: 1.3rem;
+    color: #14532d;
+}
+
+.card-sub {
+    margin: .4rem 0 1.4rem;
+    color: #6b7280;
+}
+
+.mb-field {
+    margin-bottom: 1.1rem;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.1rem;
+    margin-bottom: 1.4rem;
+}
+
+    .form-grid .mb-field {
+        margin-bottom: 0;
+    }
+
+.span-2 {
+    grid-column: 1 / -1;
+}
+
+.field-label {
+    display: block;
+    margin-bottom: .4rem;
+    font-weight: 700;
+    font-size: .92rem;
+    color: #374151;
+}
+
+    .field-label .req {
+        color: #dc2626;
+    }
+
+.input-wrap {
+    position: relative;
+}
+
+    .input-wrap .ico {
+        position: absolute;
+        top: 50%;
+        left: 14px;
+        width: 20px;
+        height: 20px;
+        transform: translateY(-50%);
+        color: #9ca3af;
+        pointer-events: none;
+    }
+
+    .input-wrap input {
+        width: 100%;
+        height: 52px;
+        padding: 0 14px 0 46px;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 14px;
+        font-size: 1rem;
+        background: #f9fafb;
+        transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+
+        .input-wrap input.has-toggle {
+            padding-right: 48px;
+        }
+
+        .input-wrap input:focus {
+            outline: none;
+            border-color: #22c55e;
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, .18);
+        }
+
+.btn-eye {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    padding: 6px;
+    border: 0;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    background: transparent;
+    cursor: pointer;
+}
+
+    .btn-eye:hover {
+        background: #f0fdf4;
+    }
+
+.btn-primary-auth {
+    width: 100%;
+    height: 54px;
+    border: 0;
+    border-radius: 14px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: .3px;
+    color: #fff;
+    background: linear-gradient(135deg, #16a34a, #22c55e);
+    box-shadow: 0 10px 22px rgba(22, 163, 74, .35);
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+    .btn-primary-auth:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 28px rgba(22, 163, 74, .45);
+    }
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+    margin: 1.2rem 0;
+    font-size: .9rem;
+    color: #9ca3af;
+}
+
+    .divider::before, .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #e5e7eb;
+    }
+
+.btn-secondary-auth {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    height: 52px;
+    border: 1.5px solid #bbf7d0;
+    border-radius: 14px;
+    font-weight: 700;
+    color: #15803d;
+    text-decoration: none;
+    background: #f0fdf4;
+    transition: background .2s ease;
+}
+
+    .btn-secondary-auth:hover {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+.auth-alert {
+    margin-bottom: 1.2rem;
+    padding: .8rem 1rem;
+    border-radius: 14px;
+    font-size: .95rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+    .auth-alert.error {
+        color: #b91c1c;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+    }
+
+    .auth-alert.success {
+        color: #15803d;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+    }
+
+.auth-home {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: .92rem;
+}
+
+    .auth-home a {
+        color: #15803d;
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+        .auth-home a:hover {
+            text-decoration: underline;
+        }
+
+.auth-copy {
+    margin-top: 1.2rem;
+    text-align: center;
+    font-size: .82rem;
+    color: #9ca3af;
+}
+
+.match-msg {
+    min-height: 1.1em;
+    margin-top: .3rem;
+    font-size: .82rem;
+    font-weight: 600;
+}
+
+.match-ok {
+    color: #16a34a;
+}
+
+.match-no {
+    color: #dc2626;
+}
+
+/* ===== QUÊN MẬT KHẨU ===== */
+.forgot-row {
+    margin: .1rem 0 1.2rem;
+    text-align: right;
+    font-size: .9rem;
+}
+
+    .forgot-row a {
+        color: #15803d;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+        .forgot-row a:hover {
+            text-decoration: underline;
+        }
+
+.auth-hint {
+    margin-top: 1rem;
+    padding: .7rem .9rem;
+    border-radius: 12px;
+    font-size: .85rem;
+    line-height: 1.5;
+    color: #166534;
+    background: #f0fdf4;
+    border: 1px dashed #86efac;
+}
+
+/* ===== MÀN HÌNH NHỎ ===== */
+@media (max-width: 991.98px) {
+    .auth-shell {
+        grid-template-columns: 1fr;
+        padding: 1.5rem 1rem;
+    }
+
+    .auth-hero {
+        display: none;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-card {
+        padding: 1.6rem 1.3rem 1.2rem;
+    }
+}
