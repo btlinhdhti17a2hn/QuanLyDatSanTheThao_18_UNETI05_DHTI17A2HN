@@ -462,9 +462,12 @@
                                     <span>Xin chào: @tenNguoiDung</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" asp-controller="KhachHang" asp-action="HoSo">👤 Thông tin cá nhân</a></li>
-                                    <li><a class="dropdown-item" asp-controller="DatSan" asp-action="LichSuDatSan">📅 Lịch sử đặt sân</a></li>
-                                    <li><hr class="dropdown-divider"></li>
+                                    @if (!laQuanLy)
+                                    {
+                                        <li><a class="dropdown-item" asp-controller="KhachHang" asp-action="HoSo">👤 Thông tin cá nhân</a></li>
+                                        <li><a class="dropdown-item" asp-controller="DatSan" asp-action="LichSuDatSan">📅 Lịch sử đặt sân</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                    }
                                     <li><a class="dropdown-item text-danger" asp-controller="TaiKhoan" asp-action="DangXuat">🚪 Đăng xuất</a></li>
                                 </ul>
                             </li>
