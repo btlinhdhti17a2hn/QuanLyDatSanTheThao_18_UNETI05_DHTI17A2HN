@@ -8,16 +8,20 @@ using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Filters;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.Entities;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
+using System.Security.Cryptography;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Services;
 
 namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 {
     public class TaiKhoanController : Controller
     {
         private readonly ITaiKhoanRepository _repository;
+        private readonly IEmailService _emailService;
 
-        public TaiKhoanController(ITaiKhoanRepository repository)
+        public TaiKhoanController(ITaiKhoanRepository repository, IEmailService emailService)
         {
             _repository = repository;
+            _emailService = emailService;
         }
 
         // Hiển thị giao diện Đăng nhập
@@ -174,39 +178,197 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
         // ==========================================================
         // QUÊN MẬT KHẨU (dành cho khách hàng)
-        // Xác minh bằng tên đăng nhập + email hoặc số điện thoại đã đăng ký, sau đó đặt mật khẩu mới
+        // Bước 1: nhập tên đăng nhập + email -> gửi mã 6 số về email
+        // Bước 2: nhập mã + mật khẩu mới -> đúng mã mới được đổi mật khẩu
         // ==========================================================
-        private const int SoLanSaiToiDa = 5;
+        private const int SoLanSaiToiDa = 5;        // sai thông tin ở bước 1
         private const int PhutKhoaSauSaiNhieu = 5;
+        private const int SoPhutHieuLucMa = 5;      // mã có hiệu lực 5 phút
+        private const int SoGiayGuiLai = 60;        // 2 lần gửi mã cách nhau tối thiểu 60 giây
+        private const int SoLanNhapMaToiDa = 5;     // nhập sai mã tối đa 5 lần
 
+        // Xóa toàn bộ thông tin mã xác nhận trong Session
+        private void XoaPhienQuenMatKhau()
+        {
+            HttpContext.Session.Remove("QMK_MaTaiKhoan");
+            HttpContext.Session.Remove("QMK_Ma");
+            HttpContext.Session.Remove("QMK_HetHan");
+            HttpContext.Session.Remove("QMK_SoLanSai");
+            HttpContext.Session.Remove("QMK_EmailAn");
+        }
+
+        // kh1@gmail.com -> k***@gmail.com
+        private static string AnEmail(string email)
+        {
+            int viTriAt = email.IndexOf('@');
+            if (viTriAt <= 1) return email;
+            return email[0] + new string('*', Math.Min(viTriAt - 1, 5)) + email.Substring(viTriAt);
+        }
+
+        private static string NoiDungEmailMa(string hoTen, string ma)
+        {
+            string ten = System.Net.WebUtility.HtmlEncode(hoTen);
+            return $@"
+<div style=""font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:auto;padding:24px;border:1px solid #bbf7d0;border-radius:16px"">
+  <h2 style=""color:#14532d;margin:0 0 12px"">🏟️ SPORTS GROUND</h2>
+  <p>Xin chào <b>{ten}</b>,</p>
+  <p>Mã xác nhận đặt lại mật khẩu của bạn là:</p>
+  <p style=""font-size:34px;font-weight:700;letter-spacing:8px;color:#16a34a;text-align:center;margin:16px 0"">{ma}</p>
+  <p>Mã có hiệu lực trong <b>{SoPhutHieuLucMa} phút</b>. Vui lòng không chia sẻ mã này cho bất kỳ ai.</p>
+  <p style=""color:#6b7280;font-size:13px"">Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này.</p>
+</div>";
+        }
+
+        // ---------- BƯỚC 1: nhập tên đăng nhập + email ----------
         [HttpGet]
         public IActionResult QuenMatKhau()
         {
-            // Đã đăng nhập rồi thì không cần dùng chức năng này
             if (HttpContext.Session.GetInt32("MaTaiKhoan") != null)
             {
                 return RedirectToAction("Index", "Home");
+            }
+
+            if (TempData["ThongBaoQuenMK"] != null)
+            {
+                ViewBag.Error = TempData["ThongBaoQuenMK"];
             }
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> QuenMatKhau(string? tenDangNhap, string? thongTinXacMinh, string? matKhauMoi, string? xacNhanMatKhau)
+        public async Task<IActionResult> QuenMatKhau(string? tenDangNhap, string? email)
         {
             // Chặn thử nhiều lần liên tiếp
             var khoaDen = HttpContext.Session.GetString("QuenMK_KhoaDen");
-            if (long.TryParse(khoaDen, out long ticks) && DateTime.UtcNow.Ticks < ticks)
+            if (long.TryParse(khoaDen, out long ticksKhoa) && DateTime.UtcNow.Ticks < ticksKhoa)
             {
                 ViewBag.Error = $"Bạn đã nhập sai quá nhiều lần. Vui lòng thử lại sau {PhutKhoaSauSaiNhieu} phút!";
                 return View();
             }
 
             tenDangNhap = tenDangNhap?.Trim();
-            thongTinXacMinh = thongTinXacMinh?.Trim();
+            email = email?.Trim();
 
-            if (string.IsNullOrEmpty(tenDangNhap) || string.IsNullOrEmpty(thongTinXacMinh)
-                || string.IsNullOrEmpty(matKhauMoi) || string.IsNullOrEmpty(xacNhanMatKhau))
+            if (string.IsNullOrEmpty(tenDangNhap) || string.IsNullOrEmpty(email))
+            {
+                ViewBag.Error = "Vui lòng nhập đầy đủ tên đăng nhập và email!";
+                return View();
+            }
+
+            // Chỉ tài khoản khách hàng, email phải trùng với email đã đăng ký
+            var taiKhoan = _repository.GetByTenDangNhap(tenDangNhap);
+            bool hopLe = taiKhoan != null
+                && taiKhoan.VaiTro == "KhachHang"
+                && !string.IsNullOrEmpty(taiKhoan.Email)
+                && string.Equals(taiKhoan.Email.Trim(), email, StringComparison.OrdinalIgnoreCase);
+
+            if (!hopLe || taiKhoan == null)
+            {
+                int soLanSai = (HttpContext.Session.GetInt32("QuenMK_SoLanSai") ?? 0) + 1;
+                if (soLanSai >= SoLanSaiToiDa)
+                {
+                    long hetKhoa = DateTime.UtcNow.AddMinutes(PhutKhoaSauSaiNhieu).Ticks;
+                    HttpContext.Session.SetString("QuenMK_KhoaDen", hetKhoa.ToString());
+                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", 0);
+                }
+                else
+                {
+                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", soLanSai);
+                }
+
+                // Thông báo chung, không tiết lộ sai ở tên đăng nhập hay ở email
+                ViewBag.Error = "Tên đăng nhập hoặc email không đúng, hoặc tài khoản không được hỗ trợ đặt lại mật khẩu!";
+                return View();
+            }
+
+            if (!taiKhoan.TrangThai)
+            {
+                ViewBag.Error = "Tài khoản của bạn đã bị khóa, vui lòng liên hệ Admin!";
+                return View();
+            }
+
+            // Giới hạn tần suất gửi mã
+            if (long.TryParse(HttpContext.Session.GetString("QMK_GuiLuc"), out long guiLuc))
+            {
+                double daTroi = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - guiLuc).TotalSeconds;
+                if (daTroi < SoGiayGuiLai)
+                {
+                    ViewBag.Error = $"Vui lòng đợi {Math.Ceiling(SoGiayGuiLai - daTroi)} giây rồi yêu cầu gửi lại mã!";
+                    return View();
+                }
+            }
+
+            // Sinh mã 6 số ngẫu nhiên và gửi về email đã đăng ký
+            string ma = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+
+            try
+            {
+                await _emailService.GuiEmailAsync(
+                    taiKhoan.Email.Trim(),
+                    "Mã xác nhận đặt lại mật khẩu - SPORTS GROUND",
+                    NoiDungEmailMa(taiKhoan.HoTen, ma));
+            }
+            catch (Exception)
+            {
+                ViewBag.Error = "Không gửi được email lúc này. Vui lòng thử lại sau!";
+                return View();
+            }
+
+            // Chỉ lưu mã sau khi gửi thành công (mã nằm trong Session phía máy chủ)
+            HttpContext.Session.SetInt32("QMK_MaTaiKhoan", taiKhoan.MaTaiKhoan);
+            HttpContext.Session.SetString("QMK_Ma", ma);
+            HttpContext.Session.SetString("QMK_HetHan", DateTime.UtcNow.AddMinutes(SoPhutHieuLucMa).Ticks.ToString());
+            HttpContext.Session.SetInt32("QMK_SoLanSai", 0);
+            HttpContext.Session.SetString("QMK_EmailAn", AnEmail(taiKhoan.Email.Trim()));
+            HttpContext.Session.SetString("QMK_GuiLuc", DateTime.UtcNow.Ticks.ToString());
+            HttpContext.Session.Remove("QuenMK_SoLanSai");
+
+            return RedirectToAction(nameof(DatLaiMatKhau));
+        }
+
+        // ---------- BƯỚC 2: nhập mã + mật khẩu mới ----------
+        [HttpGet]
+        public IActionResult DatLaiMatKhau()
+        {
+            if (HttpContext.Session.GetInt32("QMK_MaTaiKhoan") == null
+                || string.IsNullOrEmpty(HttpContext.Session.GetString("QMK_Ma")))
+            {
+                TempData["ThongBaoQuenMK"] = "Vui lòng nhập thông tin để nhận mã xác nhận!";
+                return RedirectToAction(nameof(QuenMatKhau));
+            }
+
+            ViewBag.EmailAn = HttpContext.Session.GetString("QMK_EmailAn");
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DatLaiMatKhau(string? maXacNhan, string? matKhauMoi, string? xacNhanMatKhau)
+        {
+            int? maTaiKhoan = HttpContext.Session.GetInt32("QMK_MaTaiKhoan");
+            string? maDung = HttpContext.Session.GetString("QMK_Ma");
+
+            if (maTaiKhoan == null || string.IsNullOrEmpty(maDung))
+            {
+                TempData["ThongBaoQuenMK"] = "Vui lòng nhập thông tin để nhận mã xác nhận!";
+                return RedirectToAction(nameof(QuenMatKhau));
+            }
+
+            ViewBag.EmailAn = HttpContext.Session.GetString("QMK_EmailAn");
+
+            // Mã hết hạn
+            if (!long.TryParse(HttpContext.Session.GetString("QMK_HetHan"), out long hetHan)
+                || DateTime.UtcNow.Ticks > hetHan)
+            {
+                XoaPhienQuenMatKhau();
+                TempData["ThongBaoQuenMK"] = "Mã xác nhận đã hết hạn. Vui lòng yêu cầu gửi mã mới!";
+                return RedirectToAction(nameof(QuenMatKhau));
+            }
+
+            maXacNhan = maXacNhan?.Trim();
+
+            if (string.IsNullOrEmpty(maXacNhan) || string.IsNullOrEmpty(matKhauMoi) || string.IsNullOrEmpty(xacNhanMatKhau))
             {
                 ViewBag.Error = "Vui lòng điền đầy đủ các thông tin bắt buộc!";
                 return View();
@@ -224,52 +386,35 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 return View();
             }
 
-            // Xác minh: chỉ tài khoản khách hàng, thông tin phải trùng email hoặc số điện thoại đã đăng ký
-            var taiKhoan = _repository.GetByTenDangNhap(tenDangNhap);
-            bool xacMinhDung = false;
-
-            if (taiKhoan != null && taiKhoan.VaiTro == "KhachHang")
+            // Kiểm tra mã, sai quá số lần cho phép thì hủy mã
+            if (maXacNhan != maDung)
             {
-                bool trungEmail = !string.IsNullOrEmpty(taiKhoan.Email)
-                    && string.Equals(taiKhoan.Email.Trim(), thongTinXacMinh, StringComparison.OrdinalIgnoreCase);
-
-                var khachHang = _repository.GetKhachHangByMaTaiKhoan(taiKhoan.MaTaiKhoan);
-                bool trungSdt = khachHang != null && khachHang.SoDienThoai.Trim() == thongTinXacMinh;
-
-                xacMinhDung = trungEmail || trungSdt;
-            }
-
-            if (!xacMinhDung || taiKhoan == null)
-            {
-                // Đếm số lần sai, đủ 5 lần thì khóa tạm thời
-                int soLanSai = (HttpContext.Session.GetInt32("QuenMK_SoLanSai") ?? 0) + 1;
-                if (soLanSai >= SoLanSaiToiDa)
+                int soLanSai = (HttpContext.Session.GetInt32("QMK_SoLanSai") ?? 0) + 1;
+                if (soLanSai >= SoLanNhapMaToiDa)
                 {
-                    long hetKhoa = DateTime.UtcNow.AddMinutes(PhutKhoaSauSaiNhieu).Ticks;
-                    HttpContext.Session.SetString("QuenMK_KhoaDen", hetKhoa.ToString());
-                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", 0);
-                }
-                else
-                {
-                    HttpContext.Session.SetInt32("QuenMK_SoLanSai", soLanSai);
+                    XoaPhienQuenMatKhau();
+                    TempData["ThongBaoQuenMK"] = "Bạn đã nhập sai mã quá nhiều lần. Vui lòng yêu cầu gửi mã mới!";
+                    return RedirectToAction(nameof(QuenMatKhau));
                 }
 
-                // Thông báo chung, không tiết lộ sai ở tên đăng nhập hay ở thông tin xác minh
-                ViewBag.Error = "Thông tin xác minh không đúng hoặc tài khoản không được hỗ trợ đặt lại mật khẩu!";
+                HttpContext.Session.SetInt32("QMK_SoLanSai", soLanSai);
+                ViewBag.Error = $"Mã xác nhận không đúng! Bạn còn {SoLanNhapMaToiDa - soLanSai} lần thử.";
                 return View();
             }
 
-            if (!taiKhoan.TrangThai)
+            var taiKhoan = await _repository.GetByIdAsync(maTaiKhoan.Value);
+            if (taiKhoan == null || !taiKhoan.TrangThai)
             {
-                ViewBag.Error = "Tài khoản của bạn đã bị khóa, vui lòng liên hệ Admin!";
-                return View();
+                XoaPhienQuenMatKhau();
+                TempData["ThongBaoQuenMK"] = "Tài khoản không tồn tại hoặc đã bị khóa!";
+                return RedirectToAction(nameof(QuenMatKhau));
             }
 
             // Cập nhật mật khẩu mới (đồ án lưu plain text giống chức năng Đăng ký)
             taiKhoan.MatKhau = matKhauMoi;
             await _repository.SaveChangesAsync();
 
-            HttpContext.Session.Remove("QuenMK_SoLanSai");
+            XoaPhienQuenMatKhau();
             TempData["Success"] = "Đặt lại mật khẩu thành công! Vui lòng đăng nhập bằng mật khẩu mới.";
             return RedirectToAction("DangNhap");
         }

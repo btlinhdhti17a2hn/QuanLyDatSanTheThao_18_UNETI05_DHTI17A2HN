@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Data;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories;
 using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Repositories.Interfaces;
+using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +38,10 @@ builder.Services.AddScoped<ITaiKhoanRepository, TaiKhoanRepository>();
 builder.Services.AddScoped<IDatSanRepository, DatSanRepository>();
 builder.Services.AddScoped<ITiepNhanDatSanRepository, TiepNhanDatSanRepository>();
 builder.Services.AddScoped<IThongKeRepository, ThongKeRepository>();
+
+// Cấu hình và đăng ký dịch vụ gửi email (dùng cho chức năng Quên mật khẩu)
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Khai báo sử dụng mô hình MVC
 builder.Services.AddControllersWithViews();

@@ -1,0 +1,122 @@
+﻿@*
+// Họ và tên: Lê Bích Ngọc
+// Mã sinh viên: 23103100111
+// Nội dung thực hiện: Giao diện Razor View Đặt lại mật khẩu - Bước 2 nhập mã xác nhận và mật khẩu mới
+*@
+
+@{
+    Layout = null;
+    ViewData["Title"] = "Đặt lại mật khẩu";
+}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - SPORTS GROUND</title>
+    <link rel="stylesheet" href="~/css/auth.css" asp-append-version="true" />
+</head>
+<body class="auth-body">
+    <div class="auth-shell">
+
+        <partial name="_AuthHero" />
+
+        <section class="auth-card wide">
+            <div class="card-brand"><span class="brand-badge sm">🏟️</span> SPORTS GROUND</div>
+            <p class="card-sub">Nhập mã xác nhận trong email và đặt mật khẩu mới</p>
+
+            <div class="auth-alert success">📧 Mã xác nhận đã được gửi tới <strong>@ViewBag.EmailAn</strong>. Mã có hiệu lực 5 phút.</div>
+
+            @if (ViewBag.Error != null)
+            {
+                <div class="auth-alert error">❌ @ViewBag.Error</div>
+            }
+
+            <form asp-controller="TaiKhoan" asp-action="DatLaiMatKhau" method="post">
+                <div class="form-grid">
+                    <div class="mb-field span-2">
+                        <label class="field-label" for="oMa">Mã xác nhận (6 số) <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" /><path d="m9 12 2 2 4-4" /></svg>
+                            <input type="text" id="oMa" name="maXacNhan" class="code-input" required maxlength="6" pattern="[0-9]{6}" inputmode="numeric" placeholder="______" autocomplete="one-time-code" />
+                        </div>
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label" for="oMatKhau">Mật khẩu mới <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                            <input type="password" id="oMatKhau" name="matKhauMoi" class="has-toggle" required minlength="6" placeholder="Ít nhất 6 ký tự..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oMatKhau" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-field">
+                        <label class="field-label" for="oXacNhan">Xác nhận mật khẩu mới <span class="req">*</span></label>
+                        <div class="input-wrap">
+                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
+                            <input type="password" id="oXacNhan" name="xacNhanMatKhau" class="has-toggle" required placeholder="Nhập lại mật khẩu mới..." autocomplete="new-password" />
+                            <button type="button" class="btn-eye" data-target="oXacNhan" title="Hiện / ẩn mật khẩu">👁️</button>
+                        </div>
+                        <div id="thongBaoKhop" class="match-msg"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary-auth">Đặt lại mật khẩu →</button>
+            </form>
+
+            <div class="divider">Chưa nhận được mã?</div>
+            <a class="btn-secondary-auth" asp-controller="TaiKhoan" asp-action="QuenMatKhau">📧 Gửi lại mã</a>
+
+            <div class="auth-home"><a asp-controller="TaiKhoan" asp-action="DangNhap">← Quay lại đăng nhập</a></div>
+            <div class="auth-copy">© 2026 Sports Ground. Bài tập lớn .NET - Đề 18 (UNETI)</div>
+        </section>
+    </div>
+
+    <script>
+        (function () {
+            // Nút hiện / ẩn mật khẩu
+            document.querySelectorAll('.btn-eye').forEach(function (nut) {
+                nut.addEventListener('click', function () {
+                    var o = document.getElementById(nut.dataset.target);
+                    var dangAn = o.type === 'password';
+                    o.type = dangAn ? 'text' : 'password';
+                    nut.textContent = dangAn ? '🙈' : '👁️';
+                });
+            });
+
+            // Chỉ cho nhập số vào ô mã
+            var oMa = document.getElementById('oMa');
+            oMa.addEventListener('input', function () {
+                oMa.value = oMa.value.replace(/[^0-9]/g, '');
+            });
+
+            // Kiểm tra mật khẩu xác nhận có khớp không
+            var matKhau = document.getElementById('oMatKhau');
+            var xacNhan = document.getElementById('oXacNhan');
+            var thongBao = document.getElementById('thongBaoKhop');
+
+            function kiemTraKhop() {
+                if (!xacNhan.value) {
+                    thongBao.textContent = '';
+                    xacNhan.setCustomValidity('');
+                    return;
+                }
+                if (matKhau.value === xacNhan.value) {
+                    thongBao.textContent = '✔ Mật khẩu khớp';
+                    thongBao.className = 'match-msg match-ok';
+                    xacNhan.setCustomValidity('');
+                } else {
+                    thongBao.textContent = '✖ Mật khẩu chưa khớp';
+                    thongBao.className = 'match-msg match-no';
+                    xacNhan.setCustomValidity('Mật khẩu xác nhận không khớp.');
+                }
+            }
+
+            matKhau.addEventListener('input', kiemTraKhop);
+            xacNhan.addEventListener('input', kiemTraKhop);
+        })();
+    </script>
+</body>
+</html>

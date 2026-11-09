@@ -1,16 +1,16 @@
 ﻿@*
 // Họ và tên: Lê Bích Ngọc
 // Mã sinh viên: 23103100111
-// Nội dung thực hiện: Giao diện Razor View Quên mật khẩu (xác minh và đặt mật khẩu mới)
+// Nội dung thực hiện: Giao diện Razor View Quên mật khẩu - Bước 1 nhập tên đăng nhập và email để nhận mã
 *@
 
 @{
     Layout = null;
     ViewData["Title"] = "Quên mật khẩu";
 
-    // Giữ lại tên đăng nhập và thông tin xác minh khi form báo lỗi
+    // Giữ lại thông tin đã nhập khi form báo lỗi
     string tenCu = Context.Request.HasFormContentType ? Context.Request.Form["tenDangNhap"].ToString() : "";
-    string xacMinhCu = Context.Request.HasFormContentType ? Context.Request.Form["thongTinXacMinh"].ToString() : "";
+    string emailCu = Context.Request.HasFormContentType ? Context.Request.Form["email"].ToString() : "";
 }
 
 <!DOCTYPE html>
@@ -26,9 +26,9 @@
 
         <partial name="_AuthHero" />
 
-        <section class="auth-card wide">
+        <section class="auth-card">
             <div class="card-brand"><span class="brand-badge sm">🏟️</span> SPORTS GROUND</div>
-            <p class="card-sub">Nhập thông tin đã đăng ký để xác minh, sau đó đặt mật khẩu mới</p>
+            <p class="card-sub">Nhập tên đăng nhập và email đã đăng ký, chúng tôi sẽ gửi mã xác nhận về email của bạn</p>
 
             @if (ViewBag.Error != null)
             {
@@ -36,44 +36,23 @@
             }
 
             <form asp-controller="TaiKhoan" asp-action="QuenMatKhau" method="post">
-                <div class="form-grid">
-                    <div class="mb-field">
-                        <label class="field-label" for="oTenDangNhap">Tên đăng nhập <span class="req">*</span></label>
-                        <div class="input-wrap">
-                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
-                            <input type="text" id="oTenDangNhap" name="tenDangNhap" value="@tenCu" required placeholder="Nhập tên đăng nhập..." autocomplete="username" />
-                        </div>
-                    </div>
-
-                    <div class="mb-field">
-                        <label class="field-label" for="oXacMinh">Email hoặc số điện thoại <span class="req">*</span></label>
-                        <div class="input-wrap">
-                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
-                            <input type="text" id="oXacMinh" name="thongTinXacMinh" value="@xacMinhCu" required placeholder="Đã dùng khi đăng ký..." autocomplete="off" />
-                        </div>
-                    </div>
-
-                    <div class="mb-field">
-                        <label class="field-label" for="oMatKhau">Mật khẩu mới <span class="req">*</span></label>
-                        <div class="input-wrap">
-                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-                            <input type="password" id="oMatKhau" name="matKhauMoi" class="has-toggle" required minlength="6" placeholder="Ít nhất 6 ký tự..." autocomplete="new-password" />
-                            <button type="button" class="btn-eye" data-target="oMatKhau" title="Hiện / ẩn mật khẩu">👁️</button>
-                        </div>
-                    </div>
-
-                    <div class="mb-field">
-                        <label class="field-label" for="oXacNhan">Xác nhận mật khẩu mới <span class="req">*</span></label>
-                        <div class="input-wrap">
-                            <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-                            <input type="password" id="oXacNhan" name="xacNhanMatKhau" class="has-toggle" required placeholder="Nhập lại mật khẩu mới..." autocomplete="new-password" />
-                            <button type="button" class="btn-eye" data-target="oXacNhan" title="Hiện / ẩn mật khẩu">👁️</button>
-                        </div>
-                        <div id="thongBaoKhop" class="match-msg"></div>
+                <div class="mb-field">
+                    <label class="field-label" for="oTenDangNhap">Tên đăng nhập <span class="req">*</span></label>
+                    <div class="input-wrap">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+                        <input type="text" id="oTenDangNhap" name="tenDangNhap" value="@tenCu" required placeholder="Nhập tên đăng nhập..." autocomplete="username" />
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary-auth">Đặt lại mật khẩu →</button>
+                <div class="mb-field" style="margin-bottom: 1.5rem;">
+                    <label class="field-label" for="oEmail">Email đã đăng ký <span class="req">*</span></label>
+                    <div class="input-wrap">
+                        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+                        <input type="email" id="oEmail" name="email" value="@emailCu" required placeholder="Nhập email của bạn..." autocomplete="email" />
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary-auth">Gửi mã xác nhận →</button>
             </form>
 
             <div class="divider">Đã nhớ mật khẩu?</div>
@@ -83,44 +62,5 @@
             <div class="auth-copy">© 2026 Sports Ground. Bài tập lớn .NET - Đề 18 (UNETI)</div>
         </section>
     </div>
-
-    <script>
-        (function () {
-            // Nút hiện / ẩn mật khẩu
-            document.querySelectorAll('.btn-eye').forEach(function (nut) {
-                nut.addEventListener('click', function () {
-                    var o = document.getElementById(nut.dataset.target);
-                    var dangAn = o.type === 'password';
-                    o.type = dangAn ? 'text' : 'password';
-                    nut.textContent = dangAn ? '🙈' : '👁️';
-                });
-            });
-
-            // Kiểm tra mật khẩu xác nhận có khớp không
-            var matKhau = document.getElementById('oMatKhau');
-            var xacNhan = document.getElementById('oXacNhan');
-            var thongBao = document.getElementById('thongBaoKhop');
-
-            function kiemTraKhop() {
-                if (!xacNhan.value) {
-                    thongBao.textContent = '';
-                    xacNhan.setCustomValidity('');
-                    return;
-                }
-                if (matKhau.value === xacNhan.value) {
-                    thongBao.textContent = '✔ Mật khẩu khớp';
-                    thongBao.className = 'match-msg match-ok';
-                    xacNhan.setCustomValidity('');
-                } else {
-                    thongBao.textContent = '✖ Mật khẩu chưa khớp';
-                    thongBao.className = 'match-msg match-no';
-                    xacNhan.setCustomValidity('Mật khẩu xác nhận không khớp.');
-                }
-            }
-
-                       matKhau.addEventListener('input', kiemTraKhop);
-            xacNhan.addEventListener('input', kiemTraKhop);
-        })();
-    </script>
 </body>
 </html>
