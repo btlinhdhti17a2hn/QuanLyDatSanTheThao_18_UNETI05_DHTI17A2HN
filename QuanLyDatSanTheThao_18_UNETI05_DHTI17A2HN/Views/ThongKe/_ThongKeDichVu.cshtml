@@ -1,0 +1,64 @@
+﻿@* Tab Dịch vụ (nhúng từ ThongKe.cshtml) *@
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
+@model ThongKeViewModel
+@{
+    var h = (ThongKeHienThi)ViewData["tk"];
+    var inv = h.Inv;
+    var tongDichVu = h.TongDichVu;
+}
+
+@* ===== Tab 3: Dịch vụ ===== *@
+<section class="tk-pane" data-pane="dich-vu" role="tabpanel" hidden>
+    <div class="tk-panel">
+        <div class="tk-panel-title">Dịch vụ bán chạy</div>
+        <div class="tk-panel-sub">Top 10 theo số lượng sử dụng trong kỳ, không tính đơn hủy</div>
+        @if (Model.DichVuPhoBien.Count > 0)
+        {
+            <div class="tk-svc-total">
+                Tổng doanh thu dịch vụ (top 10): <b>@tongDichVu.ToString("N0") đ</b>
+                @if (Model.TongDoanhThuNam > 0 && tongDichVu <= Model.TongDoanhThuNam)
+                {
+                    <span class="tk-badge flat">@((tongDichVu / Model.TongDoanhThuNam * 100m).ToString("0.#"))% tổng doanh thu kỳ</span>
+                }
+            </div>
+        }
+        @if (Model.DichVuPhoBien.Count == 0)
+        {
+            <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+        }
+        else
+        {
+            <table class="tk-tbl" id="tk-dv-tbl">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Dịch vụ</th>
+                        <th class="r tk-sortable" data-sort="q" title="Bấm để sắp xếp">Số lượng</th>
+                        <th class="r tk-sortable" data-sort="v" title="Bấm để sắp xếp">Doanh thu</th>
+                        <th style="width:28%">Đóng góp</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int thuTu = 0; thuTu < Model.DichVuPhoBien.Count; thuTu++)
+                    {
+                        var dv = Model.DichVuPhoBien[thuTu];
+                        decimal dongGop = tongDichVu > 0 ? dv.GiaTri / tongDichVu * 100m : 0m;
+                        <tr class="@(thuTu == 0 ? "top" : "")" data-q="@dv.SoLuong" data-v="@dv.GiaTri.ToString("0.##", inv)">
+                            <td class="rk">#@(thuTu + 1)</td>
+                            <td>@dv.Ten</td>
+                            <td class="r">@dv.SoLuong.ToString("N0")</td>
+                            <td class="r">@dv.GiaTri.ToString("N0") đ</td>
+                            <td>
+                                <div class="tk-share">
+                                    <div class="tk-mini" style="margin:0;flex:1"><span style="width:@(dongGop.ToString("0.##", inv))%; background:var(--brand)"></span></div>
+                                    <span>@dongGop.ToString("0.#")%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="tk-note">Đóng góp = tỷ trọng doanh thu của dịch vụ trong top 10. Lợi nhuận gộp cần có giá vốn dịch vụ trong dữ liệu.</div>
+        }
+    </div>
+</section>

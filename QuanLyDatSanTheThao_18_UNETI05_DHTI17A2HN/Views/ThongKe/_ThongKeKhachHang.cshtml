@@ -1,0 +1,1223 @@
+﻿@*
+    Tab "Khách hàng" của trang Thống kê chi tiết.
+    Dữ liệu do ThongKeController.TinhThongKeKhachHangAsync tạo ra (nằm ở ThongKeViewModel.KhachHang).
+    Model của partial là ThongKeViewModel (giống các tab khác), nên gọi trong ThongKe.cshtml
+    không cần truyền model:
+        <partial name="_ThongKeKhachHang" />
+    Biểu đồ vẽ bằng HTML/CSS (không dùng thư viện ngoài) nên không thể lỗi JS/CDN.
+
+    Bố cục (đi từ "tình hình" đến "hành động"):
+        01 Tình hình khách hàng       - 4 KPI chính, đọc trong 10-15 giây
+        02 Những vấn đề cần chú ý     - 3 cảnh báo tổng hợp (rủi ro vận hành / giữ chân / doanh thu), bấm để nhảy tới chi tiết
+        03 Xu hướng khách hàng        - khách đăng ký mới, khách đặt lại
+        04 Phân tích nhóm khách       - giá trị khách tái đặt, hạng thành viên, A. phân loại trong kỳ (loại trừ nhau), B. nhóm cần chăm sóc
+        05 Khách hàng giá trị nhất    - top khách + mức độ tập trung doanh thu
+        06 Cảnh báo và rủi ro         - đơn hủy, khách hủy lặp lại
+
+    Quy ước chữ: nội dung #334155 (14-15px), mô tả #475569 (14px), tiêu đề #1E293B,
+    số liệu chính #172B4D; không dùng chữ nhỏ hơn 12px (bảng không nhỏ hơn 13px).
+    Màu: xanh lá = tốt / khách trung thành, xanh dương = thông tin / trung tính,
+         vàng cam = cần chú ý, đỏ = rủi ro, xám = phụ / chưa có dữ liệu.
+*@
+@using System.Globalization
+@model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.ThongKeViewModel
+
+@functions {
+    static readonly CultureInfo Vn = new CultureInfo("vi-VN");
+
+    // Ngưỡng cảnh báo tỷ lệ hủy (%). Đổi một chỗ này nếu chính sách của sân thay đổi.
+    const double NguongHuy = 20;
+    const double NguongHuyChuY = 10;
+    // Ngưỡng coi là "doanh thu phụ thuộc vào ít khách" (% doanh thu thuộc nhóm Top)
+    const double NguongTapTrungDoanhThu = 80;
+
+    static string Tien(decimal v) => v.ToString("N0", Vn) + " đ";
+
+    // Số tiền gọn cho thẻ KPI: 3.700.000 -> "3,7 triệu"
+    static string TienGon(decimal v) => v >= 1000000m
+        ? (v / 1000000m).ToString("0.##", Vn) + " triệu"
+        : Tien(v);
+
+    // Che một phần số điện thoại: 0987654005 -> 0987***005
+    static string MaSdt(string s) => string.IsNullOrEmpty(s) || s.Length < 8
+        ? (s ?? "")
+        : s.Substring(0, 4) + "***" + s.Substring(s.Length - 3);
+
+    // Chiều rộng/độ cao % cho CSS: luôn dùng dấu chấm, kẹp trong 0..100
+    static string W(double v) => Math.Max(0, Math.Min(100, v)).ToString("0.##", CultureInfo.InvariantCulture);
+
+    static string Pct(double v) => v.ToString("0.#", Vn) + "%";
+
+    static string HangCss(string ten) => ten switch
+    {
+        "Bạc" => "bac",
+        "Vàng" => "vang",
+        "Kim cương" => "kc",
+        _ => "tv"
+    };
+
+    // Mức cảnh báo cho tỷ lệ hủy
+    static string MucHuy(double tyLe) => tyLe >= NguongHuy ? "bad" : (tyLe >= NguongHuyChuY ? "warn" : "good");
+
+    // Cột "T11" của biểu đồ theo tháng: có phải tháng chưa diễn ra trong năm hiện tại không
+    static bool LaTuongLai(string ten, string donVi, DateTime homNay, bool cungNamHienTai)
+    {
+        if (!cungNamHienTai || string.IsNullOrEmpty(ten) || string.IsNullOrEmpty(donVi)) return false;
+        if (donVi.IndexOf("tháng", StringComparison.OrdinalIgnoreCase) < 0) return false;
+        if (!ten.StartsWith("T")) return false;
+        return int.TryParse(ten.Substring(1), out int thang) && thang > homNay.Month;
+    }
+
+    // So sánh với kỳ trước. upGood = true nếu tăng là tốt (hủy đơn thì ngược lại).
+    // Chưa có dữ liệu kỳ trước thì trả về chuỗi rỗng: không hiện số so sánh giả.
+    static (string Css, string Text) Delta(double cur, double prev, bool coKyTruoc, bool upGood, bool tyLe)
+    {
+        if (!coKyTruoc) return ("none", "");
+        double diff = Math.Round(cur - prev, 1);
+        string truoc = tyLe ? Pct(prev) : prev.ToString("0", Vn);
+        if (diff == 0) return ("flat", "Không đổi so với kỳ trước (" + truoc + ")");
+        string mui = diff > 0 ? "▲" : "▼";
+        string so = tyLe ? Math.Abs(diff).ToString("0.#", Vn) + " điểm %" : Math.Abs(diff).ToString("0", Vn);
+        string css = (diff > 0) == upGood ? "good" : "bad";
+        return (css, mui + " " + so + " so với kỳ trước (" + truoc + ")");
+    }
+}
+
+<style>
+    .kh-wrap { --kh-ink:#172B4D; --kh-head:#1E293B; --kh-text:#334155; --kh-sub:#475569; --kh-line:#D7DEE8; --kh-bg:#F8FAFC;
+               --kh-accent:#2563eb; --kh-accent2:#f59e0b; --kh-good:#047857; --kh-warn:#b45309; --kh-bad:#c81e1e;
+               color:var(--kh-text); font-size:15px; line-height:1.5; }
+    .kh-wrap * { box-sizing:border-box; }
+    .kh-wrap b { font-weight:600; color:var(--kh-ink); }
+    .kh-sec { font-size:18px; font-weight:600; color:var(--kh-head); margin:32px 0 12px; scroll-margin-top:12px; }
+    .kh-sec:first-of-type { margin-top:0; }
+    .kh-sec .no { color:var(--kh-accent); margin-right:8px; }
+    .kh-sec small { display:block; font-size:14px; font-weight:400; color:var(--kh-sub); margin-top:2px; }
+
+    .kh-period { background:var(--kh-bg); border:1px solid var(--kh-line); border-radius:10px; padding:10px 16px; margin-bottom:8px; font-size:14.5px; color:var(--kh-text); }
+    .kh-period .row2 { margin-top:2px; font-size:14px; color:var(--kh-sub); }
+    .kh-period .warn { margin-top:6px; font-size:14px; color:var(--kh-warn); font-weight:500; }
+    .kh-scopeline { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:13.5px; font-weight:500; color:var(--kh-sub); margin:0 0 16px; }
+    .kh-scopeline span:first-child::before { content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--kh-sub); margin-right:7px; vertical-align:middle; }
+
+    /* Thẻ KPI: thấp, số lớn, so sánh ngay dưới số */
+    .kh-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+    .kh-kpi { background:#fff; border:1px solid var(--kh-line); border-radius:10px; padding:10px 14px; border-top:2px solid var(--kh-line); }
+    .kh-kpi.click { cursor:pointer; transition:box-shadow .15s, transform .15s; }
+    .kh-kpi.click:hover, .kh-kpi.click:focus-visible { box-shadow:0 4px 14px rgba(23,43,77,.12); transform:translateY(-1px); outline:none; }
+    .kh-kpi.click:focus-visible { outline:2px solid var(--kh-accent); outline-offset:2px; }
+    .kh-kpi.good { border-top-color:var(--kh-good); } .kh-kpi.warn { border-top-color:var(--kh-warn); } .kh-kpi.bad { border-top-color:var(--kh-bad); }
+    .kh-kpi.info { border-top-color:var(--kh-accent); }
+    .kh-kpi .lb { font-size:14px; font-weight:500; color:var(--kh-sub); display:flex; align-items:center; gap:6px; }
+    .kh-kpi .vl { font-size:28px; font-weight:700; margin-top:0; line-height:1.15; color:var(--kh-ink); }
+    .kh-kpi.good .vl { color:var(--kh-good); } .kh-kpi.warn .vl { color:var(--kh-warn); } .kh-kpi.bad .vl { color:var(--kh-bad); }
+    .kh-kpi .sb { font-size:14px; color:var(--kh-sub); margin-top:2px; }
+    .kh-delta { font-size:13.5px; font-weight:600; margin-top:2px; }
+    .kh-delta.good { color:var(--kh-good); } .kh-delta.bad { color:var(--kh-bad); }
+    .kh-delta.flat { color:var(--kh-sub); font-weight:500; }
+    .kh-status { font-size:13.5px; font-weight:500; margin-top:2px; color:var(--kh-sub); }
+    .kh-status.good { color:var(--kh-good); } .kh-status.warn { color:var(--kh-warn); } .kh-status.bad { color:var(--kh-bad); }
+    .kh-info { display:inline-flex; width:16px; height:16px; border-radius:50%; border:1px solid var(--kh-sub); color:var(--kh-sub);
+               font-size:11px; font-weight:700; align-items:center; justify-content:center; cursor:help; flex:none; line-height:1; }
+
+    /* Điều admin cần chú ý */
+    .kh-insights { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+    .kh-ins { display:block; text-align:left; background:#fff; border:1px solid var(--kh-line); border-left:4px solid var(--kh-accent); border-radius:12px;
+              padding:12px 16px; cursor:pointer; font:inherit; color:var(--kh-text); width:100%; }
+    .kh-ins:hover, .kh-ins:focus-visible { box-shadow:0 4px 14px rgba(23,43,77,.12); outline:none; }
+    .kh-ins:focus-visible { outline:2px solid var(--kh-accent); outline-offset:2px; }
+    .kh-ins.good { border-left-color:var(--kh-good); }
+    .kh-ins.warn { border-left-color:var(--kh-accent2); }
+    .kh-ins.bad { border-left-color:var(--kh-bad); }
+    .kh-ins .t { font-size:15px; font-weight:600; color:var(--kh-ink); display:flex; gap:8px; align-items:flex-start; }
+    .kh-ins .t .ic { flex:none; font-size:12px; font-weight:700; padding:1px 8px; border-radius:999px; margin-top:2px; }
+    .kh-ins.good .ic { background:#d1fae5; color:#065f46; } .kh-ins.warn .ic { background:#fef3c7; color:#78350f; }
+    .kh-ins.bad .ic { background:#fee2e2; color:#991b1b; } .kh-ins.info .ic { background:#dbeafe; color:#1e40af; }
+    .kh-ins .d { font-size:14px; color:var(--kh-text); margin-top:4px; }
+    .kh-ins .go { font-size:13px; font-weight:600; color:var(--kh-accent); margin-top:8px; display:inline-block; }
+    .kh-stats { display:flex; gap:24px; flex-wrap:wrap; margin-top:8px; }
+    .kh-st { display:block; max-width:210px; }
+    .kh-st b { display:block; font-size:26px; line-height:1.15; }
+    .kh-st > span { display:block; font-size:13.5px; color:var(--kh-sub); margin-top:2px; }
+    .kh-ins.bad .kh-st b { color:var(--kh-bad); } .kh-ins.warn .kh-st b { color:var(--kh-warn); } .kh-ins.good .kh-st b { color:var(--kh-good); }
+
+    .kh-grid { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+    .kh-grid.w32 { grid-template-columns:minmax(0,3fr) minmax(0,2fr); }
+    .kh-card { background:#fff; border:1px solid var(--kh-line); border-radius:12px; padding:16px 20px; }
+    .kh-card + .kh-card { margin-top:16px; }
+    .kh-grid > .kh-card + .kh-card { margin-top:0; }
+    .kh-card h3 { font-size:17px; font-weight:600; color:var(--kh-head); margin:0 0 2px; }
+    .kh-card .hint { font-size:14px; color:var(--kh-sub); margin:0 0 12px; line-height:1.5; }
+    .kh-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .kh-block { margin-top:16px; }
+
+    .kh-seg { display:inline-flex; background:var(--kh-bg); border:1px solid var(--kh-line); border-radius:8px; padding:2px; }
+    .kh-seg button { border:0; background:transparent; padding:6px 14px; font-size:14px; border-radius:6px; cursor:pointer; color:var(--kh-sub); font-weight:500; }
+    .kh-seg button.on { background:#fff; color:var(--kh-accent); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.1); }
+    .kh-seg.sm button { padding:4px 12px; }
+    .kh-linkbtn { border:1px solid var(--kh-line); background:#fff; color:var(--kh-accent); font-size:14px; font-weight:600;
+                  padding:6px 14px; border-radius:8px; cursor:pointer; margin-top:12px; }
+    .kh-linkbtn:hover { background:var(--kh-bg); }
+
+    .kh-table { width:100%; border-collapse:collapse; font-size:14px; color:var(--kh-text); }
+    .kh-table th { text-align:left; font-size:13px; color:var(--kh-text); font-weight:600; padding:8px; border-bottom:1px solid var(--kh-line); vertical-align:bottom; }
+    .kh-table td { padding:10px 8px; border-bottom:1px solid var(--kh-line); vertical-align:middle; }
+    .kh-table tr:last-child td { border-bottom:0; }
+    .kh-table tbody tr:hover td { background:#F8FAFC; }
+    .kh-table tfoot td { border-top:2px solid var(--kh-line); border-bottom:0; font-weight:600; color:var(--kh-ink); }
+    .kh-table .num { text-align:right; white-space:nowrap; }
+    .kh-table .nm { font-weight:600; color:var(--kh-ink); }
+    .kh-table .sub { display:block; font-size:13px; color:var(--kh-sub); }
+    .kh-table-wrap { overflow-x:auto; }
+    .kh-dim { font-size:13px; color:var(--kh-sub); }
+    .kh-pane:not(.kh-expanded) .kh-more { display:none; }
+
+    .kh-rank { display:inline-flex; width:26px; height:26px; border-radius:50%; align-items:center; justify-content:center;
+               font-size:13px; font-weight:700; background:#EEF2F7; color:var(--kh-text); }
+    .kh-rank.r1 { background:#fde68a; color:#78350f; } .kh-rank.r2 { background:#e2e8f0; color:#1e293b; } .kh-rank.r3 { background:#fdba74; color:#7c2d12; }
+    .kh-tag { display:inline-block; padding:2px 10px; border-radius:999px; font-size:12.5px; font-weight:600; white-space:nowrap; }
+    .kh-tag.tv { background:#EEF2F7; color:#334155; } .kh-tag.bac { background:#dfe6ef; color:#334155; }
+    .kh-tag.vang { background:#fde68a; color:#78350f; } .kh-tag.kc { background:#dbeafe; color:#1e40af; }
+    .kh-tag.bad { background:#fee2e2; color:#991b1b; } .kh-tag.warn { background:#fef3c7; color:#78350f; } .kh-tag.good { background:#d1fae5; color:#065f46; }
+    .kh-tag.info { background:#dbeafe; color:#1e40af; } .kh-tag.gray { background:#EEF2F7; color:#475569; }
+
+    .kh-stack { display:flex; height:12px; border-radius:6px; overflow:hidden; background:var(--kh-bg); margin:4px 0 12px; border:1px solid var(--kh-line); }
+    .kh-stack span.tv { background:#94a3b8; } .kh-stack span.bac { background:#64748b; }
+    .kh-stack span.vang { background:#f59e0b; } .kh-stack span.kc { background:#2563eb; }
+    .kh-stack span.rt { background:#059669; } .kh-stack span.one { background:#cbd5e1; }
+    .kh-stack span.t5 { background:#2563eb; } .kh-stack span.t10 { background:#93c5fd; } .kh-stack span.rest { background:#cbd5e1; }
+    .kh-legend { display:flex; gap:16px; flex-wrap:wrap; font-size:13.5px; color:var(--kh-sub); margin:-4px 0 4px; }
+    .kh-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle; }
+
+    /* Biểu đồ cột (có trục số, mỗi biểu đồ một trục riêng) */
+    .kh-plot { position:relative; height:180px; margin:24px 0 0 34px; }
+    .kh-gl { position:absolute; left:0; right:0; border-top:1px dashed var(--kh-line); }
+    .kh-gl.base { border-top:1px solid #94a3b8; }
+    .kh-gl span { position:absolute; left:-34px; width:28px; text-align:right; top:-9px; font-size:12px; color:var(--kh-sub); }
+    .kh-cols { position:absolute; top:0; left:0; right:0; bottom:0; display:flex; }
+    .kh-col { flex:1 1 0; position:relative; min-width:0; }
+    .kh-col:hover, .kh-col:focus-visible { background:rgba(37,99,235,.08); outline:none; }
+    .kh-col.fut { background:repeating-linear-gradient(135deg, transparent 0 5px, rgba(148,163,184,.16) 5px 7px); }
+    .kh-col-bar { position:absolute; left:50%; transform:translateX(-50%); bottom:0; width:calc(100% - 8px); max-width:30px;
+                  background:var(--kh-accent); border-radius:4px 4px 0 0; }
+    .kh-col-bar.alt { background:var(--kh-accent2); }
+    .kh-col-bar.zero { height:0 !important; }
+    .kh-val { position:absolute; left:0; right:0; text-align:center; font-size:12px; font-weight:700; color:var(--kh-ink); }
+    .kh-labels { display:flex; margin:6px 0 0 34px; }
+    .kh-labels span { flex:1 1 0; min-width:0; text-align:center; font-size:12px; color:var(--kh-sub); white-space:nowrap; }
+    .kh-labels span.fut { color:#94a3b8; font-style:italic; }
+    .kh-legend-note { font-size:13px; color:var(--kh-sub); margin:8px 0 0; }
+
+    .kh-defs { margin:16px 0 0; border:1px solid var(--kh-line); border-radius:10px; background:var(--kh-bg); font-size:14px; color:var(--kh-text); }
+    .kh-defs summary { cursor:pointer; padding:10px 16px; font-weight:600; color:var(--kh-head); }
+    .kh-defs .in { padding:0 16px 12px; }
+    .kh-defs .in div + div { margin-top:4px; }
+
+    /* Biểu đồ tỷ lệ hủy */
+    .kh-plot.sm { height:150px; margin:24px 0 0 0; }
+    .kh-hb { position:absolute; left:50%; transform:translateX(-50%); bottom:0; width:calc(100% - 8px); max-width:30px; border-radius:4px 4px 0 0; }
+    .kh-hb.good { background:#34d399; } .kh-hb.warn { background:#f59e0b; } .kh-hb.bad { background:#ef4444; } .kh-hb.none { background:transparent; }
+    .kh-hv { position:absolute; left:-6px; right:-6px; text-align:center; font-size:12px; font-weight:700; color:var(--kh-ink); white-space:nowrap; }
+    .kh-thr { position:absolute; left:0; right:0; border-top:2px dashed var(--kh-bad); }
+    .kh-thr span { position:absolute; right:0; top:-19px; font-size:12px; font-weight:600; color:var(--kh-bad); }
+
+    /* Giá trị khách quay lại */
+    .kh-big { font-size:30px; font-weight:700; line-height:1.2; color:var(--kh-good); }
+    .kh-sub2 { font-size:14.5px; color:var(--kh-text); margin:2px 0 12px; }
+    .kh-vs { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px; }
+    .kh-vs-item { border:1px solid var(--kh-line); border-radius:10px; padding:10px 12px; background:var(--kh-bg); }
+    .kh-vs-item.good { background:#ecfdf5; border-color:#a7f3d0; }
+    .kh-vs-item .t { font-size:14px; color:var(--kh-sub); font-weight:500; }
+    .kh-vs-item .v { font-size:20px; font-weight:700; color:var(--kh-ink); line-height:1.3; }
+    .kh-vs-item .v small { font-size:13px; font-weight:500; color:var(--kh-sub); margin-left:2px; }
+    .kh-callout { margin-top:12px; padding:10px 14px; border-radius:10px; background:#fffbeb; border:1px solid #fde68a; font-size:15px; color:#78350f; }
+    .kh-callout b { color:#78350f; font-size:17px; }
+
+    .kh-chips { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+    .kh-chip { flex:1 1 120px; background:var(--kh-bg); border:1px solid var(--kh-line); border-radius:10px; padding:8px 12px; }
+    .kh-chip b { display:block; font-size:22px; line-height:1.25; }
+    .kh-chip span { font-size:13.5px; color:var(--kh-sub); }
+    .kh-chip.bad b { color:var(--kh-bad); }
+    .kh-chip.warn b { color:var(--kh-warn); }
+    .kh-note { font-size:14px; color:var(--kh-sub); line-height:1.5; margin:8px 0 0; }
+    .kh-empty { text-align:center; color:var(--kh-sub); padding:20px 8px; font-size:14.5px; }
+    .kh-alert { background:#fef2f2; border:1px solid #fecaca; color:#7f1d1d; border-radius:10px; padding:10px 12px; font-size:14px; margin-bottom:12px; line-height:1.5; }
+    .kh-alert.ok { background:#f0fdf4; border-color:#bbf7d0; color:#14532d; }
+    .kh-alert.info { background:#eff6ff; border-color:#bfdbfe; color:#1e3a8a; margin:12px 0 0; }
+    .kh-alert.warn { background:#fffbeb; border-color:#fde68a; color:#78350f; margin:12px 0 0; }
+    .kh-cohort td.kh-hm { font-weight:600; min-width:64px; border-left:2px solid #fff; }
+    .kh-cohort td.kh-hm.none { background:var(--kh-bg); color:#94a3b8; font-weight:500; }
+    .kh-mini { margin-top:12px; font-size:14px; }
+    .kh-mini summary { cursor:pointer; color:var(--kh-accent); font-weight:600; }
+    @@media (max-width: 1100px) {
+        .kh-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @@media (max-width: 900px) {
+        .kh-grid, .kh-grid.w32 { grid-template-columns:minmax(0,1fr); }
+    }
+    @@media (max-width: 520px) {
+        .kh-kpis { grid-template-columns:minmax(0,1fr); }
+    }
+    @@media (prefers-reduced-motion: reduce) {
+        .kh-kpi.click { transition:none; }
+        .kh-kpi.click:hover { transform:none; }
+    }
+</style>
+
+@{
+    var m = Model.KhachHang;
+
+    // Giờ Việt Nam (Asia/Ho_Chi_Minh = UTC+7), không phụ thuộc múi giờ máy chủ
+    DateTime homNay = DateTime.UtcNow.AddHours(7);
+    bool cungNamHienTai = m.DenNgay.Year == homNay.Year || m.TuNgay.Year == homNay.Year;
+    bool kyChuaKetThuc = m.DenNgay.Date > homNay.Date;
+
+    string kyText = m.TuNgay.Date == m.DenNgay.Date
+        ? m.TuNgay.ToString("dd/MM/yyyy")
+        : m.TuNgay.ToString("dd/MM/yyyy") + " - " + m.DenNgay.ToString("dd/MM/yyyy");
+    string kyTruocText = m.TuNgayTruoc.Date == m.DenNgayTruoc.Date
+        ? m.TuNgayTruoc.ToString("dd/MM/yyyy")
+        : m.TuNgayTruoc.ToString("dd/MM/yyyy") + " - " + m.DenNgayTruoc.ToString("dd/MM/yyyy");
+    string mucHuy = MucHuy(m.TyLeHuy);
+
+    decimal tongDoanhThu = Convert.ToDecimal(m.TongDoanhThu);
+
+    // --- So sánh kỳ trước cho các thẻ KPI ---
+    var dKhach = Delta(m.KhachCoDon, m.KhachCoDonTruoc, m.CoDuLieuKyTruoc, true, false);
+    var dQuayLai = Delta(m.TyLeQuayLai, m.TyLeQuayLaiTruoc, m.CoDuLieuKyTruoc, true, true);
+    var dMoi = Delta(m.TongKhachMoi, m.KhachMoiTruoc, m.CoDuLieuKyTruoc, true, false);
+
+    // Doanh thu so với kỳ trước (theo % thay đổi)
+    (string Css, string Text) dDoanhThu = ("none", "");
+    if (m.CoDuLieuKyTruoc)
+    {
+        decimal dtTruoc = m.DoanhThuTruoc;
+        decimal dtNay = Convert.ToDecimal(m.TongDoanhThu);
+        if (dtTruoc <= 0)
+        {
+            dDoanhThu = dtNay > 0 ? ("good", "Kỳ trước chưa có doanh thu") : ("flat", "Kỳ trước chưa có doanh thu");
+        }
+        else
+        {
+            double pc = Math.Round((double)((dtNay - dtTruoc) / dtTruoc) * 100.0, 1);
+            dDoanhThu = pc == 0
+                ? ("flat", "Không đổi so với kỳ trước (" + TienGon(dtTruoc) + ")")
+                : (pc > 0 ? "good" : "bad", (pc > 0 ? "▲ " : "▼ ") + Pct(Math.Abs(pc)) + " so với kỳ trước (" + TienGon(dtTruoc) + ")");
+        }
+    }
+
+    string cssQuayLai = m.KhachCoDon == 0 ? "" : (m.TyLeQuayLai >= 40 ? "good" : (m.TyLeQuayLai >= 20 ? "warn" : "bad"));
+    string txtQuayLai = m.TyLeQuayLai >= 40 ? "Giữ chân khách tốt" : (m.TyLeQuayLai >= 20 ? "Mức trung bình, có thể tăng thêm" : "Cần cải thiện tỷ lệ giữ chân");
+    string cssHuy = m.TongDon == 0 ? "" : mucHuy;
+    string txtHuy = m.TyLeHuy >= NguongHuy ? "Vượt ngưỡng " + Pct(NguongHuy) + ", cần theo dõi" : (m.TyLeHuy >= NguongHuyChuY ? "Cần chú ý" : "Ở mức ổn định");
+    double tyKhachCoDon = m.TongKhachHang == 0 ? 0 : Math.Round(m.KhachCoDon * 100.0 / m.TongKhachHang, 1);
+
+    // --- Hai biểu đồ xu hướng, mỗi biểu đồ một trục tung riêng để số nhỏ vẫn nhìn thấy ---
+    var bieuDo = new[]
+    {
+        (Tieu: "Tài khoản đăng ký mới", Nhan: "tài khoản đăng ký", Css: "",
+         Dn: "Số tài khoản được tạo trong từng " + m.DonVi + ". Chưa chắc đã phát sinh đơn.", Items: m.KhachMoi),
+        (Tieu: "Khách đặt lại", Nhan: "khách đặt lại", Css: "alt",
+         Dn: "Khách có đơn (không hủy) trong từng " + m.DonVi + " mà không phải đơn đầu tiên của họ.", Items: m.KhachDatLai)
+    };
+
+    int maxMoi = m.KhachMoi.Count == 0 ? 0 : m.KhachMoi.Max(x => x.SoLuong);
+    bool tapTrung = m.KhachMoi.Count > 1 && m.TongKhachMoi >= 5 && maxMoi * 100.0 / m.TongKhachMoi >= 80;
+    string tenCotTapTrung = m.KhachMoi.Count == 0 ? "" : m.KhachMoi.First(x => x.SoLuong == maxMoi).Ten;
+    int tongDatLaiTheoCot = m.KhachDatLai.Count == 0 ? 0 : m.KhachDatLai.Sum(x => x.SoLuong);
+    bool lechSoLieu = m.KhachQuayLai != tongDatLaiTheoCot;
+
+    // --- Biểu đồ tỷ lệ hủy theo cột ---
+    int nHuy = m.HuyTheoKy.Count;
+    double maxRate = nHuy == 0 ? 0 : m.HuyTheoKy.Max(x => x.TyLe);
+    double huyScale = Math.Max(30.0, Math.Ceiling(maxRate / 10.0) * 10.0);
+    int buocHuy = nHuy > 12 ? (int)Math.Ceiling(nHuy / 12.0) : 1;
+
+    // --- So sánh khách quay lại với khách đặt 1 lần ---
+    decimal tbQuayLai = m.KhachQuayLai == 0 ? 0 : Math.Round(m.DoanhThuQuayLai / m.KhachQuayLai, 0);
+    decimal tbMotLan = m.KhachMotLan == 0 ? 0 : Math.Round(m.DoanhThuMotLan / m.KhachMotLan, 0);
+    double tyDtMotLan = tongDoanhThu == 0 ? 0 : Math.Round(100.0 - m.TyTrongDoanhThuQuayLai, 1);
+    string gapMay = (tbQuayLai > 0 && tbMotLan > 0)
+        ? ((double)tbQuayLai / (double)tbMotLan).ToString("0.#", Vn)
+        : "";
+    int chuaDatTrongKy = Math.Max(0, m.TongKhachHang - m.KhachCoDon);
+
+    // --- Mức độ tập trung doanh thu vào nhóm Top ---
+    double tyTop5 = 0;
+    if (tongDoanhThu > 0 && m.TopDoanhThu.Count > 0)
+    {
+        tyTop5 = Math.Round((double)m.TopDoanhThu.Take(5).Sum(x => x.DoanhThu) * 100.0 / (double)tongDoanhThu, 1);
+    }
+    int soKhachTop = m.TopDoanhThu.Count;
+    double tyTop = Math.Round(m.TyTrongDoanhThuTop, 1);
+    double tyTop6den10 = Math.Max(0, Math.Round(tyTop - tyTop5, 1));
+    double tyConLai = Math.Max(0, Math.Round(100.0 - tyTop, 1));
+    bool phuThuoc = tongDoanhThu > 0 && tyTop >= NguongTapTrungDoanhThu;
+
+    // --- Cảnh báo tổng hợp (mục 02): gom các phát hiện cùng mục đích quản trị thành tối đa 3 nhóm ---
+    int nguongNgay = Convert.ToInt32(m.NguongNgayNguyCo);
+    bool huyChuY = m.TongDon > 0 && m.TyLeHuy >= NguongHuyChuY;
+    bool huyVuotNguong = m.TongDon > 0 && m.TyLeHuy >= NguongHuy;
+    bool coNhomVanHanh = m.SoDonQuaGioChuaXuLy > 0 || huyChuY;
+    bool coNhomGiuChan = m.SoKhachNguyCo > 0 || m.SoKhachMotLanLauChuaQuayLai > 0;
+    bool coNhomDoanhThu = phuThuoc;
+    int soNhomCanhBao = (coNhomVanHanh ? 1 : 0) + (coNhomGiuChan ? 1 : 0) + (coNhomDoanhThu ? 1 : 0);
+
+    // --- Phân loại khách trong kỳ (mục 04A): loại trừ lẫn nhau, cộng lại = tổng khách hàng ---
+    int khachMoiCoDon = Math.Min(m.KhachMoiThucSu, m.KhachCoDon);
+    int khachCuHoatDong = Math.Max(0, m.KhachCoDon - khachMoiCoDon);
+    int tongPhanLoai = khachMoiCoDon + khachCuHoatDong + chuaDatTrongKy;
+    // --- Nhóm cần chăm sóc (mục 04B): lớp đánh dấu riêng, không cộng vào tổng ---
+    int soKhachVip = m.Hang.Where(hg => hg.Ten == "Vàng" || hg.Ten == "Kim cương").Sum(hg => hg.SoLuong);
+}
+
+@* Bọc trong .tk-pane để JS của trang chính chỉ hiện khi bấm tab "Khách hàng" *@
+<section class="tk-pane" data-pane="khach-hang" role="tabpanel" hidden>
+<div class="kh-wrap">
+
+    @* ============ KHOẢNG THỜI GIAN ĐANG THỐNG KÊ ============ *@
+    <div class="kh-period">
+        <div><b>Khoảng thời gian thống kê:</b> @kyText</div>
+        <div class="row2">So sánh với kỳ trước: @kyTruocText</div>
+        @if (kyChuaKetThuc)
+        {
+            <div class="warn">
+                Kỳ lọc kéo dài đến @m.DenNgay.ToString("dd/MM/yyyy") nhưng hôm nay mới là @homNay.ToString("dd/MM/yyyy").
+                Các cột thời gian chưa diễn ra được đánh dấu riêng, không tính là "không có khách".
+                Nên chọn kỳ kết thúc ở hôm nay và so sánh với đúng cùng giai đoạn của kỳ trước.
+            </div>
+        }
+        @if (!m.CoDuLieuKyTruoc)
+        {
+            <div class="warn">Chưa đủ dữ liệu để so sánh với kỳ trước.</div>
+        }
+    </div>
+    <div class="kh-scopeline">
+        <span>Số liệu tính theo kỳ lọc, riêng phần phân hạng khách tính theo toàn thời gian.</span>
+        <span>Dữ liệu hiển thị lúc @homNay.ToString("HH:mm dd/MM/yyyy")</span>
+    </div>
+
+    @* ============ 01. TÌNH HÌNH KHÁCH HÀNG ============ *@
+    <div class="kh-sec" id="khSec1"><span class="no">01</span>Tình hình khách hàng</div>
+    <div class="kh-kpis">
+        <div class="kh-kpi click info" role="button" tabindex="0" data-goto="khSec5" title="Xem khách hàng giá trị nhất">
+            <div class="lb">Khách có đặt sân
+                <span class="kh-info" tabindex="0" aria-label="Công thức" title="Số khách duy nhất có đơn (không hủy) trong kỳ lọc.">i</span>
+            </div>
+            <div class="vl">@m.KhachCoDon</div>
+            <div class="sb">Trên tổng @m.TongKhachHang khách hàng (@Pct(tyKhachCoDon))</div>
+            @if (dKhach.Text != "") { <div class="@("kh-delta " + dKhach.Css)">@dKhach.Text</div> }
+        </div>
+        <div class="@("kh-kpi click " + cssQuayLai)" role="button" tabindex="0" data-goto="khSec3" title="Xem giá trị khách tái đặt">
+            <div class="lb">Tỷ lệ tái đặt trong kỳ
+                <span class="kh-info" tabindex="0" aria-label="Công thức" title="Khách có từ 2 đơn (không hủy) trong kỳ / khách có ít nhất 1 đơn trong kỳ.">i</span>
+            </div>
+            <div class="vl">@Pct(m.TyLeQuayLai)</div>
+            <div class="sb">@m.KhachQuayLai / @m.KhachCoDon khách duy nhất đã đặt sân</div>
+            @if (dQuayLai.Text != "") { <div class="@("kh-delta " + dQuayLai.Css)">@dQuayLai.Text</div> }
+            @if (m.KhachCoDon > 0)
+            {
+                <div class="@("kh-status " + cssQuayLai)">@txtQuayLai</div>
+            }
+        </div>
+        <div class="kh-kpi click info" role="button" tabindex="0" data-goto="khSec2" title="Xem xu hướng đăng ký">
+            <div class="lb">Tài khoản đăng ký mới
+                <span class="kh-info" tabindex="0" aria-label="Công thức" title="Số tài khoản được tạo trong kỳ. Chưa chắc đã phát sinh đơn, nên không đồng nghĩa với khách hàng mới có doanh thu.">i</span>
+            </div>
+            <div class="vl">@m.TongKhachMoi</div>
+            <div class="sb">Đăng ký trong kỳ</div>
+            @if (dMoi.Text != "") { <div class="@("kh-delta " + dMoi.Css)">@dMoi.Text</div> }
+            <div class="kh-status">@m.KhachMoiThucSu khách có đơn đầu tiên trong kỳ</div>
+            @if (m.SoDangKyDuThoiGian > 0)
+            {
+                <div class="kh-status">Chuyển đổi @m.SoDangKyChuyenDoi / @m.SoDangKyDuThoiGian có đơn trong 30 ngày (@Pct(m.TyLeChuyenDoi))</div>
+            }
+        </div>
+        <div class="kh-kpi click good" role="button" tabindex="0" data-goto="khSec3" title="Xem doanh thu theo nhóm khách">
+            <div class="lb">Doanh thu từ đơn hoàn thành
+                <span class="kh-info" tabindex="0" aria-label="Công thức" title="Tổng tiền các đơn hoàn thành trong kỳ lọc.">i</span>
+            </div>
+            <div class="vl">@TienGon(tongDoanhThu)</div>
+            <div class="sb">Tổng tiền đơn hoàn thành trong kỳ</div>
+            @if (dDoanhThu.Text != "") { <div class="@("kh-delta " + dDoanhThu.Css)">@dDoanhThu.Text</div> }
+            @if (m.KhachQuayLai > 0 && tongDoanhThu > 0)
+            {
+                <div class="kh-status good">@Pct(m.TyTrongDoanhThuQuayLai) đến từ khách tái đặt</div>
+            }
+        </div>
+    </div>
+
+    @* ============ 02. NHỮNG VẤN ĐỀ CẦN CHÚ Ý (3 cảnh báo tổng hợp) ============ *@
+    <div class="kh-sec" id="khSecAttn"><span class="no">02</span>Những vấn đề cần chú ý<small>@soNhomCanhBao nhóm ưu tiên · Bấm để mở danh sách liên quan</small></div>
+    @if (soNhomCanhBao == 0)
+    {
+        <div class="kh-alert ok">Chưa có điểm bất thường nào trong kỳ này.</div>
+    }
+    else
+    {
+        <div class="kh-insights">
+            @if (coNhomVanHanh)
+            {
+                <button type="button" class="@("kh-ins " + (huyVuotNguong ? "bad" : "warn"))" data-goto="khSec5">
+                    <span class="t"><span class="ic">Rủi ro</span><span>Vận hành và hủy đơn</span></span>
+                    <span class="kh-stats">
+                        @if (m.SoDonQuaGioChuaXuLy > 0)
+                        {
+                            <span class="kh-st"><b>@m.SoDonQuaGioChuaXuLy</b><span>Đơn quá giờ chưa cập nhật trạng thái</span></span>
+                        }
+                        @if (huyChuY)
+                        {
+                            <span class="kh-st"><b>@Pct(m.TyLeHuy)</b><span>Tỷ lệ hủy · Ngưỡng @Pct(NguongHuy)</span></span>
+                        }
+                    </span>
+                    <span class="d" style="display:block">Cần kiểm tra trạng thái đơn tồn đọng và nguyên nhân hủy@(m.SoKhachHuyLapLai > 0 ? ", trong đó có " + m.SoKhachHuyLapLai + " khách hủy từ 2 đơn." : ".")</span>
+                    <span class="go">Xem đơn cần xử lý →</span>
+                </button>
+            }
+            @if (coNhomGiuChan)
+            {
+                <button type="button" class="@("kh-ins " + (m.SoKhachNguyCo > 0 ? "bad" : "warn"))" data-goto="khSecRisk">
+                    <span class="t"><span class="ic">Giữ chân</span><span>Khách hàng chưa quay lại</span></span>
+                    <span class="kh-stats">
+                        @if (m.SoKhachMotLanLauChuaQuayLai > 0)
+                        {
+                            <span class="kh-st"><b>@m.SoKhachMotLanLauChuaQuayLai</b><span>Khách chỉ đặt một lần, quá @nguongNgay ngày</span></span>
+                        }
+                        @if (m.SoKhachNguyCo > 0)
+                        {
+                            <span class="kh-st"><b>@m.SoKhachNguyCo</b><span>Khách từng đặt nhiều lần, quá @nguongNgay ngày</span></span>
+                        }
+                    </span>
+                    @if (m.SoKhachNguyCo > 0)
+                    {
+                        <span class="d" style="display:block">Nhóm @m.SoKhachNguyCo khách này có tổng chi tiêu toàn thời gian @Tien(m.ChiTieuKhachNguyCo). Ưu tiên chăm sóc nhóm này trước.</span>
+                    }
+                    else
+                    {
+                        <span class="d" style="display:block">Cơ hội kích hoạt lần đặt thứ hai trước khi họ rời hẳn.</span>
+                    }
+                    <span class="go">Xem danh sách khách →</span>
+                </button>
+            }
+            @if (coNhomDoanhThu)
+            {
+                <button type="button" class="kh-ins warn" data-goto="khSec4">
+                    <span class="t"><span class="ic">Doanh thu</span><span>Doanh thu tập trung vào ít khách</span></span>
+                    <span class="kh-stats">
+                        <span class="kh-st"><b>@Pct(tyTop)</b><span>Top @soKhachTop khách đóng góp doanh thu trong kỳ. Top @Math.Min(5, soKhachTop) chiếm @Pct(tyTop5)</span></span>
+                    </span>
+                    <span class="go">Xem phân tích doanh thu →</span>
+                </button>
+            }
+        </div>
+    }
+
+    @* ============ 03. XU HƯỚNG KHÁCH HÀNG ============ *@
+    <div class="kh-sec" id="khSec2"><span class="no">03</span>Xu hướng khách hàng</div>
+    <div class="kh-grid">
+        @foreach (var bd in bieuDo)
+        {
+            int nC = bd.Items.Count;
+            int maxC = 1;
+            foreach (var it in bd.Items) { maxC = Math.Max(maxC, it.SoLuong); }
+            int niceC = (int)Math.Ceiling(maxC / 4.0) * 4;           // bội của 4 để 4 vạch chia là số nguyên
+            int buocC = nC > 12 ? (int)Math.Ceiling(nC / 12.0) : 1;  // chỉ in nhãn trục x mỗi "buocC" cột cho đỡ chật
+
+            <div class="kh-card">
+                <h3>@bd.Tieu theo @m.DonVi</h3>
+                <p class="hint">@bd.Dn</p>
+
+                @if (nC == 0)
+                {
+                    <div class="kh-empty">Không có dữ liệu.</div>
+                }
+                else
+                {
+                    <div class="kh-plot">
+                        @for (int g = 0; g <= 4; g++)
+                        {
+                            <div class="@("kh-gl" + (g == 0 ? " base" : ""))" style="bottom:@(W(g * 25.0))%">
+                                <span>@(niceC / 4 * g)</span>
+                            </div>
+                        }
+                        <div class="kh-cols">
+                            @for (int ix = 0; ix < nC; ix++)
+                            {
+                                var cot = bd.Items[ix];
+                                bool tl = LaTuongLai(cot.Ten, m.DonVi, homNay, cungNamHienTai);
+                                double hC = cot.SoLuong * 100.0 / niceC;
+                                string tip = tl ? cot.Ten + ": chưa diễn ra" : cot.Ten + ": " + cot.SoLuong + " " + bd.Nhan;
+                                <div class="@("kh-col" + (tl ? " fut" : ""))" tabindex="0" aria-label="@tip" title="@tip">
+                                    <div class="@("kh-col-bar " + bd.Css + (cot.SoLuong == 0 || tl ? " zero" : ""))" style="height:@(W(hC))%"></div>
+                                    @if (cot.SoLuong > 0 && !tl)
+                                    {
+                                        <b class="kh-val" style="bottom:calc(@(W(hC))% + 3px)">@cot.SoLuong</b>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="kh-labels">
+                        @for (int ix = 0; ix < nC; ix++)
+                        {
+                            bool tl2 = LaTuongLai(bd.Items[ix].Ten, m.DonVi, homNay, cungNamHienTai);
+                            <span class="@(tl2 ? "fut" : "")">@(ix % buocC == 0 ? bd.Items[ix].Ten : "")</span>
+                        }
+                    </div>
+                    <p class="kh-legend-note">Cột không có số nghĩa là chưa có phát sinh. Cột gạch chéo là thời gian chưa diễn ra.</p>
+                    @if (bd.Css == "" && tapTrung)
+                    {
+                        <p class="kh-note"><b>@Pct(Math.Round(maxMoi * 100.0 / m.TongKhachMoi, 1)) tài khoản mới tập trung ở @tenCotTapTrung.</b> Nên kiểm tra xem đây là chiến dịch, nhập hàng loạt hay dữ liệu mẫu.</p>
+                    }
+                    @if (bd.Css == "alt")
+                    {
+                        <p class="kh-note">Mỗi cột là số khách duy nhất có đơn đặt lại trong @m.DonVi đó, không phải tổng lượt đặt.</p>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    @if (m.KhachQuayLai > 0)
+    {
+        <p class="kh-note">Thẻ "Tỷ lệ tái đặt" đếm <b>@m.KhachQuayLai khách duy nhất</b> trong cả kỳ. Tổng các cột "Khách đặt lại" theo @m.DonVi (@tongDatLaiTheoCot) có thể lớn hơn vì một khách có thể đặt lại ở nhiều @m.DonVi. Không cộng các cột để so trực tiếp với thẻ KPI.</p>
+    }
+
+    @* --- Giữ chân khách theo nhóm tháng (cohort) --- *@
+    <div class="kh-card kh-block">
+        <h3>Giữ chân khách mới theo nhóm tháng</h3>
+        <p class="hint">
+            Mỗi hàng là nhóm khách có đơn đầu tiên trong cùng một tháng. Mỗi ô là % khách của nhóm đặt lại sau số tháng tương ứng.
+            Ô "–" là tháng chưa kết thúc, chưa đủ dữ liệu, không phải 0%.
+        </p>
+        @if (m.Cohort.Count == 0)
+        {
+            <div class="kh-empty">Chưa có khách có đơn đầu tiên trong 6 tháng gần nhất.</div>
+        }
+        else
+        {
+            <div class="kh-table-wrap">
+            <table class="kh-table kh-cohort">
+                <thead>
+                    <tr>
+                        <th>Nhóm tháng</th><th class="num">Số khách</th>
+                        <th class="num">Tháng 0</th><th class="num">Tháng 1</th><th class="num">Tháng 2</th>
+                        <th class="num">Tháng 3</th><th class="num">Tháng 4</th><th class="num">Tháng 5</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in m.Cohort)
+                    {
+                        <tr>
+                            <td class="nm">@row.Ten</td>
+                            <td class="num">@row.SoKhach</td>
+                            @foreach (var ty in row.TyLe)
+                            {
+                                if (ty.HasValue)
+                                {
+                                    double alpha = 0.08 + Math.Min(100.0, ty.Value) / 100.0 * 0.72;
+                                    <td class="num kh-hm" style="background:rgba(37,99,235,@(alpha.ToString("0.##", CultureInfo.InvariantCulture)));color:@(ty.Value >= 60 ? "#fff" : "#172B4D")" title="@Pct(ty.Value) khách của nhóm @row.Ten còn đặt sân">@Pct(ty.Value)</td>
+                                }
+                                else
+                                {
+                                    <td class="num kh-hm none" title="Chưa đủ thời gian quan sát">–</td>
+                                }
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <p class="kh-note">Màu càng đậm thì giữ chân càng tốt. Tính theo đơn không hủy, 6 nhóm tháng gần nhất đến cuối kỳ lọc.</p>
+        }
+    </div>
+
+    <details class="kh-defs">
+        <summary>Định nghĩa các chỉ số</summary>
+        <div class="in">
+            <div><b>Khách mới thực sự:</b> khách có đơn (không hủy) đầu tiên trong toàn bộ lịch sử rơi vào kỳ này.</div>
+            <div><b>Chuyển đổi 30 ngày:</b> tài khoản đăng ký trong kỳ có đơn trong 30 ngày kể từ ngày đăng ký; chỉ tính tài khoản đã đủ 30 ngày quan sát.</div>
+            <div><b>Nguy cơ rời bỏ:</b> khách đặt từ 2 lần, đã @m.NguongNgayNguyCo ngày trở lên chưa quay lại tính đến cuối kỳ.</div>
+            <div><b>Tài khoản đăng ký mới:</b> tài khoản được tạo trong kỳ, chưa chắc đã có đơn.</div>
+            <div><b>Khách có đặt sân:</b> khách duy nhất có ít nhất 1 đơn (không hủy) trong kỳ.</div>
+            <div><b>Khách tái đặt / quay lại:</b> khách có từ 2 đơn (không hủy) trở lên trong toàn bộ kỳ thống kê.</div>
+            <div><b>Khách đặt lại (biểu đồ):</b> khách đã từng đặt sân trước đó và tiếp tục có đơn trong cột thời gian.</div>
+            <div><b>Tỷ lệ hủy:</b> số đơn hủy / tổng đơn đặt sân được tạo trong kỳ.</div>
+            <div><b>Doanh thu:</b> tổng tiền các đơn hoàn thành trong kỳ.</div>
+            <div><b>Khách VIP:</b> khách có hạng thành viên Vàng hoặc Kim cương.</div>
+            <div><b>Khách trung thành:</b> khách có từ 2 đơn (không hủy) trong kỳ.</div>
+            <div><b>Phân loại khách trong kỳ:</b> khách mới có giao dịch (đơn đầu tiên rơi vào kỳ) + khách cũ tiếp tục hoạt động (đã đặt từ trước và có đơn trong kỳ) + tài khoản chưa phát sinh giao dịch = tổng khách hàng.</div>
+        </div>
+    </details>
+
+    @* ============ 04. PHÂN TÍCH NHÓM KHÁCH HÀNG ============ *@
+    <div class="kh-sec" id="khSec3"><span class="no">04</span>Phân tích nhóm khách hàng</div>
+    <div class="kh-grid">
+
+        @* --- Giá trị của khách quay lại (đặt trước vì là insight quan trọng nhất) --- *@
+        <div class="kh-card">
+            <h3>Giá trị nhóm khách tái đặt</h3>
+            <p class="hint">Tái đặt = đặt từ 2 lần trở lên trong kỳ (không tính đơn hủy). Doanh thu tính từ đơn hoàn thành.</p>
+
+            @if (m.KhachCoDon == 0)
+            {
+                <div class="kh-empty">Chưa có khách đặt sân trong kỳ này.</div>
+            }
+            else
+            {
+                <div class="kh-big">@Tien(m.DoanhThuQuayLai)</div>
+                <div class="kh-sub2">
+                    Doanh thu từ <b>@m.KhachQuayLai</b> khách tái đặt, chiếm <b>@Pct(m.TyTrongDoanhThuQuayLai)</b> doanh thu kỳ
+                </div>
+
+                @if (tongDoanhThu > 0)
+                {
+                    <div class="kh-stack">
+                        <span class="rt" style="width:@(W(m.TyTrongDoanhThuQuayLai))%" title="Khách tái đặt"></span>
+                        <span class="one" style="width:@(W(tyDtMotLan))%" title="Khách đặt 1 lần"></span>
+                    </div>
+                    <div class="kh-legend">
+                        <span><i style="background:#059669"></i>Khách tái đặt @Pct(m.TyTrongDoanhThuQuayLai)</span>
+                        <span><i style="background:#cbd5e1"></i>Khách đặt một lần @Pct(tyDtMotLan)</span>
+                    </div>
+                }
+
+                <div class="kh-vs kh-block">
+                    <div class="kh-vs-item good">
+                        <div class="t">Khách tái đặt (@m.KhachQuayLai)</div>
+                        <div class="v">@Tien(tbQuayLai)<small>/khách</small></div>
+                    </div>
+                    <div class="kh-vs-item">
+                        <div class="t">Khách đặt một lần (@m.KhachMotLan)</div>
+                        <div class="v">@Tien(tbMotLan)<small>/khách</small></div>
+                    </div>
+                </div>
+
+                @if (gapMay != "")
+                {
+                    <div class="kh-callout">Khách tái đặt chi tiêu trung bình gấp <b>@gapMay lần</b> khách chỉ đặt một lần. Ưu tiên chăm sóc nhóm này và kéo nhóm đặt một lần quay lại.</div>
+                }
+                @if (m.TyLeQuayLai < 20)
+                {
+                    <p class="kh-note">Tỷ lệ tái đặt còn thấp, nên cân nhắc ưu đãi cho lần đặt thứ hai (tặng điểm, giảm giá khung giờ vắng).</p>
+                }
+            }
+        </div>
+
+        @* --- Hạng khách hàng hiện tại --- *@
+        <div class="kh-card">
+            <h3>Hạng thành viên</h3>
+            <p class="hint">
+                Hạng tính theo <b>điểm tích lũy toàn thời gian</b>; doanh thu và chi tiêu tính trong kỳ @kyText.
+                Hạng cho biết mức tích điểm, không thay thế phân khúc hành vi.
+            </p>
+
+            @if (m.TongKhachHang == 0)
+            {
+                <div class="kh-empty">Chưa có khách hàng nào.</div>
+            }
+            else
+            {
+                <div class="kh-stack">
+                    @foreach (var h in m.Hang)
+                    {
+                        if (h.SoLuong > 0)
+                        {
+                            <span class="@h.Css" style="width:@(W(h.TyLe))%" title="@h.Ten: @h.SoLuong khách"></span>
+                        }
+                    }
+                </div>
+                <div class="kh-table-wrap">
+                <table class="kh-table">
+                    <thead>
+                        <tr>
+                            <th>Hạng</th>
+                            <th class="num">Số khách</th>
+                            <th class="num">Doanh thu kỳ</th>
+                            <th class="num">Chi tiêu TB / khách có chi tiêu</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in m.Hang)
+                        {
+                            <tr>
+                                <td>
+                                    <span class="@("kh-tag " + h.Css)">@h.Ten</span>
+                                    <span class="kh-dim">@h.MoTa</span>
+                                </td>
+                                <td class="num"><b>@h.SoLuong</b> <span class="kh-dim">(@Pct(h.TyLe))</span></td>
+                                <td class="num">
+                                    @if (h.DoanhThu > 0)
+                                    {
+                                        <b>@Tien(h.DoanhThu)</b>
+                                        <span class="kh-dim">(@Pct(h.TyTrongDoanhThu))</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="kh-dim">Chưa có</span>
+                                    }
+                                </td>
+                                <td class="num">
+                                    @if (h.KhachCoChiTieu > 0)
+                                    {
+                                        <b>@Tien(h.ChiTieuTrungBinh)</b>
+                                        <span class="kh-dim">(@h.KhachCoChiTieu khách)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="kh-dim">Chưa có</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* --- A. Phân loại khách trong kỳ (loại trừ nhau)  |  B. Nhóm cần chăm sóc (lớp đánh dấu riêng) --- *@
+    @if (m.TongKhachHang > 0)
+    {
+        <div class="kh-grid w32 kh-block">
+            <div class="kh-card">
+                <h3>A. Phân loại khách hàng trong kỳ</h3>
+                <p class="hint">Các nhóm loại trừ lẫn nhau, cộng lại bằng tổng @m.TongKhachHang khách hàng. Phân loại theo đơn không hủy trong kỳ lọc.</p>
+                <div class="kh-table-wrap">
+                <table class="kh-table">
+                    <thead>
+                        <tr><th>Nhóm</th><th class="num">Số khách</th><th class="num">Tỷ lệ</th><th>Nên làm</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="kh-tag good">Khách mới có giao dịch</span></td>
+                            <td class="num"><b>@khachMoiCoDon</b></td>
+                            <td class="num">@Pct(Math.Round(khachMoiCoDon * 100.0 / m.TongKhachHang, 1))</td>
+                            <td>Nhắc lịch, tặng điểm hoặc giảm giá cho lần đặt thứ hai.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kh-tag info">Khách cũ tiếp tục hoạt động</span></td>
+                            <td class="num"><b>@khachCuHoatDong</b></td>
+                            <td class="num">@Pct(Math.Round(khachCuHoatDong * 100.0 / m.TongKhachHang, 1))</td>
+                            <td>Cảm ơn và giữ ưu đãi duy trì thói quen đặt sân.</td>
+                        </tr>
+                        <tr>
+                            <td><span class="kh-tag gray">Tài khoản chưa phát sinh giao dịch</span></td>
+                            <td class="num"><b>@chuaDatTrongKy</b></td>
+                            <td class="num">@Pct(Math.Round(chuaDatTrongKy * 100.0 / m.TongKhachHang, 1))</td>
+                            <td>Chiến dịch kích hoạt: ưu đãi cho lần đặt đầu tiên.</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr><td>Tổng</td><td class="num">@tongPhanLoai</td><td class="num">@Pct(Math.Round(tongPhanLoai * 100.0 / m.TongKhachHang, 1))</td><td></td></tr>
+                    </tfoot>
+                </table>
+                </div>
+                <p class="kh-note">Khách đặt một lần và khách tái đặt trong kỳ xem ở thẻ "Giá trị nhóm khách tái đặt" phía trên.</p>
+            </div>
+
+            <div class="kh-card">
+                <h3>B. Nhóm cần chăm sóc</h3>
+                <p class="hint">Lớp đánh dấu riêng. Một khách có thể thuộc nhiều nhóm, không cộng vào tổng của bảng A.</p>
+                <div class="kh-table-wrap">
+                <table class="kh-table">
+                    <thead>
+                        <tr><th>Nhóm</th><th class="num">Số khách</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="kh-tag vang">Khách VIP</span><span class="kh-dim">Hạng Vàng và Kim cương</span></td>
+                            <td class="num"><b>@soKhachVip</b></td>
+                        </tr>
+                        <tr>
+                            <td><span class="kh-tag good">Khách trung thành</span><span class="kh-dim">Đặt từ 2 đơn trong kỳ</span></td>
+                            <td class="num"><b>@m.KhachQuayLai</b></td>
+                        </tr>
+                        <tr>
+                            <td><span class="kh-tag bad">Khách có nguy cơ rời bỏ</span><span class="kh-dim">Từng đặt từ 2 lần, @m.NguongNgayNguyCo ngày chưa quay lại</span></td>
+                            <td class="num"><b>@m.SoKhachNguyCo</b></td>
+                        </tr>
+                    </tbody>
+                </table>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ============ 05. KHÁCH HÀNG GIÁ TRỊ NHẤT ============ *@
+    <div class="kh-sec" id="khSec4"><span class="no">05</span>Khách hàng giá trị nhất</div>
+    <div class="kh-card">
+        <div class="kh-head">
+            <div>
+                <h3>Top khách hàng giá trị nhất</h3>
+                <p class="hint">
+                    Tổng chi tiêu = doanh thu các đơn hoàn thành trong kỳ; số đơn không tính đơn hủy.
+                    Số điện thoại được che một phần.
+                </p>
+            </div>
+            <div class="kh-seg" id="khVipSwitch">
+                <button type="button" class="on" data-target="khVipDoanhThu">Theo doanh thu</button>
+                <button type="button" data-target="khVipLuot">Theo số đơn</button>
+            </div>
+        </div>
+
+        @if (tongDoanhThu > 0 && soKhachTop > 0)
+        {
+            <div class="@("kh-block kh-alert " + (phuThuoc ? "warn" : "info"))" style="margin-top:0">
+                <b>Mức độ tập trung doanh thu:</b>
+                Top @Math.Min(5, soKhachTop) khách chiếm <b>@Pct(tyTop5)</b>,
+                Top @soKhachTop khách chiếm <b>@Pct(tyTop)</b>, phần khách còn lại chiếm <b>@Pct(tyConLai)</b>.
+                @if (phuThuoc)
+                {
+                    <text>Doanh thu đang phụ thuộc vào ít khách, cần giữ chân nhóm này.</text>
+                }
+                <div class="kh-stack" style="margin:8px 0 0">
+                    <span class="t5" style="width:@(W(tyTop5))%" title="Top 5"></span>
+                    <span class="t10" style="width:@(W(tyTop6den10))%" title="Top 6 đến @soKhachTop"></span>
+                    <span class="rest" style="width:@(W(tyConLai))%" title="Khách còn lại"></span>
+                </div>
+            </div>
+        }
+
+        <div id="khVipDoanhThu" class="kh-vip-pane kh-pane">
+            @if (m.TopDoanhThu.Count == 0)
+            {
+                <div class="kh-empty">Chưa có đơn hoàn thành nào trong kỳ này.</div>
+            }
+            else
+            {
+                <div class="kh-table-wrap">
+                <table class="kh-table">
+                    <thead>
+                        <tr><th>Khách hàng</th><th>Hạng</th><th class="num">Số đơn</th><th class="num">Chi tiêu TB / đơn</th><th class="num">Tổng chi tiêu</th><th class="num">Tỷ trọng doanh thu</th></tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < m.TopDoanhThu.Count; i++)
+                        {
+                            var k = m.TopDoanhThu[i];
+                            decimal tbDon = k.SoLuot == 0 ? 0 : Math.Round(k.DoanhThu / k.SoLuot, 0);
+                            double tyK = tongDoanhThu == 0 ? 0 : Math.Round((double)k.DoanhThu * 100.0 / (double)tongDoanhThu, 1);
+                            <tr class="@(i >= 5 ? "kh-more" : "")">
+                                <td><span class="nm">@k.HoTen</span><span class="sub">@MaSdt(k.SoDienThoai)</span></td>
+                                <td><span class="@("kh-tag " + HangCss(k.Hang))">@k.Hang</span></td>
+                                <td class="num">@k.SoLuot</td>
+                                <td class="num">@Tien(tbDon)</td>
+                                <td class="num"><b>@Tien(k.DoanhThu)</b></td>
+                                <td class="num">@Pct(tyK)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                @if (m.TopDoanhThu.Count > 5)
+                {
+                    <button type="button" class="kh-linkbtn kh-more-btn" data-pane="khVipDoanhThu" data-label="Xem tất cả (@m.TopDoanhThu.Count)">Xem tất cả (@m.TopDoanhThu.Count)</button>
+                }
+            }
+        </div>
+
+        <div id="khVipLuot" class="kh-vip-pane kh-pane" style="display:none">
+            @if (m.TopLuotDat.Count == 0)
+            {
+                <div class="kh-empty">Chưa có lượt đặt nào trong kỳ này.</div>
+            }
+            else
+            {
+                <div class="kh-table-wrap">
+                <table class="kh-table">
+                    <thead>
+                        <tr><th>Khách hàng</th><th>Hạng</th><th class="num">Số đơn</th><th class="num">Chi tiêu TB / đơn</th><th class="num">Tổng chi tiêu</th><th class="num">Tỷ trọng doanh thu</th></tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < m.TopLuotDat.Count; i++)
+                        {
+                            var k = m.TopLuotDat[i];
+                            decimal tbDon = k.SoLuot == 0 ? 0 : Math.Round(k.DoanhThu / k.SoLuot, 0);
+                            double tyK = tongDoanhThu == 0 ? 0 : Math.Round((double)k.DoanhThu * 100.0 / (double)tongDoanhThu, 1);
+                            <tr class="@(i >= 5 ? "kh-more" : "")">
+                                <td><span class="nm">@k.HoTen</span><span class="sub">@MaSdt(k.SoDienThoai)</span></td>
+                                <td><span class="@("kh-tag " + HangCss(k.Hang))">@k.Hang</span></td>
+                                <td class="num"><b>@k.SoLuot</b></td>
+                                <td class="num">@Tien(tbDon)</td>
+                                <td class="num">@Tien(k.DoanhThu)</td>
+                                <td class="num">@Pct(tyK)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                </div>
+                @if (m.TopLuotDat.Count > 5)
+                {
+                    <button type="button" class="kh-linkbtn kh-more-btn" data-pane="khVipLuot" data-label="Xem tất cả (@m.TopLuotDat.Count)">Xem tất cả (@m.TopLuotDat.Count)</button>
+                }
+            }
+        </div>
+    </div>
+
+    @* ============ 06. CẢNH BÁO VÀ RỦI RO ============ *@
+    <div class="kh-sec" id="khSec5"><span class="no">06</span>Cảnh báo và rủi ro</div>
+
+    <div class="kh-card" id="khSecRisk">
+        <h3>Khách có nguy cơ rời bỏ</h3>
+        <p class="hint">
+            Từng đặt từ 2 lần nhưng đã từ @m.NguongNgayNguyCo ngày trở lên chưa quay lại (tính đến @m.DenNgay.ToString("dd/MM/yyyy")).
+            Sắp xếp theo tổng chi tiêu. Đây là danh sách cần xem xét, chưa xét tần suất đặt thông thường của từng khách nên chưa phải kết luận khách sẽ rời bỏ.
+        </p>
+        @if (m.SoKhachNguyCo == 0)
+        {
+            <div class="kh-alert ok">
+                Chưa có khách nào rơi vào nhóm này.
+                @if (m.SoKhachMotLanLauChuaQuayLai > 0)
+                {
+                    <text> Có @m.SoKhachMotLanLauChuaQuayLai khách chỉ đặt một lần và đã hơn @m.NguongNgayNguyCo ngày chưa quay lại.</text>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="kh-chips">
+                <div class="kh-chip bad"><b>@m.SoKhachNguyCo</b><span>khách có nguy cơ rời bỏ</span></div>
+                <div class="kh-chip"><b>@Tien(m.ChiTieuKhachNguyCo)</b><span>tổng chi tiêu của nhóm này</span></div>
+                <div class="kh-chip warn"><b>@m.SoKhachMotLanLauChuaQuayLai</b><span>khách đặt một lần, lâu chưa quay lại</span></div>
+            </div>
+            <div class="kh-head" style="align-items:center;margin-bottom:8px">
+                <div class="kh-seg sm" id="khRiskFilter">
+                    <button type="button" class="on" data-min="@nguongNgay">Từ @nguongNgay ngày</button>
+                    <button type="button" data-min="@(nguongNgay + 15)">Từ @(nguongNgay + 15) ngày</button>
+                    <button type="button" data-min="@(nguongNgay + 30)">Từ @(nguongNgay + 30) ngày</button>
+                </div>
+                <span class="kh-dim">Đang hiển thị <b id="khRiskCount">@m.KhachNguyCo.Count()</b> khách</span>
+            </div>
+            <div class="kh-table-wrap">
+            <table class="kh-table">
+                <thead>
+                    <tr><th>Khách hàng</th><th>Hạng</th><th class="num">Số đơn</th><th class="num">Tổng chi tiêu</th><th class="num">Lần đặt gần nhất</th><th class="num">Chưa quay lại</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var nc in m.KhachNguyCo)
+                    {
+                        <tr data-days="@nc.SoNgayChuaQuayLai">
+                            <td><span class="nm">@nc.HoTen</span><span class="sub">@MaSdt(nc.SoDienThoai)</span></td>
+                            <td><span class="@("kh-tag " + HangCss(nc.Hang))">@nc.Hang</span></td>
+                            <td class="num">@nc.SoDon</td>
+                            <td class="num"><b>@Tien(nc.TongChiTieu)</b></td>
+                            <td class="num">@nc.LanDatGanNhat.ToString("dd/MM/yyyy")</td>
+                            <td class="num"><span class="@("kh-tag " + (nc.SoNgayChuaQuayLai >= 60 ? "bad" : "warn"))">@nc.SoNgayChuaQuayLai ngày</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            </div>
+            <p class="kh-note">Chi tiêu và số đơn tính toàn thời gian đến cuối kỳ, không chỉ trong kỳ lọc.</p>
+        }
+    </div>
+
+    <div class="kh-grid w32 kh-block">
+
+        <div class="kh-card">
+            <h3>Đơn hủy và khách hủy nhiều lần</h3>
+            <p class="hint">Chỉ liệt kê khách có từ 2 đơn hủy trở lên trong kỳ.</p>
+
+            @if (m.SoDonQuaGioChuaXuLy > 0)
+            {
+                <div class="kh-alert warn" style="margin-top:0">
+                    <b>@m.SoDonQuaGioChuaXuLy đơn quá giờ chưa cập nhật trạng thái</b>: đã quá giờ kết thúc nhưng vẫn ở trạng thái "Chờ xử lý" hoặc "Đang xử lý".
+                    Cần kiểm tra và cập nhật trạng thái, chưa thể kết luận khách không đến sân. Số này được tính riêng, không nằm trong đơn hủy.
+                </div>
+            }
+
+            @if (m.SoDonHuy == 0)
+            {
+                <div class="kh-empty">Không có đơn hủy nào trong kỳ này.</div>
+            }
+            else
+            {
+                <div class="kh-chips">
+                    <div class="@("kh-chip " + (m.TyLeHuy >= NguongHuy ? "bad" : (m.TyLeHuy >= NguongHuyChuY ? "warn" : "")))"><b>@Pct(m.TyLeHuy)</b><span>tỷ lệ hủy (@m.SoDonHuy / @m.TongDon đơn)</span></div>
+                    <div class="kh-chip"><b>@m.SoKhachHuy</b><span>khách từng hủy đơn</span></div>
+                    <div class="@("kh-chip" + (m.SoKhachHuyLapLai > 0 ? " bad" : ""))"><b>@m.SoKhachHuyLapLai</b><span>khách hủy từ 2 đơn</span></div>
+                </div>
+                <div class="kh-status @cssHuy" style="margin:-4px 0 12px">@txtHuy</div>
+                @if (m.SoDonHuyCoCoc > 0)
+                {
+                    <p class="kh-note" style="margin:0 0 12px">@m.SoDonHuyCoCoc đơn hủy đã có tiền cọc, tổng <b>@Tien(m.TienCocDonHuy)</b>. Cần đối chiếu việc hoàn hoặc giữ cọc.</p>
+                }
+
+                @if (m.SoKhachHuyLapLai > 0)
+                {
+                    <div class="kh-alert">
+                        Nhóm hủy nhiều lần gây ra <b>@Pct(m.TyLeHuyDoKhachLapLai)</b> tổng số đơn hủy.
+                        Có thể áp dụng bắt buộc đặt cọc hoặc nhắc lịch trước giờ đá với nhóm này.
+                    </div>
+
+                    <div class="kh-table-wrap">
+                    <table class="kh-table">
+                        <thead>
+                            <tr><th>Khách hàng</th><th class="num">Tổng đơn</th><th class="num">Đơn hủy</th><th class="num">Tỷ lệ hủy</th><th>Đánh giá</th></tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < m.KhachHayHuy.Count; i++)
+                            {
+                                var k = m.KhachHayHuy[i];
+                                <tr>
+                                    <td><span class="nm">@k.HoTen</span><span class="sub">@MaSdt(k.SoDienThoai)</span></td>
+                                    <td class="num">@k.SoDon</td>
+                                    <td class="num"><b>@k.SoHuy</b></td>
+                                    <td class="num">@Pct(k.TyLeHuy)</td>
+                                    <td>
+                                        @if (k.CanLuuY)
+                                        {
+                                            <span class="kh-tag bad">Cần lưu ý</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="kh-tag warn">Theo dõi</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                    <p class="kh-note">"Cần lưu ý" = tỷ lệ hủy của riêng khách từ 50% trở lên.</p>
+                }
+                else
+                {
+                    <div class="kh-alert ok">
+                        Chưa có khách nào hủy từ 2 đơn trở lên trong kỳ (@m.SoKhachHuy khách mỗi người hủy 1 đơn),
+                        nên chưa có dấu hiệu hủy đơn lặp lại.
+                    </div>
+                }
+                <p class="kh-note">Hệ thống chưa lưu lý do hủy, người hủy (khách hay nhân viên) và chưa có trạng thái "Không đến", nên chưa phân tích được các nội dung này.</p>
+            }
+        </div>
+
+        <div class="kh-card">
+            <h3>Tỷ lệ hủy theo @m.DonVi</h3>
+            <p class="hint">Số đơn hủy / tổng đơn đặt trong từng cột. Vạch đỏ là ngưỡng cảnh báo @Pct(NguongHuy).</p>
+
+            @if (nHuy == 0 || m.TongDon == 0)
+            {
+                <div class="kh-empty">Chưa có đơn đặt sân trong kỳ này.</div>
+            }
+            else
+            {
+                <div class="kh-plot sm">
+                    <div class="kh-gl base"></div>
+                    <div class="kh-thr" style="bottom:@(W(NguongHuy * 100.0 / huyScale))%"><span>@Pct(NguongHuy)</span></div>
+                    <div class="kh-cols">
+                        @for (int ix = 0; ix < nHuy; ix++)
+                        {
+                            var cH = m.HuyTheoKy[ix];
+                            bool tlH = LaTuongLai(cH.Ten, m.DonVi, homNay, cungNamHienTai);
+                            double hH = cH.TyLe * 100.0 / huyScale;
+                            string cssCot = cH.TongDon == 0 ? "none" : MucHuy(cH.TyLe);
+                            string tipH = tlH ? cH.Ten + ": chưa diễn ra"
+                                : (cH.TongDon == 0 ? cH.Ten + ": chưa có đơn đặt sân"
+                                : cH.Ten + ": " + cH.SoHuy + " / " + cH.TongDon + " đơn bị hủy (" + Pct(cH.TyLe) + ")");
+                            <div class="@("kh-col" + (tlH ? " fut" : ""))" tabindex="0" aria-label="@tipH" title="@tipH">
+                                <div class="@("kh-hb " + cssCot)" style="height:@(W(hH))%"></div>
+                                @if (cH.TongDon > 0 && !tlH && (nHuy <= 12 || cH.SoHuy > 0))
+                                {
+                                    <span class="kh-hv" style="bottom:calc(@(W(hH))% + 3px)">@Pct(cH.TyLe)</span>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+                <div class="kh-labels" style="margin-left:0">
+                    @for (int ix = 0; ix < nHuy; ix++)
+                    {
+                        bool tlL = LaTuongLai(m.HuyTheoKy[ix].Ten, m.DonVi, homNay, cungNamHienTai);
+                        <span class="@(tlL ? "fut" : "")">@(ix % buocHuy == 0 ? m.HuyTheoKy[ix].Ten : "")</span>
+                    }
+                </div>
+                <p class="kh-note">Cột không có đơn đặt sân được để trống, không tính là 0%. Cột gạch chéo là thời gian chưa diễn ra.</p>
+
+                <details class="kh-mini">
+                    <summary>Xem bảng số liệu (kèm số đơn)</summary>
+                    <div class="kh-table-wrap">
+                    <table class="kh-table">
+                        <thead><tr><th>@m.DonVi</th><th class="num">Tổng đơn</th><th class="num">Đơn hủy</th><th class="num">Tỷ lệ hủy</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in m.HuyTheoKy.Where(x => x.TongDon > 0))
+                            {
+                                <tr>
+                                    <td>@r.Ten</td>
+                                    <td class="num">@r.TongDon</td>
+                                    <td class="num">@r.SoHuy</td>
+                                    <td class="num"><span class="@("kh-tag " + MucHuy(r.TyLe))">@Pct(r.TyLe)</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    </div>
+                </details>
+            }
+        </div>
+    </div>
+</div>
+</section>
+
+<script>
+    (function () {
+        // Chuyển giữa "Theo doanh thu" và "Theo lượt đặt"
+        var sw = document.getElementById("khVipSwitch");
+        if (sw) {
+            var buttons = sw.querySelectorAll("button");
+            buttons.forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                    buttons.forEach(function (b) { b.classList.remove("on"); });
+                    btn.classList.add("on");
+                    document.querySelectorAll(".kh-vip-pane").forEach(function (p) {
+                        p.style.display = (p.id === btn.getAttribute("data-target")) ? "" : "none";
+                    });
+                });
+            });
+        }
+
+        // Nút "Xem tất cả" / "Thu gọn" cho bảng Top (mặc định chỉ hiện 5 dòng)
+        document.querySelectorAll(".kh-more-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                var pane = document.getElementById(btn.getAttribute("data-pane"));
+                if (!pane) return;
+                var open = pane.classList.toggle("kh-expanded");
+                btn.textContent = open ? "Thu gọn" : btn.getAttribute("data-label");
+            });
+        });
+
+        // Lọc khách nguy cơ rời bỏ theo số ngày chưa quay lại
+        var rf = document.getElementById("khRiskFilter");
+        if (rf) {
+            var rbs = rf.querySelectorAll("button");
+            var rows = document.querySelectorAll("#khSecRisk tr[data-days]");
+            var cnt = document.getElementById("khRiskCount");
+            rbs.forEach(function (b) {
+                b.addEventListener("click", function () {
+                    rbs.forEach(function (x) { x.classList.remove("on"); });
+                    b.classList.add("on");
+                    var min = parseInt(b.getAttribute("data-min"), 10) || 0, n = 0;
+                    rows.forEach(function (r) {
+                        var show = (parseInt(r.getAttribute("data-days"), 10) || 0) >= min;
+                        r.style.display = show ? "" : "none";
+                        if (show) n++;
+                    });
+                    if (cnt) cnt.textContent = n;
+                });
+            });
+        }
+
+        // Bấm thẻ KPI hoặc thẻ cảnh báo để cuộn tới khu vực chi tiết tương ứng
+        document.querySelectorAll(".kh-kpi[data-goto], .kh-ins[data-goto]").forEach(function (el) {
+            function go() {
+                var target = document.getElementById(el.getAttribute("data-goto"));
+                if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+            el.addEventListener("click", go);
+            el.addEventListener("keydown", function (e) {
+                if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); }
+            });
+        });
+    })();
+</script>

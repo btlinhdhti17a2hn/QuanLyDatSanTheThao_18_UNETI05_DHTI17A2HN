@@ -1,0 +1,257 @@
+﻿@* Tab Hiệu suất sân (nhúng từ ThongKe.cshtml) *@
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
+@model ThongKeViewModel
+@{
+    var h = (ThongKeHienThi)ViewData["tk"];
+    var inv = h.Inv;
+    var kgThap = h.KgThap;
+    var gioMap = h.GioMap;
+    var gioDau = h.GioDau;
+    var gioCuoi = h.GioCuoi;
+    var gioMax = h.GioMax;
+    var gioCaoDiem = h.GioCaoDiem;
+    var buoiRows = h.BuoiRows;
+    var buoiMax = h.BuoiMax;
+    var buoiTong = h.BuoiTong;
+    var tongLuotSan = h.TongLuotSan;
+    var tyLeStr = h.TyLeStr;
+    var tongSan = h.TongSan;
+    var sanCoDat = h.SanCoDat;
+    var luotTbSan = h.LuotTbSan;
+    var sanLoaiRows = h.SanLoaiRows;
+    var sanLoaiMax = h.SanLoaiMax;
+    var kg = Model.KhungGio;
+    var kgCao = Model.KhungGioCaoDiem;
+    var sanIt = Model.SanItKhach.Take(5).ToList();
+    var topSanRows = Model.LuotDatTheoSan.OrderByDescending(x => x.SoLuong).ThenBy(x => x.Ten).Take(5).ToList();
+}
+
+@* ===== Tab 2: Hiệu suất sân - khung giờ + loại sân (trái) | nhận định + xếp hạng dạng tab (phải) ===== *@
+<section class="tk-pane" data-pane="hieu-suat" role="tabpanel" hidden>
+    <div class="tk-mstats">
+        <div class="tk-mstat">
+            <span class="l">Sân có lượt đặt</span>
+            <span class="v">@sanCoDat / @tongSan<small>@tyLeStr(sanCoDat, tongSan)</small></span>
+        </div>
+        <div class="tk-mstat">
+            <span class="l">Lượt đặt TB / sân</span>
+            <span class="v">@luotTbSan.ToString("0.#")<small>lượt</small></span>
+        </div>
+        <div class="tk-mstat">
+            <span class="l">Khung giờ cao điểm</span>
+            <span class="v">@(kgCao != null ? kgCao.Ten : "–")</span>
+        </div>
+    </div>
+
+    <div class="tk-body eq">
+        <div class="tk-stack">
+            <div class="tk-panel">
+                <div class="tk-head-row">
+                    <div>
+                        <div class="tk-panel-title">Khung giờ khách đặt nhiều nhất</div>
+                        <div class="tk-panel-sub">Số lượt đặt theo giờ bắt đầu, không tính đơn hủy</div>
+                    </div>
+                    @if (gioMap.Count > 0)
+                    {
+                        <div class="tk-seg" id="tk-gio-mode" role="group" aria-label="Cách nhóm khung giờ">
+                            <button type="button" class="on" data-gio="gio" aria-pressed="true">Theo giờ</button>
+                            <button type="button" data-gio="buoi" aria-pressed="false">Theo buổi</button>
+                        </div>
+                    }
+                </div>
+
+                @if (gioMap.Count == 0)
+                {
+                    <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                }
+                else
+                {
+                    <div class="tk-buoi" id="tk-buoi" hidden>
+                        @foreach (var buoi in buoiRows)
+                        {
+                            string rongBuoi = buoiMax == 0 ? "0" : (buoi.Luot * 100.0 / buoiMax).ToString("0.##", inv);
+                            bool buoiDau = buoiMax > 0 && buoi.Luot == buoiMax && buoiRows.Count(x => x.Luot == buoiMax) == 1;
+                            <div class="tk-buoi-row@(buoiDau ? " top" : "")">
+                                <div class="n"><b>@buoi.Ten</b><span>@buoi.Mo</span></div>
+                                <div class="tr"><span style="width:@(rongBuoi)%"></span></div>
+                                <div class="v">@buoi.Luot<small>@tyLeStr(buoi.Luot, buoiTong)</small></div>
+                            </div>
+                        }
+                    </div>
+                    <div class="tk-hplot" id="tk-hplot">
+                        @for (int gio = gioDau; gio <= gioCuoi; gio++)
+                        {
+                            var mucGioNay = gioMap.GetValueOrDefault(gio);
+                            int luotGio = mucGioNay?.SoLuong ?? 0;
+                            double phanTram = gioMax == 0 ? 0 : luotGio * 100.0 / gioMax;
+                            string lopCot = gio == gioCaoDiem ? "tk-hcol top" : "tk-hcol";
+                            string lopThanh = luotGio == 0 ? "tk-hbar zero" : "tk-hbar";
+                            string goiY = gio.ToString("00") + ":00 - " + (gio + 1).ToString("00") + ":00 · " + luotGio + " lượt"
+                                          + (mucGioNay != null ? " (" + mucGioNay.TyLe.ToString("0.#") + "%)" : "");
+                            <div class="@lopCot" title="@goiY">
+                                <div class="tk-htrack">
+                                    <div class="@lopThanh" style="height:@(phanTram.ToString("0.##", inv))%">
+                                        @if (luotGio > 0)
+                                        {
+                                            <span class="tk-hval">@luotGio</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="tk-hlab">@(gio)h</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="tk-panel">
+                <div class="tk-panel-title">Khai thác theo loại sân</div>
+                <div class="tk-panel-sub">Tổng cộng @tongSan sân · thanh thể hiện số lượt đặt trung bình mỗi sân</div>
+                @if (sanLoaiRows.Count == 0)
+                {
+                    <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                }
+                else
+                {
+                    <table class="tk-tbl">
+                        <thead>
+                            <tr>
+                                <th>Loại sân</th>
+                                <th class="r">Số sân</th>
+                                <th class="r">Lượt đặt</th>
+                                <th class="r">Lượt / sân</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var lr in sanLoaiRows)
+                            {
+                                string rongLr = sanLoaiMax > 0 ? (lr.TbSan / sanLoaiMax * 100).ToString("0.##", inv) : "0";
+                                <tr>
+                                    <td>
+                                        @lr.Ten
+                                        <div class="tk-mini" style="margin:.3rem 0 0"><span style="width:@(rongLr)%; background:var(--brand)"></span></div>
+                                    </td>
+                                    <td class="r">@lr.SoSan</td>
+                                    <td class="r">@lr.Luot</td>
+                                    <td class="r">@lr.TbSan.ToString("0.#")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+
+        <div class="tk-stack">
+            <div class="tk-panel tk-insight-card">
+                <div class="tk-panel-title">Nhận định nhanh</div>
+                <div class="tk-panel-sub">Dựa trên giờ bắt đầu của các đơn không bị hủy</div>
+                @if (kgCao == null)
+                {
+                    <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                }
+                else
+                {
+                    <ul class="tk-insights">
+                        <li>Cao điểm: <b>@kgCao.Ten</b> với @kgCao.SoLuong lượt (@kgCao.TyLe.ToString("0.#")% tổng lượt đặt).</li>
+                        @if (kgThap != null && kgThap.Ten != kgCao.Ten)
+                        {
+                            <li>Vắng nhất: <b>@kgThap.Ten</b>, chỉ @kgThap.SoLuong lượt. <span class="muted">Có thể cân nhắc ưu đãi cho giờ thấp điểm.</span></li>
+                        }
+                        @if (kg.Count == 1)
+                        {
+                            <li>Toàn bộ lượt đặt tập trung vào một khung giờ duy nhất.</li>
+                        }
+                    </ul>
+                }
+            </div>
+
+            <div class="tk-panel">
+                <div class="tk-head-row">
+                    <div>
+                        <div class="tk-panel-title">Xếp hạng sân</div>
+                        <div class="tk-panel-sub">Tối đa 5 sân · không tính đơn hủy</div>
+                    </div>
+                    <div class="tk-seg" id="tk-rk-mode" role="group" aria-label="Loại xếp hạng">
+                        <button type="button" class="on" data-rk="top" aria-pressed="true">Đắt khách</button>
+                        <button type="button" data-rk="low" aria-pressed="false">Ít khách</button>
+                    </div>
+                </div>
+
+                <div id="tk-rk-top">
+                    @if (topSanRows.Count == 0)
+                    {
+                        <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                    }
+                    else
+                    {
+                        <table class="tk-tbl">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Sân đặt nhiều nhất</th>
+                                    <th class="r">Lượt đặt</th>
+                                    <th class="r">Tỷ lệ</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < topSanRows.Count; i++)
+                                {
+                                    var san = topSanRows[i];
+                                    int cungLuot = Model.LuotDatTheoSan.Count(x => x.SoLuong == san.SoLuong);
+                                    <tr class="@(i == 0 ? "top" : "")">
+                                        <td class="rk">#@(i + 1)</td>
+                                        <td>
+                                            @san.Ten
+                                            @if (cungLuot > 1)
+                                            {
+                                                <span class="tk-tag" title="@cungLuot sân cùng @san.SoLuong lượt">Đồng hạng</span>
+                                            }
+                                        </td>
+                                        <td class="r">@san.SoLuong</td>
+                                        <td class="r">@tyLeStr(san.SoLuong, tongLuotSan)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        int dongHangNhat = Model.LuotDatTheoSan.Count(x => x.SoLuong == topSanRows[0].SoLuong);
+                        if (dongHangNhat > 1)
+                        {
+                            <div class="tk-note">@dongHangNhat sân cùng dẫn đầu @topSanRows[0].SoLuong lượt; tạm xếp theo tên sân. Cần doanh thu theo sân để phân định.</div>
+                        }
+                    }
+                </div>
+
+                <div id="tk-rk-low" hidden>
+                    @if (sanIt.Count == 0)
+                    {
+                        <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+                    }
+                    else
+                    {
+                        <table class="tk-tbl">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Sân ít khách nhất</th>
+                                    <th class="r">Lượt đặt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < sanIt.Count; i++)
+                                {
+                                    <tr>
+                                        <td class="rk">#@(i + 1)</td>
+                                        <td>@sanIt[i].Ten</td>
+                                        <td class="r">@sanIt[i].SoLuong</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <div class="tk-note">Gồm cả sân chưa có lượt đặt nào trong kỳ. Có thể cân nhắc ưu đãi kích cầu.</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

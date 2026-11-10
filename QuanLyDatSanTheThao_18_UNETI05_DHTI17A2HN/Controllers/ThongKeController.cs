@@ -41,11 +41,16 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         private const string HOAN_THANH = "Hoàn thành";
         private const string HUY = "Đã hủy";
         private const bool SAN_KHA_DUNG = true;
+        private const int NGAY_NGUY_CO = 30;          // chưa quay lại từ ngần ấy ngày => nguy cơ rời bỏ
+        private const int CUA_SO_CHUYEN_DOI = 30;     // đăng ký -> có đơn trong ngần ấy ngày
 
         public ThongKeController(IThongKeRepository thongKeRepository)
         {
             _thongKeRepository = thongKeRepository;
         }
+
+        // Ngày hiện tại theo giờ Việt Nam (UTC+7), không phụ thuộc múi giờ máy chủ
+        private static DateTime HomNayVn() => DateTime.UtcNow.AddHours(7).Date;
 
         // ================== PHÂN QUYỀN ==================
         private string? VaiTro => HttpContext.Session.GetString("VaiTro");
@@ -64,7 +69,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         {
             if (!LaQuanLy()) return TuChoi();
 
-            var homNay = DateTime.Today;
+            var homNay = HomNayVn();
             var ngayMai = homNay.AddDays(1);
 
             var vm = new DashboardViewModel
@@ -110,7 +115,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             if (!LaAdmin()) return TuChoi();
 
             // ----- 1. Khoảng thời gian [tuNgay, denNgay] và kỳ trước -----
-            var homNay = DateTime.Today;
+            var homNay = HomNayVn();
             kieu = (kieu ?? "nam").ToLowerInvariant();
 
             DateTime tuNgay, denNgay;
@@ -139,17 +144,25 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     if (denNgay < tuNgay) (tuNgay, denNgay) = (denNgay, tuNgay);
                     if ((denNgay - tuNgay).TotalDays > 1830) denNgay = tuNgay.AddDays(1830); // tối đa ~5 năm
                     break;
+                // (Khoảng tùy chọn kéo dài sang tương lai cũng được cắt về hôm nay ở bước "cắt kỳ" bên dưới)
                 default:
                     kieu = "nam";
-                    int namChon = nam ?? homNay.Year;
+                    // Giới hạn năm hợp lệ để URL ?nam=0 hoặc ?nam=99999 không làm DateTime văng lỗi
+                    int namChon = Math.Clamp(nam ?? homNay.Year, 2000, 2100);
                     tuNgay = new DateTime(namChon, 1, 1);
                     denNgay = new DateTime(namChon, 12, 31);
                     break;
             }
+            // Cắt kỳ về hôm nay: không thống kê ngày chưa diễn ra
+            // (VD chọn "Năm 2026" khi hôm nay 10/11 thì kỳ là 01/01 - 10/11, không phải đến 31/12).
+            // Kỳ trước được lấy cùng độ dài để so sánh công bằng.
+            if (denNgay > homNay) denNgay = homNay;
+            if (tuNgay > denNgay) tuNgay = denNgay;
+
             var denLoaiTru = denNgay.AddDays(1);
             int soNgay = (denNgay - tuNgay).Days + 1;
 
-            // Kỳ trước: cùng độ dài (hoặc lùi đúng 1 tháng / quý / năm với kỳ theo lịch)
+            // Kỳ trước: cùng giai đoạn (cùng số ngày đã trôi qua) của năm / tháng / quý trước
             DateTime tuTruoc, denTruoc;
             if (kieu == "nam")
             {
@@ -159,12 +172,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             else if (kieu == "thangnay")
             {
                 tuTruoc = tuNgay.AddMonths(-1);
-                denTruoc = tuNgay.AddDays(-1);
+                denTruoc = denNgay.AddMonths(-1);
             }
             else if (kieu == "quynay")
             {
                 tuTruoc = tuNgay.AddMonths(-3);
-                denTruoc = tuNgay.AddDays(-1);
+                denTruoc = denNgay.AddMonths(-3);
             }
             else
             {
@@ -368,7 +381,474 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 }).ToList();
             vm.KhungGioCaoDiem = vm.KhungGio.OrderByDescending(x => x.SoLuong).FirstOrDefault();
 
+            // Tab "Khách hàng" (xem partial _ThongKeKhachHang.cshtml)
+            vm.KhachHang = await TinhThongKeKhachHangAsync(datTrongKy, datKyTruoc, tuNgay, denNgay, tuTruoc, denTruoc, vm.DonViBieuDo);
+
             return View(vm);
+        }
+
+        // ================== THỐNG KÊ KHÁCH HÀNG ==================
+        // Hạng thành viên suy ra từ điểm tích lũy (100.000đ = 10 điểm => 1 triệu đồng = 100 điểm)
+        private static readonly (string Ten, string MoTa, string Css, int TuDiem)[] CacHang =
+        {
+            ("Thành viên", "0 - 99 điểm",      "tv",   0),
+            ("Bạc",        "100 - 499 điểm",   "bac",  100),
+            ("Vàng",       "500 - 1.499 điểm", "vang", 500),
+            ("Kim cương",  "từ 1.500 điểm",    "kc",   1500)
+        };
+
+        private static string XepHang(int diem)
+        {
+            string ten = CacHang[0].Ten;
+            foreach (var h in CacHang)
+                if (diem >= h.TuDiem) ten = h.Ten;
+            return ten;
+        }
+
+        // Một đơn đặt sân rút gọn (mọi trạng thái) dùng cho thống kê khách hàng
+        internal sealed class DonKhach
+        {
+            public int MaDatSan { get; set; }
+            public int MaKhachHang { get; set; }
+            public string TrangThai { get; set; } = "";
+            public decimal DonGia { get; set; }
+            public DateTime NgayDat { get; set; }
+            public DateTime GioKetThuc { get; set; }
+            public decimal TienCoc { get; set; }
+        }
+
+        private static IQueryable<DonKhach> ChieuDon(IQueryable<DatSan> q)
+        {
+            return q.Select(d => new DonKhach
+            {
+                MaDatSan = d.MaDatSan,
+                MaKhachHang = d.MaKhachHang,
+                TrangThai = d.TrangThai,
+                DonGia = d.DonGia,
+                NgayDat = d.NgayDat,
+                GioKetThuc = d.GioKetThuc,
+                TienCoc = d.TienCoc
+            });
+        }
+
+        // Chỉ số cốt lõi của một kỳ (dùng cho cả kỳ này và kỳ trước để so sánh)
+        internal sealed record ChiSoKy(int KhachCoDon, int KhachQuayLai, double TyLeQuayLai,
+                                      int TongDon, int SoHuy, double TyLeHuy);
+
+        private static ChiSoKy TinhChiSoKy(List<DonKhach> don)
+        {
+            var luotMoiKhach = don
+                .Where(d => d.TrangThai != HUY)
+                .GroupBy(d => d.MaKhachHang)
+                .Select(g => g.Count())
+                .ToList();
+
+            int khach = luotMoiKhach.Count;
+            int quayLai = luotMoiKhach.Count(n => n >= 2);
+            int soHuy = don.Count(d => d.TrangThai == HUY);
+
+            return new ChiSoKy(
+                khach,
+                quayLai,
+                khach == 0 ? 0 : Math.Round(quayLai * 100.0 / khach, 1),
+                don.Count,
+                soHuy,
+                don.Count == 0 ? 0 : Math.Round(soHuy * 100.0 / don.Count, 1));
+        }
+
+        private async Task<ThongKeKhachHangViewModel> TinhThongKeKhachHangAsync(
+            IQueryable<DatSan> datTrongKy, IQueryable<DatSan> datKyTruoc,
+            DateTime tuNgay, DateTime denNgay, DateTime tuTruoc, DateTime denTruoc, string donVi)
+        {
+            var denLoaiTru = denNgay.AddDays(1);
+            var denTruocLoaiTru = denTruoc.AddDays(1);
+            int soNgay = (denNgay - tuNgay).Days + 1;
+
+            var vm = new ThongKeKhachHangViewModel
+            {
+                TuNgay = tuNgay,
+                DenNgay = denNgay,
+                TuNgayTruoc = tuTruoc,
+                DenNgayTruoc = denTruoc,
+                DonVi = donVi
+            };
+
+            // Khách hàng: chỉ lấy các cột cần dùng (hệ thống quản lý sân nên số lượng khách nhỏ)
+            var khachHangs = await _thongKeRepository.LayKhachHangs().AsNoTracking()
+                .Select(k => new
+                {
+                    k.MaKhachHang,
+                    k.HoTen,
+                    k.SoDienThoai,
+                    k.DiemTichLuy,
+                    k.NgayDangKy
+                })
+                .ToListAsync();
+            var thongTin = khachHangs.ToDictionary(k => k.MaKhachHang);
+            vm.TongKhachHang = khachHangs.Count;
+
+            // Các đơn trong kỳ và kỳ trước (mọi trạng thái) - gom theo khách ở bộ nhớ cho đơn giản, dễ kiểm chứng
+            var don = await ChieuDon(datTrongKy).ToListAsync();
+            var donTruoc = await ChieuDon(datKyTruoc).ToListAsync();
+
+            // ----- 0. Kỳ trước (để hiện ▲/▼ trên thẻ KPI) -----
+            var csTruoc = TinhChiSoKy(donTruoc);
+            vm.KhachCoDonTruoc = csTruoc.KhachCoDon;
+            vm.TyLeQuayLaiTruoc = csTruoc.TyLeQuayLai;
+            vm.TongDonTruoc = csTruoc.TongDon;
+            vm.TyLeHuyTruoc = csTruoc.TyLeHuy;
+            vm.KhachMoiTruoc = khachHangs.Count(k => k.NgayDangKy >= tuTruoc && k.NgayDangKy < denTruocLoaiTru);
+            vm.CoDuLieuKyTruoc = csTruoc.TongDon > 0 || vm.KhachMoiTruoc > 0;
+
+            // ----- 1. Top khách hàng theo doanh thu / số lượt đặt (bỏ đơn hủy) -----
+            var theoKhach = don
+                .Where(d => d.TrangThai != HUY)
+                .GroupBy(d => d.MaKhachHang)
+                .Select(g => new
+                {
+                    Ma = g.Key,
+                    Luot = g.Count(),
+                    DoanhThu = g.Where(x => x.TrangThai == HOAN_THANH).Sum(x => x.DonGia)
+                })
+                .ToList();
+
+            KhachVipItem TaoVip(int ma, int luot, decimal doanhThu)
+            {
+                if (thongTin.TryGetValue(ma, out var k))
+                    return new KhachVipItem
+                    {
+                        MaKhachHang = ma,
+                        HoTen = k.HoTen,
+                        SoDienThoai = k.SoDienThoai,
+                        SoLuot = luot,
+                        DoanhThu = doanhThu,
+                        DiemTichLuy = k.DiemTichLuy,
+                        Hang = XepHang(k.DiemTichLuy)
+                    };
+                return new KhachVipItem
+                {
+                    MaKhachHang = ma,
+                    HoTen = $"Khách #{ma}",
+                    SoLuot = luot,
+                    DoanhThu = doanhThu,
+                    Hang = XepHang(0)
+                };
+            }
+
+            vm.TopDoanhThu = theoKhach
+                .Where(x => x.DoanhThu > 0)
+                .OrderByDescending(x => x.DoanhThu).ThenByDescending(x => x.Luot)
+                .Take(10)
+                .Select(x => TaoVip(x.Ma, x.Luot, x.DoanhThu))
+                .ToList();
+
+            vm.TopLuotDat = theoKhach
+                .OrderByDescending(x => x.Luot).ThenByDescending(x => x.DoanhThu)
+                .Take(10)
+                .Select(x => TaoVip(x.Ma, x.Luot, x.DoanhThu))
+                .ToList();
+
+            vm.KhachCoDon = theoKhach.Count;
+            vm.TongDoanhThu = theoKhach.Sum(x => x.DoanhThu);
+            vm.TyTrongDoanhThuTop = vm.TongDoanhThu == 0
+                ? 0
+                : Math.Round((double)(vm.TopDoanhThu.Sum(x => x.DoanhThu) / vm.TongDoanhThu) * 100.0, 1);
+
+            // ----- 2. Khách quay lại (>= 2 đơn không hủy trong kỳ) so với khách đặt 1 lần -----
+            var quayLai = theoKhach.Where(x => x.Luot >= 2).ToList();
+            var motLan = theoKhach.Where(x => x.Luot == 1).ToList();
+
+            vm.KhachQuayLai = quayLai.Count;
+            vm.TyLeQuayLai = vm.KhachCoDon == 0
+                ? 0
+                : Math.Round(vm.KhachQuayLai * 100.0 / vm.KhachCoDon, 1);
+            vm.DoanhThuQuayLai = quayLai.Sum(x => x.DoanhThu);
+            vm.TyTrongDoanhThuQuayLai = vm.TongDoanhThu == 0
+                ? 0
+                : Math.Round((double)(vm.DoanhThuQuayLai / vm.TongDoanhThu) * 100.0, 1);
+            vm.KhachMotLan = motLan.Count;
+            vm.DoanhThuMotLan = motLan.Sum(x => x.DoanhThu);
+
+            // ----- 3. Hạng khách hàng: số khách là tích lũy hiện tại, doanh thu là trong kỳ -----
+            var demHang = khachHangs
+                .GroupBy(k => XepHang(k.DiemTichLuy))
+                .ToDictionary(g => g.Key, g => g.Count());
+
+            var doanhThuHang = new Dictionary<string, decimal>();
+            var khachChiTieuHang = new Dictionary<string, int>();
+            foreach (var it in theoKhach.Where(x => x.DoanhThu > 0))
+            {
+                string hangCuaKhach = thongTin.TryGetValue(it.Ma, out var kh)
+                    ? XepHang(kh.DiemTichLuy)
+                    : XepHang(0);
+                doanhThuHang[hangCuaKhach] = doanhThuHang.GetValueOrDefault(hangCuaKhach) + it.DoanhThu;
+                khachChiTieuHang[hangCuaKhach] = khachChiTieuHang.GetValueOrDefault(hangCuaKhach) + 1;
+            }
+
+            vm.Hang = CacHang.Select(h =>
+            {
+                demHang.TryGetValue(h.Ten, out var soLuong);
+                decimal dt = doanhThuHang.GetValueOrDefault(h.Ten);
+                int khachCoChiTieu = khachChiTieuHang.GetValueOrDefault(h.Ten);
+                return new HangKhachItem
+                {
+                    Ten = h.Ten,
+                    MoTa = h.MoTa,
+                    Css = h.Css,
+                    SoLuong = soLuong,
+                    TyLe = vm.TongKhachHang == 0 ? 0 : Math.Round(soLuong * 100.0 / vm.TongKhachHang, 1),
+                    KhachCoChiTieu = khachCoChiTieu,
+                    DoanhThu = dt,
+                    ChiTieuTrungBinh = khachCoChiTieu == 0 ? 0 : Math.Round(dt / khachCoChiTieu, 0),
+                    TyTrongDoanhThu = vm.TongDoanhThu == 0 ? 0 : Math.Round((double)(dt / vm.TongDoanhThu) * 100.0, 1)
+                };
+            }).ToList();
+
+            // ----- 4. Các cột thời gian dùng chung cho biểu đồ (ngày / tuần / tháng) -----
+            // Mỗi cột = [Tu, Den) đã được cắt trong phạm vi kỳ đang lọc
+            var cot = new List<(string Ten, DateTime Tu, DateTime Den)>();
+            if (donVi == "ngày")
+            {
+                for (int i = 0; i < soNgay; i++)
+                {
+                    var batDau = tuNgay.AddDays(i);
+                    cot.Add((batDau.ToString("dd/MM"), batDau, batDau.AddDays(1)));
+                }
+            }
+            else if (donVi == "tuần")
+            {
+                int soCot = (int)Math.Ceiling(soNgay / 7.0);
+                for (int i = 0; i < soCot; i++)
+                {
+                    var batDau = tuNgay.AddDays(i * 7);
+                    var ketThuc = batDau.AddDays(7);
+                    if (ketThuc > denLoaiTru) ketThuc = denLoaiTru;
+                    cot.Add((batDau.ToString("dd/MM"), batDau, ketThuc));
+                }
+            }
+            else
+            {
+                var thangDau = new DateTime(tuNgay.Year, tuNgay.Month, 1);
+                int soThang = (denNgay.Year - tuNgay.Year) * 12 + denNgay.Month - tuNgay.Month + 1;
+                bool cungNam = tuNgay.Year == denNgay.Year;
+                for (int i = 0; i < soThang; i++)
+                {
+                    var dauThang = thangDau.AddMonths(i);
+                    var cuoiThang = dauThang.AddMonths(1);
+                    var batDau = dauThang < tuNgay ? tuNgay : dauThang;
+                    var ketThuc = cuoiThang > denLoaiTru ? denLoaiTru : cuoiThang;
+                    string ten = cungNam ? $"T{dauThang.Month}" : $"T{dauThang.Month}/{dauThang.Year}";
+                    cot.Add((ten, batDau, ketThuc));
+                }
+            }
+
+            // ----- 5. Khách mới (NgayDangKy) và khách đặt lại theo từng cột -----
+            var ngayDangKy = khachHangs
+                .Where(k => k.NgayDangKy >= tuNgay && k.NgayDangKy < denLoaiTru)
+                .Select(k => k.NgayDangKy)
+                .ToList();
+            vm.TongKhachMoi = ngayDangKy.Count;
+
+            vm.KhachMoi = cot.Select(c => new ThongKeItem
+            {
+                Ten = c.Ten,
+                SoLuong = ngayDangKy.Count(x => x >= c.Tu && x < c.Den)
+            }).ToList();
+
+            // Đơn ĐẦU TIÊN của mỗi khách trong toàn bộ lịch sử (không tính đơn hủy), xác định theo (NgayDat, MaDatSan).
+            // Khách "đặt lại" trong một cột = có đơn trong cột đó KHÔNG phải đơn đầu tiên của họ.
+            // Cách này tính cả khách đặt lần 2 ngay trong cùng cột (cùng tháng), nên khớp hơn với thẻ KPI "tái đặt"
+            // (trước đây chỉ tính khi đơn đầu nằm trước ngày bắt đầu cột nên bỏ sót).
+            var lichSuDat = await _thongKeRepository.LayDatSans().AsNoTracking()
+                .Where(d => d.TrangThai != HUY && d.NgayDat < denLoaiTru)
+                .Select(d => new { d.MaDatSan, d.MaKhachHang, d.NgayDat, d.TrangThai, d.DonGia })
+                .ToListAsync();
+            var donTheoKhach = lichSuDat
+                .GroupBy(x => x.MaKhachHang)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            var donDauTien = donTheoKhach
+                .ToDictionary(kv => kv.Key, kv => kv.Value.OrderBy(x => x.NgayDat).ThenBy(x => x.MaDatSan).First().MaDatSan);
+
+            // ----- 5b. Khách mới thực sự, chuyển đổi, nguy cơ rời bỏ, cohort (đều tính đến cuối kỳ) -----
+            var ngayDauTien = donTheoKhach.ToDictionary(kv => kv.Key, kv => kv.Value.Min(x => x.NgayDat).Date);
+
+            // Khách mới thực sự = đơn không hủy đầu tiên trong lịch sử rơi vào kỳ
+            vm.KhachMoiThucSu = ngayDauTien.Count(kv => kv.Value >= tuNgay && kv.Value < denLoaiTru);
+            vm.KhachMoiThucSuTruoc = ngayDauTien.Count(kv => kv.Value >= tuTruoc && kv.Value < denTruocLoaiTru);
+            vm.KhachQuayLaiTuKyTruoc = theoKhach.Count(x => ngayDauTien.TryGetValue(x.Ma, out var ngayDau0) && ngayDau0 < tuNgay);
+            vm.DoanhThuTruoc = donTruoc.Where(d => d.TrangThai == HOAN_THANH).Sum(d => d.DonGia);
+
+            // Tỷ lệ chuyển đổi đăng ký -> có đơn trong 30 ngày.
+            // Chỉ tính tài khoản đã đủ 30 ngày quan sát (tránh coi tài khoản mới đăng ký hôm qua là "chưa chuyển đổi").
+            var dangKyDuThoiGian = khachHangs
+                .Select(x => new { x.MaKhachHang, Ngay = Convert.ToDateTime(x.NgayDangKy).Date })
+                .Where(x => x.Ngay >= tuNgay && x.Ngay.AddDays(CUA_SO_CHUYEN_DOI) <= denNgay.Date)
+                .ToList();
+            vm.SoDangKyDuThoiGian = dangKyDuThoiGian.Count;
+            vm.SoDangKyChuyenDoi = dangKyDuThoiGian.Count(x =>
+                donTheoKhach.TryGetValue(x.MaKhachHang, out var dsDonDk)
+                && dsDonDk.Any(o => o.NgayDat >= x.Ngay && o.NgayDat < x.Ngay.AddDays(CUA_SO_CHUYEN_DOI)));
+            vm.TyLeChuyenDoi = vm.SoDangKyDuThoiGian == 0
+                ? 0
+                : Math.Round(vm.SoDangKyChuyenDoi * 100.0 / vm.SoDangKyDuThoiGian, 1);
+
+            // Nguy cơ rời bỏ: từng đặt >= 2 lần nhưng đã >= NGAY_NGUY_CO ngày chưa quay lại (tính đến cuối kỳ)
+            vm.NguongNgayNguyCo = NGAY_NGUY_CO;
+            var dsNguyCo = new List<KhachNguyCoItem>();
+            int motLanLau = 0;
+            foreach (var kv in donTheoKhach)
+            {
+                var lanCuoi = kv.Value.Max(x => x.NgayDat).Date;
+                int ngayChua = (denNgay.Date - lanCuoi).Days;
+                if (ngayChua < NGAY_NGUY_CO) continue;
+                if (kv.Value.Count == 1) { motLanLau++; continue; }
+
+                decimal chiTieu = kv.Value.Where(x => x.TrangThai == HOAN_THANH).Sum(x => x.DonGia);
+                string hoTenNc = $"Khách #{kv.Key}", sdtNc = "", hangNc = XepHang(0);
+                if (thongTin.TryGetValue(kv.Key, out var khNc))
+                {
+                    hoTenNc = khNc.HoTen;
+                    sdtNc = khNc.SoDienThoai;
+                    hangNc = XepHang(khNc.DiemTichLuy);
+                }
+                dsNguyCo.Add(new KhachNguyCoItem
+                {
+                    MaKhachHang = kv.Key,
+                    HoTen = hoTenNc,
+                    SoDienThoai = sdtNc,
+                    Hang = hangNc,
+                    SoDon = kv.Value.Count,
+                    TongChiTieu = chiTieu,
+                    LanDatGanNhat = lanCuoi,
+                    SoNgayChuaQuayLai = ngayChua
+                });
+            }
+            vm.SoKhachNguyCo = dsNguyCo.Count;
+            vm.ChiTieuKhachNguyCo = dsNguyCo.Sum(x => x.TongChiTieu);
+            vm.SoKhachMotLanLauChuaQuayLai = motLanLau;
+            vm.KhachNguyCo = dsNguyCo
+                .OrderByDescending(x => x.TongChiTieu).ThenByDescending(x => x.SoNgayChuaQuayLai)
+                .Take(10)
+                .ToList();
+
+            // Cohort: nhóm khách theo THÁNG có đơn đầu tiên, 6 tháng gần nhất tính đến cuối kỳ.
+            // Ô ở tháng chưa kết thúc là null (chưa đủ dữ liệu), không phải 0%.
+            static int ChiSoThang(DateTime d) => d.Year * 12 + d.Month;
+            var thangCuoi = new DateTime(denNgay.Year, denNgay.Month, 1);
+            var thangCuaKhach = donTheoKhach.ToDictionary(
+                kv => kv.Key, kv => kv.Value.Select(x => ChiSoThang(x.NgayDat)).ToHashSet());
+            var nhomDau = ngayDauTien
+                .GroupBy(kv => ChiSoThang(kv.Value))
+                .ToDictionary(g => g.Key, g => g.Select(kv => kv.Key).ToList());
+
+            for (int ci = 5; ci >= 0; ci--)
+            {
+                var dauThangC = thangCuoi.AddMonths(-ci);
+                if (!nhomDau.TryGetValue(ChiSoThang(dauThangC), out var dsKhachC) || dsKhachC.Count == 0) continue;
+
+                var hang = new CohortItem { Ten = $"T{dauThangC.Month}/{dauThangC.Year}", SoKhach = dsKhachC.Count };
+                for (int kk = 0; kk <= 5; kk++)
+                {
+                    var thangK = dauThangC.AddMonths(kk);
+                    if (kk == 0) { hang.TyLe.Add(100); continue; }
+                    if (thangK.AddMonths(1) > denLoaiTru) { hang.TyLe.Add(null); continue; }  // tháng chưa kết thúc
+
+                    int idxK = ChiSoThang(thangK);
+                    int conLai = dsKhachC.Count(maKh => thangCuaKhach[maKh].Contains(idxK));
+                    hang.TyLe.Add(Math.Round(conLai * 100.0 / dsKhachC.Count, 1));
+                }
+                vm.Cohort.Add(hang);
+            }
+
+            var donKhongHuy = don.Where(d => d.TrangThai != HUY).ToList();
+
+            vm.KhachDatLai = cot.Select(c => new ThongKeItem
+            {
+                Ten = c.Ten,
+                SoLuong = donKhongHuy
+                    .Where(d => d.NgayDat >= c.Tu && d.NgayDat < c.Den
+                                && donDauTien.TryGetValue(d.MaKhachHang, out var maDonDau) && maDonDau != d.MaDatSan)
+                    .Select(d => d.MaKhachHang)
+                    .Distinct()
+                    .Count()
+            }).ToList();
+
+            // ----- 6. Hủy đơn: tổng quan, theo cột thời gian, và khách hủy nhiều lần -----
+            vm.TongDon = don.Count;
+            vm.SoDonHuy = don.Count(d => d.TrangThai == HUY);
+            vm.TyLeHuy = vm.TongDon == 0 ? 0 : Math.Round(vm.SoDonHuy * 100.0 / vm.TongDon, 1);
+
+            // Đơn hủy đã có tiền cọc (rủi ro mất/hoàn cọc) - dùng TienCoc có sẵn trong bảng DatSan
+            var donHuyList = don.Where(d => d.TrangThai == HUY).ToList();
+            vm.SoDonHuyCoCoc = donHuyList.Count(d => d.TienCoc > 0);
+            vm.TienCocDonHuy = donHuyList.Sum(d => d.TienCoc);
+
+            // Đơn đã quá giờ kết thúc nhưng vẫn "Chờ xử lý"/"Đang xử lý": có thể khách không đến hoặc nhân viên quên cập nhật.
+            // Tách riêng khỏi đơn hủy vì đây là hai vấn đề vận hành khác nhau.
+            var bayGio = DateTime.UtcNow.AddHours(7);
+            vm.SoDonQuaGioChuaXuLy = don.Count(d =>
+                (d.TrangThai == CHO_XU_LY || d.TrangThai == DANG_XU_LY) && d.GioKetThuc < bayGio);
+
+            vm.HuyTheoKy = cot.Select(c =>
+            {
+                var donTrongCot = don.Where(d => d.NgayDat >= c.Tu && d.NgayDat < c.Den).ToList();
+                int soHuyCot = donTrongCot.Count(d => d.TrangThai == HUY);
+                return new HuyKyItem
+                {
+                    Ten = c.Ten,
+                    TongDon = donTrongCot.Count,
+                    SoHuy = soHuyCot,
+                    TyLe = donTrongCot.Count == 0 ? 0 : Math.Round(soHuyCot * 100.0 / donTrongCot.Count, 1)
+                };
+            }).ToList();
+
+            var huyTheoKhach = don
+                .GroupBy(d => d.MaKhachHang)
+                .Select(g => new
+                {
+                    Ma = g.Key,
+                    Tong = g.Count(),
+                    Huy = g.Count(x => x.TrangThai == HUY)
+                })
+                .Where(x => x.Huy > 0)
+                .ToList();
+
+            vm.SoKhachHuy = huyTheoKhach.Count;
+            var lapLai = huyTheoKhach.Where(x => x.Huy >= 2).ToList();
+            vm.SoKhachHuyLapLai = lapLai.Count;
+            vm.TyLeHuyDoKhachLapLai = vm.SoDonHuy == 0
+                ? 0
+                : Math.Round(lapLai.Sum(x => x.Huy) * 100.0 / vm.SoDonHuy, 1);
+
+            // Chỉ liệt kê khách hủy từ 2 đơn trở lên (khách hủy 1 đơn không đủ cơ sở để xếp hạng)
+            vm.KhachHayHuy = lapLai
+                .OrderByDescending(x => x.Huy)
+                .ThenByDescending(x => (double)x.Huy / x.Tong)
+                .Take(10)
+                .Select(x =>
+                {
+                    double tyLe = Math.Round(x.Huy * 100.0 / x.Tong, 1);
+                    string hoTen = $"Khách #{x.Ma}";
+                    string sdt = "";
+                    if (thongTin.TryGetValue(x.Ma, out var k))
+                    {
+                        hoTen = k.HoTen;
+                        sdt = k.SoDienThoai;
+                    }
+                    return new KhachHuyItem
+                    {
+                        MaKhachHang = x.Ma,
+                        HoTen = hoTen,
+                        SoDienThoai = sdt,
+                        SoDon = x.Tong,
+                        SoHuy = x.Huy,
+                        TyLeHuy = tyLe,
+                        CanLuuY = tyLe >= 50
+                    };
+                })
+                .ToList();
+
+            return vm;
         }
 
         // ================== HÀM HỖ TRỢ ==================
