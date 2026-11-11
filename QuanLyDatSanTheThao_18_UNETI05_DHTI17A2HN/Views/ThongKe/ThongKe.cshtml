@@ -530,6 +530,28 @@
         }
     }
 
+    /* ===== Hộp thoại "Tùy chỉnh báo cáo thống kê" ===== */
+    .tk-xd { width: min(520px, 94vw); }
+    .tk-xd-label { font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: .5rem 0 .4rem; }
+    .tk-xd-opt { display: flex; gap: .65rem; align-items: flex-start; border: 1px solid var(--line); border-radius: 10px; padding: .6rem .8rem; margin-bottom: .5rem; cursor: pointer; }
+    .tk-xd-opt:has(input:checked) { border-color: #86efac; background: #f0fdf4; }
+    .tk-xd-opt input { margin-top: .3rem; accent-color: var(--pitch-2); }
+    .tk-xd-opt b { color: var(--ink); font-size: .9375rem; }
+    .tk-xd-opt em { font-style: normal; margin-left: .4rem; padding: 0 .45rem; border-radius: 99px; background: #dcfce7; color: #15803d; font-size: .75rem; font-weight: 700; }
+    .tk-xd-opt small { display: block; color: var(--muted); font-size: .8125rem; margin-top: .1rem; }
+    .tk-xd-opt select { margin-top: .4rem; max-width: 220px; }
+    .tk-xd-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+    .tk-xd-cancel { border: 1px solid var(--line); background: #fff; color: var(--muted); font-weight: 600; font-size: .8125rem; padding: .3rem .9rem; border-radius: 8px; cursor: pointer; }
+    .tk-xd-cancel:hover { background: #f1f5f9; color: var(--ink); }
+
+    @@media print {
+        .tk-report [hidden] { display: none !important; }
+        .rp-ov-sum { break-after: page; }
+        .rp-first { break-before: page; }
+        .tk-report[data-mode="chuyen-de"] .rp-first { break-before: auto; }
+        .rp-kpi td:first-child { font-weight: 700; }
+    }
+
     .tk-kpi.bad {
         border-left: 3px solid #dc2626;
     }
@@ -1457,6 +1479,10 @@
 
         @* ===== Báo cáo để in / lưu PDF (ẩn trên màn hình, chỉ hiện khi in) ===== *@
         @* ===== Dữ liệu cho nút "Xuất Excel": số liệu thô lấy thẳng từ model (không đọc lại từ giao diện) ===== *@
+        var rpHs = Model.HieuSuat;
+        var rpDv = Model.DichVu;
+        var rpKh = Model.KhachHang;
+        var rpVi = new CultureInfo("vi-VN");
         var exportObj = new
         {
             nhan = nhan,
@@ -1497,10 +1523,90 @@
                 gio = x.GioBatDau.ToString("HH:mm", inv) + " - " + x.GioKetThuc.ToString("HH:mm", inv) + " (" + x.GioBatDau.ToString("dd/MM", inv) + ")",
                 donGia = x.DonGia
             }).ToList(),
-            phanTich = phanTich
+            phanTich = phanTich,
+            hieuSuat = new
+            {
+                tyLe = Math.Round(rpHs.TyLeKhaiThac, 2),
+                gioDat = Math.Round((double)rpHs.GioDaDat, 1),
+                gioKhaDung = Math.Round((double)rpHs.GioKhaDung, 1),
+                gioTrong = Math.Round((double)rpHs.GioTrong, 1),
+                sanHoatDong = rpHs.SoSanCoHoatDong,
+                sanKhaDung = rpHs.SoSanKhaDung
+            },
+            dvTong = new
+            {
+                doanhThu = rpDv.DoanhThu,
+                doanhThuHT = rpDv.DoanhThuHoanThanh,
+                donCo = rpDv.DonCoDichVu,
+                tongDon = rpDv.TongDonHopLe
+            },
+            khach = new
+            {
+                coDon = rpKh.KhachCoDon,
+                tong = rpKh.TongKhachHang,
+                tyLeQuayLai = Math.Round(rpKh.TyLeQuayLai, 1),
+                quayLai = rpKh.KhachQuayLai,
+                moi = rpKh.TongKhachMoi,
+                moiThucSu = rpKh.KhachMoiThucSu,
+                nguyCo = rpKh.SoKhachNguyCo,
+                nguongNgay = Convert.ToInt32(rpKh.NguongNgayNguyCo),
+                top = rpKh.TopDoanhThu.Take(10).Select(x => new { ten = x.HoTen, hang = x.Hang, don = x.SoLuot, tien = x.DoanhThu }).ToList()
+            }
         };
         string exportJson = System.Text.Json.JsonSerializer.Serialize(exportObj);
         <script type="application/json" id="tk-export-data">@Html.Raw(exportJson)</script>
+
+        @* ===== Hộp thoại chung "Tùy chỉnh báo cáo thống kê" cho cả PDF và Excel ===== *@
+        <dialog id="tk-export" class="tk-dialog tk-xd">
+            <div class="tk-dialog-head">
+                <div>
+                    <div class="fw-bold">Tùy chỉnh báo cáo thống kê</div>
+                    <div class="text-secondary small">Kỳ báo cáo: @kyBaoCao</div>
+                </div>
+                <button type="button" data-close aria-label="Đóng">&times;</button>
+            </div>
+            <div class="tk-dialog-body">
+                <div class="tk-xd-label">Phạm vi nội dung</div>
+                <label class="tk-xd-opt">
+                    <input type="radio" name="tk-xd-mode" value="tong-hop" checked />
+                    <span>
+                        <b>Tổng hợp điều hành</b><em>Mặc định</em>
+                        <small>Tổng quan 4 lĩnh vực và phân tích sâu lĩnh vực đang xem (<span id="tk-xd-cur">Doanh thu</span>).</small>
+                    </span>
+                </label>
+                <label class="tk-xd-opt">
+                    <input type="radio" name="tk-xd-mode" value="chuyen-de" />
+                    <span>
+                        <b>Báo cáo chuyên đề</b>
+                        <small>Chỉ xuất một lĩnh vực được chọn.</small>
+                        <select id="tk-xd-dom" class="form-select form-select-sm" aria-label="Lĩnh vực">
+                            <option value="doanh-thu">Doanh thu</option>
+                            <option value="hieu-suat">Hiệu suất sân</option>
+                            <option value="dich-vu">Dịch vụ</option>
+                            <option value="khach-hang">Khách hàng</option>
+                        </select>
+                    </span>
+                </label>
+                <label class="tk-xd-opt">
+                    <input type="radio" name="tk-xd-mode" value="toan-bo" />
+                    <span>
+                        <b>Toàn bộ chi tiết</b>
+                        <small>Bao gồm toàn bộ 4 lĩnh vực và các bảng dữ liệu chi tiết (phục vụ kiểm tra, lưu trữ).</small>
+                    </span>
+                </label>
+
+                <div class="tk-xd-label">Định dạng xuất</div>
+                <div class="tk-seg" role="group" aria-label="Định dạng">
+                    <button type="button" class="on" data-xf="pdf">PDF</button>
+                    <button type="button" data-xf="xlsx">Excel</button>
+                </div>
+
+                <div class="tk-xd-actions">
+                    <button type="button" class="tk-xd-cancel" data-close>Hủy</button>
+                    <button type="button" class="tk-apply" id="tk-xd-go">Xuất báo cáo</button>
+                </div>
+            </div>
+        </dialog>
 
         <div class="tk-report" id="tk-report" data-title="@tieuDeTrang">
             <div class="rp-head">
@@ -1509,7 +1615,27 @@
                 <div class="rp-meta">Kỳ báo cáo: <b>@kyBaoCao</b> · So sánh với kỳ trước: @kyTruocKhoang</div>
             </div>
 
-            <div class="rp-sec">
+            <div class="rp-sec rp-ov rp-ov-sum">
+                <h3>Tổng quan điều hành</h3>
+                <table class="rp-table rp-kpi">
+                    <thead><tr><th>Lĩnh vực</th><th>Chỉ số chính</th><th class="r">Giá trị</th><th>Ghi chú</th></tr></thead>
+                    <tbody>
+                        <tr><td>Doanh thu</td><td>Doanh thu đơn hoàn thành</td><td class="r">@tien(Model.TongDoanhThuNam)</td><td>@(Model.SoDonHoanThanh.ToString("N0")) đơn hoàn thành · tỷ lệ hủy @(Model.TyLeHuy)%</td></tr>
+                        <tr><td>Hiệu suất sân</td><td>Tỷ lệ khai thác</td><td class="r">@(rpHs.TyLeKhaiThac.ToString("0.##", rpVi))%</td><td>Giờ đã đặt @(rpHs.GioDaDat.ToString("0.#", rpVi)) / @(rpHs.GioKhaDung.ToString("0.#", rpVi)) giờ khả dụng</td></tr>
+                        <tr><td>Dịch vụ</td><td>Doanh thu dịch vụ (đơn không hủy)</td><td class="r">@tien(rpDv.DoanhThu)</td><td>Trong đó đơn hoàn thành: @tien(rpDv.DoanhThuHoanThanh) · @(rpDv.DonCoDichVu)/@(rpDv.TongDonHopLe) đơn có dịch vụ</td></tr>
+                        <tr><td>Khách hàng</td><td>Khách có đặt sân</td><td class="r">@(rpKh.KhachCoDon)/@(rpKh.TongKhachHang)</td><td>Tỷ lệ tái đặt @(rpKh.TyLeQuayLai.ToString("0.#", rpVi))% · @(rpKh.SoKhachNguyCo) khách có nguy cơ rời bỏ</td></tr>
+                    </tbody>
+                </table>
+                <h4>Nhận định và cảnh báo</h4>
+                <ul class="rp-list">
+                    @foreach (var ynd in phanTich)
+                    {
+                        <li>@ynd</li>
+                    }
+                </ul>
+            </div>
+
+            <div class="rp-sec rp-dom" data-dom="doanh-thu">
                 <h3>1. Dữ liệu tổng quan</h3>
                 <table class="rp-table">
                     <thead><tr><th>Chỉ số</th><th class="r">Giá trị</th><th>So với kỳ trước</th></tr></thead>
@@ -1527,7 +1653,7 @@
                 </table>
             </div>
 
-            <div class="rp-sec">
+            <div class="rp-sec rp-dom" data-dom="doanh-thu">
                 <h3>2. Doanh thu theo @Model.DonViBieuDo</h3>
                 @{
                     var kyCoSo = Model.DoanhThuTheoThang.Where(x => x.GiaTri > 0 || x.SoLuong > 0).ToList();
@@ -1562,7 +1688,7 @@
                 }
             </div>
 
-            <div class="rp-sec">
+            <div class="rp-sec rp-dom" data-dom="doanh-thu">
                 <h3>3. Cơ cấu doanh thu theo loại sân</h3>
                 @if (loaiRows.Count == 0)
                 {
@@ -1589,7 +1715,7 @@
                 }
             </div>
 
-            <div class="rp-sec">
+            <div class="rp-sec rp-dom rp-first" data-dom="hieu-suat">
                 <h3>4. Hiệu suất sân</h3>
                 <h4>Khung giờ đặt sân (theo buổi)</h4>
                 <table class="rp-table">
@@ -1626,7 +1752,7 @@
                     </table>
                 }
 
-                <h4>Sân ít khách nhất</h4>
+                <div class="rp-full"><h4>Sân ít khách nhất</h4>
                 @if (sanIt.Count == 0)
                 {
                     <div class="rp-note">Chưa có dữ liệu.</div>
@@ -1661,10 +1787,12 @@
                         </tbody>
                     </table>
                 }
+                </div>
             </div>
 
-            <div class="rp-sec">
+            <div class="rp-sec rp-dom rp-first" data-dom="dich-vu">
                 <h3>5. Dịch vụ bán chạy</h3>
+                <div class="rp-note">Doanh thu dịch vụ tính trên đơn không hủy: @tien(rpDv.DoanhThu), trong đó từ đơn hoàn thành: @tien(rpDv.DoanhThuHoanThanh). Bảng dưới là nhóm dịch vụ bán chạy.</div>
                 @if (Model.DichVuPhoBien.Count == 0)
                 {
                     <div class="rp-note">Chưa có dữ liệu.</div>
@@ -1688,19 +1816,61 @@
                     </table>
                 }
             </div>
-
-            <div class="rp-sec">
-                <h3>6. Phân tích &amp; nhận định</h3>
-                <ul class="rp-list">
-                    @foreach (var y in phanTich)
-                    {
-                        <li>@y</li>
-                    }
-                </ul>
+            <div class="rp-sec rp-dom rp-first" data-dom="khach-hang">
+                <h3>6. Khách hàng</h3>
+                <table class="rp-table">
+                    <thead><tr><th>Chỉ số</th><th class="r">Giá trị</th></tr></thead>
+                    <tbody>
+                        <tr><td>Khách có đặt sân trong kỳ</td><td class="r">@(rpKh.KhachCoDon)/@(rpKh.TongKhachHang)</td></tr>
+                        <tr><td>Tỷ lệ tái đặt (từ 2 đơn không hủy)</td><td class="r">@(rpKh.TyLeQuayLai.ToString("0.#", rpVi))% (@(rpKh.KhachQuayLai) khách)</td></tr>
+                        <tr><td>Tài khoản đăng ký mới</td><td class="r">@(rpKh.TongKhachMoi)</td></tr>
+                        <tr><td>Khách có đơn đầu tiên trong kỳ</td><td class="r">@(rpKh.KhachMoiThucSu)</td></tr>
+                        <tr><td>Khách có nguy cơ rời bỏ</td><td class="r">@(rpKh.SoKhachNguyCo)</td></tr>
+                    </tbody>
+                </table>
+                <h4>Khách hàng giá trị nhất (theo doanh thu đơn hoàn thành)</h4>
+                @if (rpKh.TopDoanhThu.Count == 0)
+                {
+                    <div class="rp-note">Chưa có đơn hoàn thành trong kỳ.</div>
+                }
+                else
+                {
+                    <table class="rp-table">
+                        <thead><tr><th>#</th><th>Khách hàng</th><th>Hạng</th><th class="r">Số đơn</th><th class="r">Tổng chi tiêu</th></tr></thead>
+                        <tbody>
+                            @{ int kti = 0; }
+                            @foreach (var kt in rpKh.TopDoanhThu.Take(5))
+                            {
+                                kti++;
+                                <tr><td>@kti</td><td>@kt.HoTen</td><td>@kt.Hang</td><td class="r">@kt.SoLuot</td><td class="r">@tien(kt.DoanhThu)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             </div>
 
+            @if (Model.DonHuy.Count > 0)
+            {
+                <div class="rp-sec rp-full">
+                    <h3>Phụ lục: Danh sách đơn bị hủy</h3>
+                    <table class="rp-table">
+                        <thead><tr><th>Mã đơn</th><th>Sân</th><th>Ngày đặt</th><th>Giờ thuê</th><th class="r">Đơn giá</th></tr></thead>
+                        <tbody>
+                            @foreach (var dh in Model.DonHuy.Take(30))
+                            {
+                                <tr><td>#@dh.MaDatSan</td><td>@dh.TenSan</td><td>@dh.NgayDat.ToString("dd/MM/yyyy", inv)</td><td>@dh.GioBatDau.ToString("HH:mm", inv) - @dh.GioKetThuc.ToString("HH:mm", inv)</td><td class="r">@tien(dh.DonGia)</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (Model.SoLuotHuy > 30)
+                    {
+                        <div class="rp-note">Chỉ liệt kê 30 đơn hủy gần nhất trong tổng @Model.SoLuotHuy đơn.</div>
+                    }
+                </div>
+            }
+
             <div class="rp-foot">
-                <span>Doanh thu chỉ tính đơn hoàn thành; lượt đặt theo khung giờ và theo sân không tính đơn hủy.</span>
+                <span>Doanh thu ghi nhận chỉ tính đơn hoàn thành; giá trị dịch vụ tính trên đơn không hủy (gồm đơn chờ / đang xử lý); tỷ lệ khai thác = giờ đã đặt ÷ giờ khả dụng đến thời điểm lập; lượt đặt không tính đơn hủy.</span>
                 <span>Lập lúc @DateTime.Now.ToString("HH:mm dd/MM/yyyy", inv)</span>
             </div>
         </div>
@@ -1820,8 +1990,18 @@
         });
 
         // ----- Xuất báo cáo -----
-        var pdfBtn = document.getElementById('tk-export-pdf');
-        if (pdfBtn) pdfBtn.addEventListener('click', function () { window.print(); });
+        // In / lưu PDF theo chế độ: tong-hop | chuyen-de | toan-bo
+        function doPdf(mode, dom) {
+            var r = document.getElementById('tk-report');
+            if (!r) return;
+            r.setAttribute('data-mode', mode);
+            [].slice.call(r.querySelectorAll('.rp-ov')).forEach(function (el) { el.hidden = (mode === 'chuyen-de'); });
+            [].slice.call(r.querySelectorAll('.rp-dom')).forEach(function (el) {
+                el.hidden = !(mode === 'toan-bo' || el.getAttribute('data-dom') === dom);
+            });
+            [].slice.call(r.querySelectorAll('.rp-full')).forEach(function (el) { el.hidden = (mode !== 'toan-bo'); });
+            window.print();
+        }
 
         // Khi in / lưu PDF: tiêu đề trình duyệt (và tên file PDF) là "Báo cáo tuần ..." thay vì tên trang
         var goc = document.title;
@@ -2252,7 +2432,8 @@
         // XLSX-END
 
         // ===== Dựng nội dung từng tab (dữ liệu thô do server nhúng trong trang) =====
-        function buildSheets(d, S) {
+        function buildSheets(d, S, opt) {
+            opt = opt || { mode: 'toan-bo', dom: 'doanh-thu' };
             var sheets = [];
             var xuatLuc = new Date().toLocaleString('vi-VN');
             var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -2319,6 +2500,7 @@
             section(s1, S, rn1, 2, 18, 'Nhận định nhanh');
             d.phanTich.forEach(function (t, i) { para(s1, S, rn1 + 1 + i, 2, 18, '• ' + t, 'para'); });
             para(s1, S, rn1 + d.phanTich.length + 2, 2, 18, 'Doanh thu chỉ tính đơn hoàn thành; lượt đặt không tính đơn hủy.', 'note');
+            s1.dom = 'doanh-thu';
             sheets.push(s1);
 
             // ================= TAB 2: HIỆU SUẤT SÂN =================
@@ -2374,6 +2556,7 @@
                     return { f: 'IF(' + L[1] + rn + '=0,0,' + L[2] + rn + '/' + L[1] + rn + ')', v: so ? luot / so : 0 };
                 } }
             ], d.khaiThac.map(function (x) { return [x.ten, x.soSan, x.luot, 0]; }), { total: true });
+            s2.dom = 'hieu-suat';
             sheets.push(s2);
 
             // ================= TAB 3: DỊCH VỤ =================
@@ -2382,7 +2565,7 @@
             var dv = d.dichVu, tongDv = dv.reduce(function (a, x) { return a + x.tien; }, 0), tongSl = dv.reduce(function (a, x) { return a + x.soLuong; }, 0);
             var dvTop = dv.length ? dv.reduce(function (a, x) { return x.soLuong > a.soLuong ? x : a; }, dv[0]) : null;
             var dvTien = dv.length ? dv.reduce(function (a, x) { return x.tien > a.tien ? x : a; }, dv[0]) : null;
-            card(s3, S, 4, 2, 5, 'DOANH THU DỊCH VỤ', { v: tongDv, fmt: FM.moneyZ }, { t: d.doanhThu > 0 ? vnPct(ratio(tongDv, d.doanhThu)) + ' tổng doanh thu kỳ' : 'Chưa có doanh thu' });
+            card(s3, S, 4, 2, 5, 'DOANH THU DỊCH VỤ', { v: d.dvTong.doanhThu, fmt: FM.moneyZ }, { t: 'Đơn không hủy · hoàn thành: ' + vnMoney(d.dvTong.doanhThuHT) });
             card(s3, S, 4, 6, 9, 'TỔNG SỐ LƯỢNG', { v: tongSl, fmt: FM.intZ }, { t: 'Top ' + dv.length + ' dịch vụ' });
             card(s3, S, 4, 11, 14, 'DÙNG NHIỀU NHẤT', { text: dvTop ? dvTop.ten : '–', sz: 14 }, { t: dvTop ? dvTop.soLuong + ' lượt sử dụng' : 'Chưa có dữ liệu' });
             card(s3, S, 4, 15, 18, 'DOANH THU CAO NHẤT', { text: dvTien ? dvTien.ten : '–', sz: 14 }, { t: dvTien ? vnMoney(dvTien.tien) : 'Chưa có dữ liệu' });
@@ -2405,7 +2588,27 @@
                 emptyChart(s3, S, 9, 23, 2, 9, 'Chưa có doanh thu dịch vụ trong kỳ này');
                 emptyChart(s3, S, 9, 23, 11, 18, 'Chưa có doanh thu dịch vụ trong kỳ này');
             }
+            s3.dom = 'dich-vu';
             sheets.push(s3);
+
+            // ================= TAB: KHÁCH HÀNG =================
+            var kh = d.khach;
+            var s5 = new Sheet('Khách hàng', '8B5CF6');
+            s5.dom = 'khach-hang';
+            banner(s5, S, 'THỐNG KÊ ĐẶT SÂN  ·  KHÁCH HÀNG', sub);
+            card(s5, S, 4, 2, 5, 'KHÁCH CÓ ĐẶT SÂN', { v: kh.coDon, fmt: FM.intZ }, { t: 'Trên tổng ' + kh.tong + ' khách hàng' });
+            card(s5, S, 4, 6, 9, 'TỶ LỆ TÁI ĐẶT', { v: kh.tyLeQuayLai / 100, fmt: FM.pctZ }, { t: kh.quayLai + ' / ' + kh.coDon + ' khách có đặt sân' });
+            card(s5, S, 4, 11, 14, 'TÀI KHOẢN MỚI', { v: kh.moi, fmt: FM.intZ }, { t: kh.moiThucSu + ' khách có đơn đầu tiên trong kỳ' });
+            card(s5, S, 4, 15, 18, 'NGUY CƠ RỜI BỎ', { v: kh.nguyCo, fmt: FM.intZ, color: kh.nguyCo > 0 ? P.orange : P.dark }, { t: 'Chưa quay lại quá ' + kh.nguongNgay + ' ngày' });
+            s5.hts[7] = 12;
+            section(s5, S, 8, 2, 18, 'Khách hàng giá trị nhất (doanh thu đơn hoàn thành)');
+            var t7 = table(s5, S, 9, 2, [
+                { h: 'Hạng', t: 'center', span: 1 }, { h: 'Khách hàng', t: 'text', span: 5 },
+                { h: 'Hạng thành viên', t: 'center', span: 3 }, { h: 'Số đơn', t: 'int', span: 2, total: 'sum' },
+                { h: 'Tổng chi tiêu', t: 'money', span: 3, total: 'sum' }, { h: 'Tỷ trọng', t: 'pct', span: 3, share: 4 }
+            ], kh.top.map(function (x, i) { return ['#' + (i + 1), x.ten, x.hang, x.don, x.tien, 0]; }), { total: true });
+            para(s5, S, t7.end + 1, 2, 18, 'Tỷ trọng tính trong nhóm top khách hiển thị; số đơn không tính đơn hủy.', 'note');
+            sheets.push(s5);
 
             // ================= TAB 4: ĐƠN HỦY (chỉ khi có) =================
             if (d.donHuy.length) {
@@ -2424,8 +2627,50 @@
                     { h: 'Đơn giá', t: 'money', span: 3, total: 'sum' }
                 ], d.donHuy.map(function (x) { return ['#' + x.ma, x.san, excelDate(x.ngayDat), x.gio, x.donGia]; }), { total: true });
                 if (d.thatThoatCat) para(s4, S, t6.end + 1, 2, 18, 'Danh sách đã bị cắt bớt: tổng tiền chỉ là mức tối thiểu so với tổng ' + d.luotHuy + ' đơn hủy.', 'note');
+                s4.dom = 'chi-tiet';
                 sheets.push(s4);
             }
+            // ================= TỔNG QUAN ĐIỀU HÀNH =================
+            var hsd = d.hieuSuat, dvt = d.dvTong;
+            var r1 = function (x) { return (Math.round(x * 10) / 10).toLocaleString('vi-VN'); };
+            var s0 = new Sheet('Tổng quan', P.dark);
+            s0.dom = 'tong-quan';
+            banner(s0, S, 'THỐNG KÊ ĐẶT SÂN  ·  TỔNG QUAN ĐIỀU HÀNH', sub);
+            card(s0, S, 4, 2, 5, 'DOANH THU HOÀN THÀNH', { v: d.doanhThu, fmt: FM.moneyZ }, delta(d.doanhThu, d.doanhThuTruoc));
+            card(s0, S, 4, 6, 9, 'TỶ LỆ KHAI THÁC SÂN', { v: hsd.tyLe / 100, fmt: FM.pctZ }, { t: r1(hsd.gioDat) + ' / ' + r1(hsd.gioKhaDung) + ' giờ khả dụng' });
+            card(s0, S, 4, 11, 14, 'ĐƠN CÓ DỊCH VỤ', { text: dvt.donCo + ' / ' + dvt.tongDon, sz: 20 }, { t: vnPct(ratio(dvt.donCo, dvt.tongDon)) + ' đơn hợp lệ' });
+            card(s0, S, 4, 15, 18, 'KHÁCH CÓ ĐẶT SÂN', { text: kh.coDon + ' / ' + kh.tong, sz: 20 }, { t: 'Tái đặt ' + vnPct(kh.tyLeQuayLai / 100) });
+            s0.hts[7] = 12;
+            section(s0, S, 8, 2, 18, 'Tình hình 4 lĩnh vực');
+            var t0 = table(s0, S, 9, 2, [
+                { h: 'Lĩnh vực', t: 'text', span: 3 }, { h: 'Chỉ số', t: 'text', span: 5 },
+                { h: 'Giá trị', t: 'center', span: 3 }, { h: 'Ghi chú', t: 'text', span: 6 }
+            ], [
+                ['Doanh thu', 'Doanh thu đơn hoàn thành', vnMoney(d.doanhThu), d.donHoanThanh + ' đơn hoàn thành'],
+                ['Doanh thu', 'Tỷ lệ hủy đơn', vnPct(tyHuy), d.luotHuy + ' / ' + d.luotDat + ' đơn'],
+                ['Hiệu suất sân', 'Tỷ lệ khai thác', vnPct(hsd.tyLe / 100), r1(hsd.gioDat) + ' giờ đã đặt / ' + r1(hsd.gioKhaDung) + ' giờ khả dụng'],
+                ['Hiệu suất sân', 'Giờ sân còn trống', r1(hsd.gioTrong) + ' giờ', hsd.sanHoatDong + ' / ' + hsd.sanKhaDung + ' sân có phát sinh đặt'],
+                ['Dịch vụ', 'Doanh thu dịch vụ (đơn không hủy)', vnMoney(dvt.doanhThu), 'Trong đó đơn hoàn thành: ' + vnMoney(dvt.doanhThuHT)],
+                ['Dịch vụ', 'Đơn có sử dụng dịch vụ', dvt.donCo + ' / ' + dvt.tongDon, vnPct(ratio(dvt.donCo, dvt.tongDon)) + ' đơn hợp lệ'],
+                ['Khách hàng', 'Khách có đặt sân', kh.coDon + ' / ' + kh.tong, 'Tài khoản mới: ' + kh.moi],
+                ['Khách hàng', 'Tỷ lệ tái đặt', vnPct(kh.tyLeQuayLai / 100), kh.quayLai + ' khách đặt từ 2 đơn'],
+                ['Khách hàng', 'Khách có nguy cơ rời bỏ', String(kh.nguyCo), 'Chưa quay lại quá ' + kh.nguongNgay + ' ngày']
+            ], {});
+            var rn0 = t0.end + 2;
+            section(s0, S, rn0, 2, 18, 'Nhận định nhanh');
+            d.phanTich.forEach(function (t, i) { para(s0, S, rn0 + 1 + i, 2, 18, '• ' + t, 'para'); });
+            var rn1 = rn0 + d.phanTich.length + 2;
+            section(s0, S, rn1, 2, 18, 'Định nghĩa số liệu');
+            [
+                'Doanh thu đã ghi nhận: chỉ tính đơn hoàn thành.',
+                'Giá trị dịch vụ: tính trên đơn không hủy (gồm đơn chờ / đang xử lý), tách riêng phần của đơn hoàn thành.',
+                'Tỷ lệ khai thác: giờ đã đặt ÷ giờ khả dụng của sân đang hoạt động, tính đến thời điểm xuất báo cáo.'
+            ].forEach(function (t, i) { para(s0, S, rn1 + 1 + i, 2, 18, '• ' + t, 'para'); });
+            sheets.unshift(s0);
+
+            // Lọc sheet theo phạm vi nội dung đã chọn
+            if (opt.mode === 'chuyen-de') return sheets.filter(function (sh) { return sh.dom === opt.dom; });
+            if (opt.mode === 'tong-hop') return sheets.filter(function (sh) { return sh.dom === 'tong-quan' || sh.dom === opt.dom; });
             return sheets;
         }
 
@@ -2435,15 +2680,14 @@
             return Math.round(Date.UTC(+p[0], +p[1] - 1, +p[2]) / 86400000) + 25569;
         }
 
-        var xlsxBtn = document.getElementById('tk-export-csv');
-        if (xlsxBtn) xlsxBtn.addEventListener('click', function () {
+        function doXlsx(mode, dom) {
             try {
                 var d = JSON.parse(document.getElementById('tk-export-data').textContent);
                 var S = styleReg();
-                var blob = new Blob(buildXlsx(buildSheets(d, S), S), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                var blob = new Blob(buildXlsx(buildSheets(d, S, { mode: mode, dom: dom }), S), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 var a = document.createElement('a');
                 a.href = URL.createObjectURL(blob);
-                a.download = 'thong-ke-dat-san_' + d.tuISO + '_' + d.denISO + '.xlsx';
+                a.download = 'thong-ke-dat-san_' + d.tuISO + '_' + d.denISO + '_' + mode + (mode === 'chuyen-de' ? '-' + dom : '') + '.xlsx';
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -2452,7 +2696,51 @@
                 console.error(err);
                 alert('Không thể xuất file Excel: ' + (err && err.message ? err.message : err));
             }
-        });
+        }
+
+        // ----- Hộp thoại "Tùy chỉnh báo cáo thống kê" (dùng chung cho PDF và Excel) -----
+        var xdlg = document.getElementById('tk-export');
+        if (xdlg) {
+            var DOM_NAME = { 'doanh-thu': 'Doanh thu', 'hieu-suat': 'Hiệu suất sân', 'dich-vu': 'Dịch vụ', 'khach-hang': 'Khách hàng' };
+            var xFmt = 'pdf';
+            var xSel = document.getElementById('tk-xd-dom');
+            var xCur = document.getElementById('tk-xd-cur');
+            var xBtns = [].slice.call(xdlg.querySelectorAll('[data-xf]'));
+            var xRadios = [].slice.call(xdlg.querySelectorAll('input[name="tk-xd-mode"]'));
+
+            function setFmt(f) {
+                xFmt = f;
+                xBtns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-xf') === f); });
+            }
+            function openX(f) {
+                setFmt(f);
+                if (xSel) xSel.value = current;
+                if (xCur) xCur.textContent = DOM_NAME[current] || '';
+                if (xdlg.showModal) xdlg.showModal(); else xdlg.setAttribute('open', '');
+            }
+            function closeX() {
+                if (xdlg.close) xdlg.close(); else xdlg.removeAttribute('open');
+            }
+
+            var bPdf = document.getElementById('tk-export-pdf');
+            var bXls = document.getElementById('tk-export-csv');
+            if (bPdf) bPdf.addEventListener('click', function () { openX('pdf'); });
+            if (bXls) bXls.addEventListener('click', function () { openX('xlsx'); });
+            xBtns.forEach(function (b) { b.addEventListener('click', function () { setFmt(b.getAttribute('data-xf')); }); });
+            [].slice.call(xdlg.querySelectorAll('[data-close]')).forEach(function (b) { b.addEventListener('click', closeX); });
+            xdlg.addEventListener('click', function (e) { if (e.target === xdlg) closeX(); });
+            if (xSel) xSel.addEventListener('change', function () {
+                xRadios.forEach(function (r) { r.checked = (r.value === 'chuyen-de'); });
+            });
+
+            document.getElementById('tk-xd-go').addEventListener('click', function () {
+                var mode = 'tong-hop';
+                xRadios.forEach(function (r) { if (r.checked) mode = r.value; });
+                var dom = mode === 'chuyen-de' && xSel ? xSel.value : current;
+                closeX();
+                setTimeout(function () { if (xFmt === 'pdf') doPdf(mode, dom); else doXlsx(mode, dom); }, 120);
+            });
+        }
 
         // ----- Cửa sổ danh sách đơn hủy -----
         var dlg = document.getElementById('tk-huy');
