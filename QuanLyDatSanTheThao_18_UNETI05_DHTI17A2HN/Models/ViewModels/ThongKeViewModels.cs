@@ -115,6 +115,96 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 
         // Tab "Khách hàng"
         public ThongKeKhachHangViewModel KhachHang { get; set; } = new();
+
+        // Tab "Hiệu suất sân" (tỷ lệ khai thác theo giờ sân)
+        public HieuSuatSanViewModel HieuSuat { get; set; } = new();
+    }
+
+    // ================== TAB HIỆU SUẤT SÂN ==================
+
+    // Một điểm trên biểu đồ xu hướng khai thác (ngày / tuần / tháng)
+    public class HieuSuatCotItem
+    {
+        public string Ten { get; set; } = "";
+        public double? TyLe { get; set; }            // null = cột chưa có giờ nào đã diễn ra
+        public double? TyLeTruoc { get; set; }       // cột tương ứng của kỳ trước (null = không có)
+        public double GioDat { get; set; }
+        public double GioKhaDung { get; set; }
+    }
+
+    // Một ô của bản đồ nhiệt (thứ x giờ)
+    public class HeatOItem
+    {
+        public double GioDat { get; set; }
+        public double GioKhaDung { get; set; }       // 0 = ngoài giờ kinh doanh hoặc chưa diễn ra
+        public int Luot { get; set; }                // số đơn bắt đầu trong khung giờ này
+        public double? TyLe { get; set; }            // null khi GioKhaDung = 0
+    }
+
+    public class HeatHangItem
+    {
+        public string Ten { get; set; } = "";        // Thứ 2 ... Chủ nhật
+        public List<HeatOItem> O { get; set; } = new();   // từ GioMo đến GioDong - 1
+    }
+
+    public class HieuSuatLoaiItem
+    {
+        public string Ten { get; set; } = "";
+        public int SoSan { get; set; }
+        public double GioDat { get; set; }
+        public double GioKhaDung { get; set; }
+        public double TyLe { get; set; }
+        public int Luot { get; set; }
+    }
+
+    public class HieuSuatSanItem
+    {
+        public int MaSan { get; set; }
+        public string Ten { get; set; } = "";
+        public string TenLoai { get; set; } = "";
+        public double GioDat { get; set; }
+        public double GioKhaDung { get; set; }
+        public double TyLe { get; set; }
+        public int Luot { get; set; }
+    }
+
+    // Một mốc thời gian so sánh (lũy kế kỳ đang xem / tháng này / 7 ngày gần nhất)
+    public class HieuSuatMocItem
+    {
+        public string Nhan { get; set; } = "";
+        public DateTime Tu { get; set; }
+        public DateTime Den { get; set; }
+        public double GioDat { get; set; }
+        public double GioKhaDung { get; set; }
+        public bool CoCongSuat { get; set; }         // false = chưa có giờ nào đã diễn ra
+        public double TyLe { get; set; }
+    }
+
+    public class HieuSuatSanViewModel
+    {
+        public int GioMo { get; set; }
+        public int GioDong { get; set; }
+        public int SoNgay { get; set; }
+        public int SoSanKhaDung { get; set; }        // chỉ sân đang ở trạng thái khả dụng
+        public int SoSanCoHoatDong { get; set; }     // sân có ít nhất 1 lượt đặt trong kỳ
+
+        public double GioKhaDung { get; set; }       // tổng giờ có thể kinh doanh (đã diễn ra) của mọi sân
+        public double GioDaDat { get; set; }         // tổng giờ sân đã đặt (không tính đơn hủy)
+        public double TyLeKhaiThac { get; set; }     // GioDaDat / GioKhaDung (%)
+        public double GioTrong => Math.Max(0, GioKhaDung - GioDaDat);
+
+        public bool CoKyTruoc { get; set; }          // kỳ trước có giờ đặt để so sánh
+        public double TyLeKyTruoc { get; set; }
+        public double GioDaDatTruoc { get; set; }
+
+        public int SoLuotDat { get; set; }           // số đơn không hủy bắt đầu trong kỳ
+        public double LuotTbSanNgay { get; set; }    // SoLuotDat / (số sân x số ngày)
+
+        public List<HieuSuatMocItem> Moc { get; set; } = new();
+        public List<HieuSuatCotItem> XuHuong { get; set; } = new();
+        public List<HeatHangItem> Heatmap { get; set; } = new();
+        public List<HieuSuatLoaiItem> Loai { get; set; } = new();
+        public List<HieuSuatSanItem> San { get; set; } = new();
     }
 
     // ================== TAB KHÁCH HÀNG ==================

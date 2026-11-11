@@ -108,7 +108,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== THỐNG KÊ LINQ ==================
-        // kieu: homnay | tuannay | thangnay | quynay | nam | tuychon
+        // kieu: homnay | 7ngay | 30ngay | tuannay | thangnay | thangtruoc | quynay | nam | tuychon
         [AuthorizeRole("Admin")]
         public async Task<IActionResult> ThongKe(string? kieu, int? nam, DateTime? tu, DateTime? den)
         {
@@ -137,6 +137,18 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     int quy = (homNay.Month - 1) / 3;
                     tuNgay = new DateTime(homNay.Year, quy * 3 + 1, 1);
                     denNgay = tuNgay.AddMonths(3).AddDays(-1);
+                    break;
+                case "7ngay":   // 7 ngày gần nhất (gồm hôm nay)
+                    denNgay = homNay;
+                    tuNgay = homNay.AddDays(-6);
+                    break;
+                case "30ngay":  // 30 ngày gần nhất (gồm hôm nay)
+                    denNgay = homNay;
+                    tuNgay = homNay.AddDays(-29);
+                    break;
+                case "thangtruoc":
+                    tuNgay = new DateTime(homNay.Year, homNay.Month, 1).AddMonths(-1);
+                    denNgay = tuNgay.AddMonths(1).AddDays(-1);
                     break;
                 case "tuychon":
                     tuNgay = (tu ?? homNay).Date;
@@ -421,7 +433,306 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Tab "Khách hàng" (xem partial _ThongKeKhachHang.cshtml)
             vm.KhachHang = await TinhThongKeKhachHangAsync(datTrongKy, datKyTruoc, tuNgay, denNgay, tuTruoc, denTruoc, vm.DonViBieuDo);
 
+            // Tab "Hiệu suất sân" (xem partial _ThongKeHieuSuat.cshtml)
+            vm.HieuSuat = await TinhHieuSuatSanAsync(tuNgay, denNgay, tuTruoc, denTruoc, vm.DonViBieuDo);
+
             return View(vm);
+        }
+
+        // ================== HIỆU SUẤT SÂN ==================
+        // Giờ kinh doanh áp dụng cho mọi sân. Đổi hai hằng số này nếu cơ sở mở cửa khác giờ.
+        // (Nếu sau này có giờ mở cửa riêng cho từng sân thì thay trong SoGioDaQua / TachSlot.)
+        private const int GIO_MO_CUA = 6;
+        private const int GIO_DONG_CUA = 22;
+
+        // Hiệu suất tính theo NGÀY SỬ DỤNG sân (GioBatDau), không theo ngày tạo đơn, vì công suất là của ngày diễn ra.
+        private sealed class DonGio
+        {
+            public int MaSan { get; set; }
+            public DateTime GioBatDau { get; set; }
+            public DateTime GioKetThuc { get; set; }
+        }
+
+        private readonly record struct SlotDat(int MaSan, DateTime Ngay, int Gio, double SoGio);
+
+        // Khung giờ đã trôi qua hoàn toàn (chưa tính giờ hiện tại và các giờ sắp tới của hôm nay)
+        private static bool SlotDaQua(DateTime ngay, int gio, DateTime bay)
+            => ngay.Date < bay.Date || (ngay.Date == bay.Date && gio < bay.Hour);
+
+        // Số giờ kinh doanh đã diễn ra của MỘT sân trong một ngày
+        private static int SoGioDaQua(DateTime ngay, DateTime bay)
+        {
+            int dem = 0;
+            for (int g = GIO_MO_CUA; g < GIO_DONG_CUA; g++)
+                if (SlotDaQua(ngay, g, bay)) dem++;
+            return dem;
+        }
+
+        private async Task<List<DonGio>> LayDonGioAsync(DateTime tu, DateTime den)
+        {
+            var denLoaiTru = den.AddDays(1);
+            return await _thongKeRepository.LayDatSans().AsNoTracking()
+                .Where(d => d.TrangThai != HUY && d.GioBatDau >= tu && d.GioBatDau < denLoaiTru)
+                .Select(d => new DonGio { MaSan = d.MaSan, GioBatDau = d.GioBatDau, GioKetThuc = d.GioKetThuc })
+                .ToListAsync();
+        }
+
+        // Tách mỗi đơn thành các phần theo từng giờ: đơn 17:30-19:00 => 17h (0,5), 18h (1).
+        // Chỉ giữ phần nằm trong giờ kinh doanh và đã diễn ra, để tử số luôn khớp với mẫu số.
+        private static List<SlotDat> TachSlot(IEnumerable<DonGio> dons, HashSet<int> sanHopLe,
+                                              DateTime tu, DateTime den, DateTime bay)
+        {
+            var kq = new List<SlotDat>();
+            foreach (var d in dons)
+            {
+                if (!sanHopLe.Contains(d.MaSan)) continue;
+                var cur = d.GioBatDau;
+                int chan = 0;
+                while (cur < d.GioKetThuc && chan++ < 72)
+                {
+                    var dauGio = new DateTime(cur.Year, cur.Month, cur.Day, cur.Hour, 0, 0);
+                    var cuoiGio = dauGio.AddHours(1);
+                    var diem = d.GioKetThuc < cuoiGio ? d.GioKetThuc : cuoiGio;
+                    var ngay = dauGio.Date;
+                    if (ngay >= tu.Date && ngay <= den.Date
+                        && dauGio.Hour >= GIO_MO_CUA && dauGio.Hour < GIO_DONG_CUA
+                        && SlotDaQua(ngay, dauGio.Hour, bay))
+                    {
+                        kq.Add(new SlotDat(d.MaSan, ngay, dauGio.Hour, (diem - cur).TotalHours));
+                    }
+                    cur = diem;
+                }
+            }
+            return kq;
+        }
+
+        // Chia kỳ thành các cột [Tu, Den) theo ngày / tuần / tháng (giống biểu đồ doanh thu)
+        private static List<(string Ten, DateTime Tu, DateTime Den)> TaoCotThoiGian(DateTime tuNgay, DateTime denNgay, string donVi)
+        {
+            var cot = new List<(string, DateTime, DateTime)>();
+            var denLoaiTru = denNgay.AddDays(1);
+            int soNgay = (denNgay - tuNgay).Days + 1;
+            if (donVi == "ngày")
+            {
+                for (int i = 0; i < soNgay; i++)
+                {
+                    var bd = tuNgay.AddDays(i);
+                    cot.Add((bd.ToString("dd/MM"), bd, bd.AddDays(1)));
+                }
+            }
+            else if (donVi == "tuần")
+            {
+                int soCot = (int)Math.Ceiling(soNgay / 7.0);
+                for (int i = 0; i < soCot; i++)
+                {
+                    var bd = tuNgay.AddDays(i * 7);
+                    var kt = bd.AddDays(7);
+                    if (kt > denLoaiTru) kt = denLoaiTru;
+                    cot.Add((bd.ToString("dd/MM"), bd, kt));
+                }
+            }
+            else
+            {
+                var thangDau = new DateTime(tuNgay.Year, tuNgay.Month, 1);
+                int soThang = (denNgay.Year - tuNgay.Year) * 12 + denNgay.Month - tuNgay.Month + 1;
+                bool cungNam = tuNgay.Year == denNgay.Year;
+                for (int i = 0; i < soThang; i++)
+                {
+                    var dauThang = thangDau.AddMonths(i);
+                    var cuoiThang = dauThang.AddMonths(1);
+                    var bd = dauThang < tuNgay ? tuNgay : dauThang;
+                    var kt = cuoiThang > denLoaiTru ? denLoaiTru : cuoiThang;
+                    cot.Add((cungNam ? $"T{dauThang.Month}" : $"T{dauThang.Month}/{dauThang.Year}", bd, kt));
+                }
+            }
+            return cot;
+        }
+
+        private async Task<HieuSuatSanViewModel> TinhHieuSuatSanAsync(
+            DateTime tuNgay, DateTime denNgay, DateTime tuTruoc, DateTime denTruoc, string donVi)
+        {
+            var bay = DateTime.UtcNow.AddHours(7);
+            int soNgay = (denNgay - tuNgay).Days + 1;
+            const int soCotGio = GIO_DONG_CUA - GIO_MO_CUA;
+
+            var vm = new HieuSuatSanViewModel { GioMo = GIO_MO_CUA, GioDong = GIO_DONG_CUA, SoNgay = soNgay };
+
+            // Chỉ tính sân đang khả dụng: sân tạm ngưng/bảo trì không được coi là công suất có thể bán
+            var sans = await _thongKeRepository.LaySanTheThaos().AsNoTracking()
+                .Where(s => s.TrangThai == SAN_KHA_DUNG)
+                .Select(s => new { s.MaSan, s.TenSan, TenLoai = s.LoaiSan!.TenLoai })
+                .ToListAsync();
+            int nSan = sans.Count;
+            vm.SoSanKhaDung = nSan;
+            var hopLe = sans.Select(s => s.MaSan).ToHashSet();
+
+            // ----- Kỳ này -----
+            var donKy = (await LayDonGioAsync(tuNgay, denNgay)).Where(d => hopLe.Contains(d.MaSan)).ToList();
+            var slots = TachSlot(donKy, hopLe, tuNgay, denNgay, bay);
+
+            double gioMoiSan = 0;                         // giờ kinh doanh đã diễn ra của 1 sân trong cả kỳ
+            for (var n = tuNgay.Date; n <= denNgay.Date; n = n.AddDays(1))
+                gioMoiSan += SoGioDaQua(n, bay);
+
+            vm.GioKhaDung = gioMoiSan * nSan;
+            vm.GioDaDat = slots.Sum(s => s.SoGio);
+            vm.TyLeKhaiThac = vm.GioKhaDung > 0 ? Math.Round(Math.Min(vm.GioDaDat / vm.GioKhaDung, 1) * 100, 2) : 0;
+            vm.SoLuotDat = donKy.Count;
+            vm.LuotTbSanNgay = nSan == 0 || soNgay == 0 ? 0 : Math.Round(donKy.Count / (double)(nSan * soNgay), 2);
+
+            // ----- Kỳ trước (cùng cách tính để so sánh công bằng) -----
+            var donTruoc = (await LayDonGioAsync(tuTruoc, denTruoc)).Where(d => hopLe.Contains(d.MaSan)).ToList();
+            var slotsTruoc = TachSlot(donTruoc, hopLe, tuTruoc, denTruoc, bay);
+            double gioMoiSanTruoc = 0;
+            for (var n = tuTruoc.Date; n <= denTruoc.Date; n = n.AddDays(1))
+                gioMoiSanTruoc += SoGioDaQua(n, bay);
+            double capTruoc = gioMoiSanTruoc * nSan;
+            vm.GioDaDatTruoc = slotsTruoc.Sum(s => s.SoGio);
+            vm.CoKyTruoc = capTruoc > 0 && vm.GioDaDatTruoc > 0;
+            vm.TyLeKyTruoc = capTruoc > 0 ? Math.Round(Math.Min(vm.GioDaDatTruoc / capTruoc, 1) * 100, 2) : 0;
+
+            // ----- Xu hướng theo cột thời gian (kỳ này so với cột tương ứng của kỳ trước) -----
+            var datNgay = slots.GroupBy(s => s.Ngay).ToDictionary(g => g.Key, g => g.Sum(x => x.SoGio));
+            var datNgayTruoc = slotsTruoc.GroupBy(s => s.Ngay).ToDictionary(g => g.Key, g => g.Sum(x => x.SoGio));
+
+            (double Dat, double Cap) TongCot(DateTime tu, DateTime denLoaiTruCot, Dictionary<DateTime, double> theoNgay)
+            {
+                double dat = 0, cap = 0;
+                for (var n = tu.Date; n < denLoaiTruCot.Date; n = n.AddDays(1))
+                {
+                    cap += SoGioDaQua(n, bay) * (double)nSan;
+                    dat += theoNgay.GetValueOrDefault(n);
+                }
+                return (dat, cap);
+            }
+
+            var cotNay = TaoCotThoiGian(tuNgay, denNgay, donVi);
+            var cotTruoc = TaoCotThoiGian(tuTruoc, denTruoc, donVi);
+            for (int i = 0; i < cotNay.Count; i++)
+            {
+                var (dat, cap) = TongCot(cotNay[i].Tu, cotNay[i].Den, datNgay);
+                double? tyLeTruoc = null;
+                if (i < cotTruoc.Count)
+                {
+                    var (datT, capT) = TongCot(cotTruoc[i].Tu, cotTruoc[i].Den, datNgayTruoc);
+                    if (capT > 0) tyLeTruoc = Math.Round(Math.Min(datT / capT, 1) * 100, 2);
+                }
+                vm.XuHuong.Add(new HieuSuatCotItem
+                {
+                    Ten = cotNay[i].Ten,
+                    GioDat = Math.Round(dat, 1),
+                    GioKhaDung = cap,
+                    TyLe = cap > 0 ? Math.Round(Math.Min(dat / cap, 1) * 100, 2) : null,
+                    TyLeTruoc = tyLeTruoc
+                });
+            }
+
+            // ----- Bản đồ nhiệt: thứ trong tuần x giờ -----
+            var capO = new double[7, soCotGio];
+            var datO = new double[7, soCotGio];
+            var luotO = new int[7, soCotGio];
+            for (var n = tuNgay.Date; n <= denNgay.Date; n = n.AddDays(1))
+            {
+                int thu = ((int)n.DayOfWeek + 6) % 7;
+                for (int g = GIO_MO_CUA; g < GIO_DONG_CUA; g++)
+                    if (SlotDaQua(n, g, bay)) capO[thu, g - GIO_MO_CUA] += nSan;
+            }
+            foreach (var s in slots)
+                datO[((int)s.Ngay.DayOfWeek + 6) % 7, s.Gio - GIO_MO_CUA] += s.SoGio;
+            foreach (var d in donKy)
+            {
+                if (d.GioBatDau.Hour < GIO_MO_CUA || d.GioBatDau.Hour >= GIO_DONG_CUA) continue;
+                luotO[((int)d.GioBatDau.DayOfWeek + 6) % 7, d.GioBatDau.Hour - GIO_MO_CUA]++;
+            }
+            string[] tenThu = { "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật" };
+            for (int t = 0; t < 7; t++)
+            {
+                var hang = new HeatHangItem { Ten = tenThu[t] };
+                for (int g = 0; g < soCotGio; g++)
+                {
+                    hang.O.Add(new HeatOItem
+                    {
+                        GioDat = Math.Round(datO[t, g], 1),
+                        GioKhaDung = capO[t, g],
+                        Luot = luotO[t, g],
+                        TyLe = capO[t, g] > 0 ? Math.Round(Math.Min(datO[t, g] / capO[t, g], 1) * 100, 2) : null
+                    });
+                }
+                vm.Heatmap.Add(hang);
+            }
+
+            // ----- Từng sân -----
+            var gioTheoSan = slots.GroupBy(s => s.MaSan).ToDictionary(g => g.Key, g => g.Sum(x => x.SoGio));
+            var luotTheoSan = donKy.GroupBy(d => d.MaSan).ToDictionary(g => g.Key, g => g.Count());
+            vm.San = sans.Select(s =>
+            {
+                double dat = gioTheoSan.GetValueOrDefault(s.MaSan);
+                return new HieuSuatSanItem
+                {
+                    MaSan = s.MaSan,
+                    Ten = s.TenSan,
+                    TenLoai = s.TenLoai,
+                    GioDat = Math.Round(dat, 1),
+                    GioKhaDung = gioMoiSan,
+                    TyLe = gioMoiSan > 0 ? Math.Round(Math.Min(dat / gioMoiSan, 1) * 100, 2) : 0,
+                    Luot = luotTheoSan.GetValueOrDefault(s.MaSan)
+                };
+            })
+            .OrderByDescending(x => x.TyLe).ThenByDescending(x => x.GioDat).ThenBy(x => x.Ten)
+            .ToList();
+            vm.SoSanCoHoatDong = vm.San.Count(x => x.Luot > 0);
+
+            // ----- Theo loại sân (so sánh công bằng: giờ đặt / giờ khả dụng của tất cả sân trong loại) -----
+            vm.Loai = vm.San.GroupBy(s => s.TenLoai)
+                .Select(g =>
+                {
+                    double dat = g.Sum(x => x.GioDat);
+                    double cap = g.Sum(x => x.GioKhaDung);
+                    return new HieuSuatLoaiItem
+                    {
+                        Ten = g.Key,
+                        SoSan = g.Count(),
+                        GioDat = Math.Round(dat, 1),
+                        GioKhaDung = cap,
+                        TyLe = cap > 0 ? Math.Round(Math.Min(dat / cap, 1) * 100, 2) : 0,
+                        Luot = g.Sum(x => x.Luot)
+                    };
+                })
+                .OrderByDescending(x => x.TyLe).ThenByDescending(x => x.GioDat).ThenBy(x => x.Ten)
+                .ToList();
+
+            // ----- Ba mốc thời gian: lũy kế kỳ đang xem / tháng hiện tại / 7 ngày gần nhất -----
+            // Luôn tính độc lập với bộ lọc để chủ sân thấy cả bức tranh tổng thể lẫn tình hình gần đây.
+            var homNayVn = bay.Date;
+            var cacMoc = new (string Nhan, DateTime Tu, DateTime Den)[]
+            {
+                ("Lũy kế kỳ đang xem", tuNgay, denNgay),
+                ($"Tháng {homNayVn.Month} (từ đầu tháng)", new DateTime(homNayVn.Year, homNayVn.Month, 1), homNayVn),
+                ("7 ngày gần nhất", homNayVn.AddDays(-6), homNayVn)
+            };
+            var tuRong = cacMoc.Min(m => m.Tu);
+            var denRong = cacMoc.Max(m => m.Den);
+            var donRong = (await LayDonGioAsync(tuRong, denRong)).Where(d => hopLe.Contains(d.MaSan)).ToList();
+            foreach (var moc in cacMoc)
+            {
+                double gioMoiSanMoc = 0;
+                for (var n = moc.Tu.Date; n <= moc.Den.Date; n = n.AddDays(1))
+                    gioMoiSanMoc += SoGioDaQua(n, bay);
+                double capMoc = gioMoiSanMoc * nSan;
+                double datMoc = TachSlot(donRong, hopLe, moc.Tu, moc.Den, bay).Sum(x => x.SoGio);
+                vm.Moc.Add(new HieuSuatMocItem
+                {
+                    Nhan = moc.Nhan,
+                    Tu = moc.Tu,
+                    Den = moc.Den,
+                    GioDat = Math.Round(datMoc, 1),
+                    GioKhaDung = capMoc,
+                    CoCongSuat = capMoc > 0,
+                    TyLe = capMoc > 0 ? Math.Round(Math.Min(datMoc / capMoc, 1) * 100, 2) : 0
+                });
+            }
+
+            return vm;
         }
 
         // ================== THỐNG KÊ KHÁCH HÀNG ==================
