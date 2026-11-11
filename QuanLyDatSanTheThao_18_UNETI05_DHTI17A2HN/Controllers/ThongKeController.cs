@@ -436,6 +436,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // Tab "Hiệu suất sân" (xem partial _ThongKeHieuSuat.cshtml)
             vm.HieuSuat = await TinhHieuSuatSanAsync(tuNgay, denNgay, tuTruoc, denTruoc, vm.DonViBieuDo);
 
+            // Tab "Dịch vụ" (xem partial _ThongKeDichVu.cshtml)
+            vm.DichVu = await TinhDichVuAsync(datTrongKy, datKyTruoc, tuNgay, denNgay, tuTruoc, denTruoc, vm.DonViBieuDo);
+
             return View(vm);
         }
 
@@ -729,6 +732,113 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                     GioKhaDung = capMoc,
                     CoCongSuat = capMoc > 0,
                     TyLe = capMoc > 0 ? Math.Round(Math.Min(datMoc / capMoc, 1) * 100, 2) : 0
+                });
+            }
+
+            return vm;
+        }
+
+        // ================== THỐNG KÊ DỊCH VỤ ==================
+        // Một dòng chi tiết dịch vụ của đơn KHÔNG hủy (dùng chung cho kỳ này và kỳ trước).
+        private sealed class DongDichVu
+        {
+            public int MaDatSan { get; set; }
+            public DateTime NgayDat { get; set; }
+            public bool HoanThanh { get; set; }
+            public string Ten { get; set; } = "";
+            public int SoLuong { get; set; }
+            public decimal ThanhTien { get; set; }
+        }
+
+        private static Task<List<DongDichVu>> LayDongDichVuAsync(IQueryable<DatSan> q)
+        {
+            return q.Where(d => d.TrangThai != HUY)
+                .SelectMany(d => d.ChiTietDatSans.Select(c => new DongDichVu
+                {
+                    MaDatSan = d.MaDatSan,
+                    NgayDat = d.NgayDat,
+                    HoanThanh = d.TrangThai == HOAN_THANH,
+                    Ten = c.DichVu!.TenDichVu,
+                    SoLuong = c.SoLuong,
+                    ThanhTien = c.ThanhTien
+                }))
+                .ToListAsync();
+        }
+
+        // Cùng bộ lọc kỳ và cùng quy tắc loại đơn hủy với các tab khác.
+        // "Số đơn" luôn đếm đơn đặt sân riêng biệt, không đếm số dòng chi tiết.
+        private async Task<DichVuViewModel> TinhDichVuAsync(
+            IQueryable<DatSan> datTrongKy, IQueryable<DatSan> datKyTruoc,
+            DateTime tuNgay, DateTime denNgay, DateTime tuTruoc, DateTime denTruoc, string donVi)
+        {
+            var vm = new DichVuViewModel();
+
+            var dongNay = await LayDongDichVuAsync(datTrongKy);
+            var dongTruoc = await LayDongDichVuAsync(datKyTruoc);
+
+            vm.TongDonHopLe = await datTrongKy.CountAsync(d => d.TrangThai != HUY);
+            vm.DonCoDichVu = await datTrongKy.CountAsync(d => d.TrangThai != HUY && d.ChiTietDatSans.Any());
+            vm.TongDonHopLeTruoc = await datKyTruoc.CountAsync(d => d.TrangThai != HUY);
+            vm.DonCoDichVuTruoc = await datKyTruoc.CountAsync(d => d.TrangThai != HUY && d.ChiTietDatSans.Any());
+
+            vm.DoanhThu = dongNay.Sum(x => x.ThanhTien);
+            vm.SoLuong = dongNay.Sum(x => x.SoLuong);
+            vm.DoanhThuTruoc = dongTruoc.Sum(x => x.ThanhTien);
+            vm.SoLuongTruoc = dongTruoc.Sum(x => x.SoLuong);
+            vm.CoKyTruoc = dongTruoc.Count > 0;
+
+            // Tách rõ: giá trị dịch vụ trên đơn không hủy (DoanhThu) và phần đã hoàn thành (ghi nhận doanh thu)
+            vm.DoanhThuHoanThanh = dongNay.Where(x => x.HoanThanh).Sum(x => x.ThanhTien);
+            // Mẫu số của tỷ trọng: tiền sân của cùng tập đơn không hủy, cùng kỳ (cộng DonGia như tab Doanh thu)
+            vm.DoanhThuSanKhongHuy = await datTrongKy.Where(d => d.TrangThai != HUY)
+                .SumAsync(d => (decimal?)d.DonGia) ?? 0m;
+
+            // ----- Từng dịch vụ (kỳ này + kỳ trước) -----
+            var nay = dongNay.GroupBy(x => x.Ten).ToDictionary(
+                g => g.Key,
+                g => (SoLuong: g.Sum(x => x.SoLuong), SoDon: g.Select(x => x.MaDatSan).Distinct().Count(), Tien: g.Sum(x => x.ThanhTien)));
+            var truoc = dongTruoc.GroupBy(x => x.Ten).ToDictionary(
+                g => g.Key,
+                g => (SoLuong: g.Sum(x => x.SoLuong), Tien: g.Sum(x => x.ThanhTien)));
+
+            vm.Items = nay.Keys.Union(truoc.Keys)
+                .Select(ten =>
+                {
+                    var n = nay.GetValueOrDefault(ten);
+                    var t = truoc.GetValueOrDefault(ten);
+                    return new DichVuItem
+                    {
+                        Ten = ten,
+                        SoLuong = n.SoLuong,
+                        SoDon = n.SoDon,
+                        DoanhThu = n.Tien,
+                        SoLuongTruoc = t.SoLuong,
+                        DoanhThuTruoc = t.Tien
+                    };
+                })
+                .OrderByDescending(x => x.DoanhThu).ThenByDescending(x => x.SoLuong).ThenBy(x => x.Ten)
+                .ToList();
+
+            // ----- Xu hướng doanh thu dịch vụ theo cột thời gian (cùng cách chia với biểu đồ doanh thu) -----
+            var cotNay = TaoCotThoiGian(tuNgay, denNgay, donVi);
+            var cotTruoc = TaoCotThoiGian(tuTruoc, denTruoc, donVi);
+            for (int i = 0; i < cotNay.Count; i++)
+            {
+                var c = cotNay[i];
+                var trongCot = dongNay.Where(x => x.NgayDat >= c.Tu && x.NgayDat < c.Den).ToList();
+                decimal? tienTruoc = null;
+                if (i < cotTruoc.Count)
+                {
+                    var ct = cotTruoc[i];
+                    tienTruoc = dongTruoc.Where(x => x.NgayDat >= ct.Tu && x.NgayDat < ct.Den).Sum(x => x.ThanhTien);
+                }
+                vm.XuHuong.Add(new DichVuCotItem
+                {
+                    Ten = c.Ten,
+                    DoanhThu = trongCot.Sum(x => x.ThanhTien),
+                    DoanhThuTruoc = tienTruoc,
+                    SoLuong = trongCot.Sum(x => x.SoLuong),
+                    SoDon = trongCot.Select(x => x.MaDatSan).Distinct().Count()
                 });
             }
 

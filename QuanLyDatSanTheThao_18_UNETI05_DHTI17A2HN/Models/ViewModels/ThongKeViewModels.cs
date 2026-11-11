@@ -118,6 +118,63 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 
         // Tab "Hiệu suất sân" (tỷ lệ khai thác theo giờ sân)
         public HieuSuatSanViewModel HieuSuat { get; set; } = new();
+
+        // Tab "Dịch vụ" (doanh thu, lượt dùng, xu hướng, hiệu quả từng dịch vụ)
+        public DichVuViewModel DichVu { get; set; } = new();
+    }
+
+    // ================== TAB DỊCH VỤ ==================
+
+    // Một dịch vụ trong kỳ (kèm số liệu kỳ trước để phát hiện dịch vụ giảm / dừng phát sinh)
+    public class DichVuItem
+    {
+        public string Ten { get; set; } = "";
+        public int SoLuong { get; set; }             // tổng số lượng đã dùng trong kỳ (đơn không hủy)
+        public int SoDon { get; set; }               // số đơn đặt sân RIÊNG BIỆT có dịch vụ này
+        public decimal DoanhThu { get; set; }        // cộng ThanhTien của các dòng chi tiết
+        public int SoLuongTruoc { get; set; }
+        public decimal DoanhThuTruoc { get; set; }
+    }
+
+    // Một cột trên biểu đồ xu hướng doanh thu dịch vụ (ngày / tuần / tháng)
+    public class DichVuCotItem
+    {
+        public string Ten { get; set; } = "";
+        public decimal DoanhThu { get; set; }
+        public decimal? DoanhThuTruoc { get; set; }  // cột tương ứng của kỳ trước (null = không có)
+        public int SoLuong { get; set; }
+        public int SoDon { get; set; }               // số đơn đặt sân riêng biệt có dịch vụ trong cột
+    }
+
+    public class DichVuViewModel
+    {
+        public decimal DoanhThu { get; set; }        // tổng tiền dịch vụ của đơn không hủy trong kỳ
+        public decimal DoanhThuTruoc { get; set; }
+        public int SoLuong { get; set; }             // tổng số lượng dịch vụ đã dùng
+        public int SoLuongTruoc { get; set; }
+        public int DonCoDichVu { get; set; }         // số đơn không hủy có ít nhất một dịch vụ
+        public int DonCoDichVuTruoc { get; set; }
+        public int TongDonHopLe { get; set; }        // số đơn không hủy trong kỳ
+        public int TongDonHopLeTruoc { get; set; }
+        public bool CoKyTruoc { get; set; }          // kỳ trước có phát sinh dịch vụ để so sánh
+
+        // Phạm vi tính: đơn KHÔNG hủy (gồm cả chờ xử lý / đang xử lý / hoàn thành), dùng chung cho cả 4 KPI
+        public decimal DoanhThuHoanThanh { get; set; }   // phần dịch vụ của riêng đơn "Hoàn thành" (đã ghi nhận doanh thu)
+        public decimal DoanhThuSanKhongHuy { get; set; } // tiền sân (cộng DonGia) của đơn không hủy trong kỳ
+
+        // Tỷ trọng = dịch vụ / (sân + dịch vụ), cùng kỳ và cùng phạm vi đơn không hủy
+        public double TyTrongDoanhThu => (DoanhThu + DoanhThuSanKhongHuy) <= 0 ? 0 : Math.Round((double)(DoanhThu * 100m / (DoanhThu + DoanhThuSanKhongHuy)), 1);
+        public bool CoTyTrong => DoanhThu > 0 && (DoanhThu + DoanhThuSanKhongHuy) > 0;
+
+        public int DonChuaDichVu => Math.Max(0, TongDonHopLe - DonCoDichVu);
+        public decimal GiaTriTbMoiDon => DonCoDichVu == 0 ? 0m : Math.Round(DoanhThu / DonCoDichVu, 0);
+        public decimal GiaTriTbMoiDonTruoc => DonCoDichVuTruoc == 0 ? 0m : Math.Round(DoanhThuTruoc / DonCoDichVuTruoc, 0);
+
+        public double TyLeDonCoDichVu => TongDonHopLe == 0 ? 0 : Math.Round(DonCoDichVu * 100.0 / TongDonHopLe, 1);
+        public double TyLeDonCoDichVuTruoc => TongDonHopLeTruoc == 0 ? 0 : Math.Round(DonCoDichVuTruoc * 100.0 / TongDonHopLeTruoc, 1);
+
+        public List<DichVuItem> Items { get; set; } = new();       // gồm cả dịch vụ chỉ có ở kỳ trước (SoLuong = 0)
+        public List<DichVuCotItem> XuHuong { get; set; } = new();
     }
 
     // ================== TAB HIỆU SUẤT SÂN ==================

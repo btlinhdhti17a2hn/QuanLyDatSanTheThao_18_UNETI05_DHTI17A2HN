@@ -1,64 +1,521 @@
-﻿@* Tab Dịch vụ (nhúng từ ThongKe.cshtml) *@
+﻿@* Tab Dịch vụ (nhúng từ ThongKe.cshtml)
+   Thứ tự đọc: Tổng quan (4 KPI) -> Xu hướng và nhận định -> Hiệu quả từng dịch vụ -> Chú thích.
+   Số liệu lấy từ Model.DichVu (ThongKeController.TinhDichVuAsync).
+   Phạm vi tính CHUNG cho cả 4 KPI: đơn không hủy trong kỳ đang chọn (gồm cả đơn chờ xử lý / đang xử lý).
+   Phần dịch vụ của riêng đơn "Hoàn thành" được ghi rõ là "Trong đó" ở KPI đầu tiên.
+   Số lượng giữa các dịch vụ có đơn vị tính khác nhau nên KHÔNG dùng để kết luận dịch vụ nào phổ biến hơn;
+   so mức phổ biến bằng số đơn dùng. Doanh thu dịch vụ chưa trừ giá vốn. *@
+@using System.Globalization
 @using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 @model ThongKeViewModel
 @{
-    var h = (ThongKeHienThi)ViewData["tk"];
-    var inv = h.Inv;
-    var tongDichVu = h.TongDichVu;
+    var dv = Model.DichVu;
+    var vi = new CultureInfo("vi-VN");
+    var inv = CultureInfo.InvariantCulture;
+    var dangDung = dv.Items.Where(x => x.SoLuong > 0).ToList();          // đã xếp theo doanh thu giảm dần
+    bool coDv = dangDung.Count > 0;
+    const int TRANG = 10;
+    string donViTxt = Model.DonViBieuDo;
+
+    string Tien(decimal v) => v.ToString("N0", vi) + " đ";
+    string So(decimal v) => v.ToString("0.#", vi);
+    string Num(double v) => v.ToString("0.##", inv);
+
+    // So sánh với kỳ trước. Trả về null khi không so sánh được (thông báo chung hiện một lần phía trên KPI).
+    (string Css, string Txt)? SoVoiTruoc(decimal cur, decimal prev)
+    {
+        if (!dv.CoKyTruoc || prev <= 0) return null;
+        decimal pct = (cur - prev) / prev * 100m;
+        if (pct >= 1) return ("good", "▲ +" + So(Math.Abs(pct)) + "% so với kỳ trước");
+        if (pct <= -1) return ("bad", "▼ −" + So(Math.Abs(pct)) + "% so với kỳ trước");
+        return ("flat", "● Gần như không đổi so với kỳ trước");
+    }
+
+    var kDoanhThu = SoVoiTruoc(dv.DoanhThu, dv.DoanhThuTruoc);
+    var kTb = SoVoiTruoc(dv.GiaTriTbMoiDon, dv.GiaTriTbMoiDonTruoc);
+
+    // Tỷ lệ đơn có dịch vụ: so sánh theo điểm phần trăm
+    (string Css, string Txt)? kTyLe = null;
+    if (dv.CoKyTruoc && dv.TongDonHopLeTruoc > 0)
+    {
+        double dd = Math.Round(dv.TyLeDonCoDichVu - dv.TyLeDonCoDichVuTruoc, 1);
+        if (dd >= 0.5) kTyLe = ("good", "▲ +" + dd.ToString("0.#", vi) + " điểm % so với kỳ trước");
+        else if (dd <= -0.5) kTyLe = ("bad", "▼ −" + Math.Abs(dd).ToString("0.#", vi) + " điểm % so với kỳ trước");
+        else kTyLe = ("flat", "● Gần như không đổi so với kỳ trước");
+    }
+
+    // Tỷ trọng: dịch vụ / (sân + dịch vụ), cùng kỳ, cùng phạm vi đơn không hủy (tính sẵn ở controller)
+    string tyTrongTxt = dv.CoTyTrong ? dv.TyTrongDoanhThu.ToString("0.#", vi) + "%" : "—";
+
+    // ----- Điểm nổi bật: tối đa 3, mỗi mục một ý riêng, không lặp lại KPI -----
+    var ins = new List<(string Css, string Chip, string Tieu, string Nd, string Go, string GoTxt)>();
+    if (coDv)
+    {
+        decimal maxTien = dangDung.Max(x => x.DoanhThu);
+        var dauBang = dangDung.Where(x => x.DoanhThu == maxTien).OrderBy(x => x.Ten).ToList();
+        decimal tyTop = dv.DoanhThu > 0 ? maxTien / dv.DoanhThu * 100m : 0m;
+        if (dauBang.Count == 1)
+            ins.Add(("good", "Dẫn đầu doanh thu", dauBang[0].Ten, Tien(maxTien) + " · chiếm " + So(tyTop) + "% tổng doanh thu dịch vụ.", "v", "Xem chi tiết dịch vụ"));
+        else
+            ins.Add(("good", "Đồng hạng nhất", dauBang.Count + " dịch vụ cùng đạt " + Tien(maxTien), string.Join(", ", dauBang.Take(3).Select(x => x.Ten)) + (dauBang.Count > 3 ? "…" : "") + ".", "v", "Xem chi tiết dịch vụ"));
+    }
+    if (dv.TongDonHopLe > 0 && dv.DonChuaDichVu > 0)
+    {
+        double tyChua = Math.Round(dv.DonChuaDichVu * 100.0 / dv.TongDonHopLe, 1);
+        ins.Add(("flat", "Chưa phát sinh dịch vụ", dv.DonChuaDichVu.ToString("N0", vi) + " đơn (" + tyChua.ToString("0.#", vi) + "%)",
+            dv.DonChuaDichVu.ToString("N0", vi) + " trong tổng số " + dv.TongDonHopLe.ToString("N0", vi) + " đơn hợp lệ chưa sử dụng dịch vụ.", "", ""));
+    }
+
+    // Cảnh báo (chỉ khi đủ dữ liệu so sánh): chỉ giữ một mục quan trọng nhất để không vượt 3 nhận định
+    var canhBao = new List<(string Css, string Chip, string Tieu, string Nd, string Go, string GoTxt)>();
+    var dung = dv.Items.Where(x => x.SoLuong == 0 && x.SoLuongTruoc > 0).OrderByDescending(x => x.DoanhThuTruoc).ToList();
+    if (dung.Count > 0)
+        canhBao.Add(("bad", "Cần xử lý", "Dịch vụ không phát sinh trong kỳ",
+            dung.Count + " dịch vụ có lượt dùng ở kỳ trước nhưng kỳ này chưa có: " + string.Join(", ", dung.Take(3).Select(x => x.Ten)) + (dung.Count > 3 ? "…" : "") + ". Nên kiểm tra tồn kho, giá hoặc cách giới thiệu cho khách.", "", ""));
+    if (coDv && dv.CoKyTruoc && dv.DoanhThuTruoc > 0)
+    {
+        decimal pct = (dv.DoanhThu - dv.DoanhThuTruoc) / dv.DoanhThuTruoc * 100m;
+        if (pct <= -20) canhBao.Add(("bad", "Cần xử lý", "Doanh thu dịch vụ giảm", "Giảm " + So(Math.Abs(pct)) + "% so với kỳ trước (" + Tien(dv.DoanhThuTruoc) + " → " + Tien(dv.DoanhThu) + "). Nên kiểm tra nguyên nhân.", "", ""));
+        var giam = dangDung.Where(x => x.DoanhThuTruoc > 0 && x.DoanhThu <= x.DoanhThuTruoc * 0.6m)
+            .OrderBy(x => x.DoanhThu / x.DoanhThuTruoc).Take(3).ToList();
+        if (giam.Count > 0)
+            canhBao.Add(("warn", "Cần theo dõi", "Dịch vụ giảm mạnh",
+                string.Join("; ", giam.Select(x => x.Ten + " giảm " + So((x.DoanhThuTruoc - x.DoanhThu) / x.DoanhThuTruoc * 100m) + "% (" + Tien(x.DoanhThuTruoc) + " → " + Tien(x.DoanhThu) + ")")) + ".", "", ""));
+        if (pct >= 20) canhBao.Add(("good", "Tích cực", "Doanh thu dịch vụ tăng", "Tăng " + So(pct) + "% so với kỳ trước (" + Tien(dv.DoanhThuTruoc) + " → " + Tien(dv.DoanhThu) + ").", "", ""));
+    }
+    if (canhBao.Count > 0) ins.Add(canhBao[0]);
+
+    // ----- Hạng khởi đầu của bảng (theo doanh thu, bằng nhau thì đồng hạng) -----
+    var hang = new int[dangDung.Count];
+    for (int i = 0; i < dangDung.Count; i++)
+        hang[i] = (i > 0 && dangDung[i].DoanhThu == dangDung[i - 1].DoanhThu) ? hang[i - 1] : i + 1;
+
+    // ----- Biểu đồ cột doanh thu theo kỳ (SVG vẽ phía máy chủ) -----
+    // Cột có doanh thu 0 là kỳ không phát sinh dịch vụ (hệ thống đã ghi nhận đủ kỳ lọc), vẫn là một chuỗi hợp lệ.
+    int nC = dv.XuHuong.Count;
+    bool veDuoc = coDv && nC >= 2;
+    var cotCoTien = dv.XuHuong.Where(x => x.DoanhThu > 0).ToList();
+    var cotMax = nC > 0 ? dv.XuHuong.OrderByDescending(x => x.DoanhThu).First() : null;
+    bool coTruoc = dv.XuHuong.Any(x => x.DoanhThuTruoc != null && x.DoanhThuTruoc > 0);
+    const double W = 640, H = 250, pL = 62, pR = 12, pT = 22, pB = 32;
+    double maxV = dv.XuHuong.SelectMany(x => new decimal?[] { x.DoanhThu, coTruoc ? x.DoanhThuTruoc : null })
+        .Where(v => v.HasValue).Select(v => (double)v!.Value).DefaultIfEmpty(0).Max();
+    double topY = 4;
+    if (maxV > 0)
+    {
+        double raw = maxV / 4, e = Math.Pow(10, Math.Floor(Math.Log10(raw))), f = raw / e;
+        double st = f <= 1 ? 1 : (f <= 2 ? 2 : (f <= 2.5 ? 2.5 : (f <= 5 ? 5 : 10)));
+        topY = st * e * 4;
+    }
+    double slot = (W - pL - pR) / Math.Max(1, nC);
+    double nhom = Math.Min(slot * 0.72, 64);
+    double bw = coTruoc ? nhom / 2 - 1 : nhom;
+    double Cx(int i) => pL + slot * (i + 0.5);
+    double Y(double v) => pT + (H - pT - pB) * (1 - v / topY);
+    double Cao(double v) => v <= 0 ? 0 : Math.Max(2, (H - pT - pB) * v / topY);
+    string Truc(double v)
+    {
+        if (v <= 0) return "0";
+        if (v >= 1e9) return Math.Round(v / 1e9, 2).ToString("0.##", vi) + " tỷ";
+        if (v >= 1e6) return Math.Round(v / 1e6, 2).ToString("0.##", vi) + " tr";
+        if (v >= 1e3) return Math.Round(v / 1e3, 1).ToString("0.#", vi) + " N";
+        return Math.Round(v).ToString("0", vi);
+    }
+    int buocNhan = nC > 12 ? (int)Math.Ceiling(nC / 10.0) : 1;
 }
 
-@* ===== Tab 3: Dịch vụ ===== *@
+@* CSS riêng của tab (tiền tố dv-). Chữ chọn đạt tương phản WCAG AA (>= 4,5:1). Chữ nhỏ nhất 13px. *@
+<style>
+    .tk-pane .dv-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: 1rem 1.1rem; min-width: 0; }
+    .dv-sec { margin: 1.25rem 0 .6rem; font-size: 1.25rem; font-weight: 700; color: #1F2937; line-height: 1.3; }
+    .dv-sec:first-child { margin-top: 0; }
+    .dv-card-t { font-size: 1.125rem; font-weight: 700; color: #1F2937; line-height: 1.3; }
+    .dv-card-s { font-size: .875rem; color: #475569; margin-top: .15rem; }
+    .dv-notice { margin: 0 0 .6rem; font-size: .875rem; color: #475569; }
+
+    /* KPI: nền trắng thống nhất; chỉ thẻ doanh thu có điểm nhấn xanh ở viền trái */
+    .dv-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+    .dv-kpi { background: #fff; border: 1px solid #E2E8F0; border-radius: 12px; padding: .95rem 1.05rem; display: flex; flex-direction: column; gap: .3rem; min-width: 0; }
+    .dv-kpi.main { border-left: 4px solid #15803D; }
+    .dv-kpi .l { font-size: .9375rem; font-weight: 600; color: #334155; line-height: 1.3; }
+    .dv-kpi .v { font-size: 2rem; line-height: 1.15; font-weight: 800; color: #1F2937; font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: .5rem; flex-wrap: wrap; }
+    .dv-kpi .v small { font-size: 1.0625rem; font-weight: 700; color: #475569; }
+    .dv-kpi .d { font-size: .875rem; font-weight: 700; }
+    .dv-kpi .d.good { color: #166534; }
+    .dv-kpi .d.bad { color: #B91C1C; }
+    .dv-kpi .d.flat { color: #475569; font-weight: 600; }
+    .dv-kpi .s { font-size: .875rem; color: #475569; line-height: 1.4; }
+    .dv-kpi .s b { color: #1F2937; font-weight: 700; }
+
+    /* Hàng 2: xu hướng 7/12, nhận định 5/12 */
+    .dv-row { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: .75rem; align-items: start; }
+
+    .dv-svg { width: 100%; height: auto; display: block; margin-top: .5rem; }
+    .dv-svg text { font-size: 13px; fill: #475569; font-family: inherit; }
+    .dv-svg .grid { stroke: #E2E8F0; stroke-width: 1; }
+    .dv-svg .bar { fill: #15803D; }
+    .dv-svg .bar-prev { fill: #94A3B8; stroke: #64748B; stroke-width: 1; }
+    .dv-svg .val { font-weight: 700; fill: #1F2937; }
+    .dv-svg g.col:hover .hit, .dv-svg g.col:focus .hit { fill: #F1F5F9; }
+    .dv-svg .hit { fill: transparent; }
+    .dv-svg g.col:focus { outline: none; }
+    .dv-svg g.col:focus-visible .hit { stroke: #15803D; stroke-width: 2; }
+    .dv-legend { display: flex; flex-wrap: wrap; gap: .3rem 1rem; margin-top: .5rem; font-size: .875rem; color: #475569; }
+    .dv-legend span { display: inline-flex; align-items: center; gap: .4rem; }
+    .dv-legend i { display: inline-block; width: 14px; height: 14px; border-radius: 3px; background: #15803D; }
+    .dv-legend i.prev { background: #94A3B8; border: 1px solid #64748B; }
+    .dv-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: .75rem; padding-top: .75rem; border-top: 1px solid #E2E8F0; }
+    .dv-stats .k { font-size: .875rem; color: #475569; }
+    .dv-stats .n { font-size: 1.0625rem; font-weight: 700; color: #1F2937; font-variant-numeric: tabular-nums; }
+    .dv-sub { font-size: .875rem; color: #475569; margin: .5rem 0 0; }
+
+    /* Chưa vẽ được biểu đồ (chỉ 1 kỳ hoặc chưa có dịch vụ): tóm tắt gọn, không dựng biểu đồ giả */
+    .dv-summary { display: flex; flex-direction: column; gap: .25rem; margin-top: .6rem; padding: .75rem 1rem; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px; }
+    .dv-summary .big { font-size: 1.75rem; font-weight: 800; color: #1F2937; font-variant-numeric: tabular-nums; line-height: 1.15; }
+    .dv-summary .txt { font-size: .9375rem; color: #334155; line-height: 1.45; }
+
+    .dv-chip { display: inline-block; padding: .05rem .55rem; border-radius: 99px; font-size: .8125rem; font-weight: 700; white-space: nowrap; }
+    .dv-chip.good { background: #DCFCE7; color: #166534; }
+    .dv-chip.warn { background: #FEF3C7; color: #92400E; }
+    .dv-chip.bad { background: #FEE2E2; color: #991B1B; }
+    .dv-chip.flat { background: #E2E8F0; color: #334155; }
+
+    .dv-ins { list-style: none; margin: .75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+    .dv-ins li { background: #fff; border: 1px solid #E2E8F0; border-left-width: 4px; border-radius: 10px; padding: .7rem .85rem; }
+    .dv-ins li.good { border-left-color: #15803D; }
+    .dv-ins li.warn { border-left-color: #D97706; }
+    .dv-ins li.bad { border-left-color: #DC2626; }
+    .dv-ins li.flat { border-left-color: #64748B; }
+    .dv-ins .c { margin-bottom: .25rem; }
+    .dv-ins .t { font-weight: 700; color: #1F2937; font-size: 1rem; line-height: 1.35; }
+    .dv-ins .n { margin: .2rem 0 0; font-size: .9375rem; line-height: 1.45; color: #334155; }
+    .dv-go { margin-top: .4rem; padding: 0; border: 0; background: none; color: #166534; font-weight: 700; font-size: .875rem; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .dv-go:hover { color: #14532D; }
+    .dv-go:focus-visible, .dv-more:focus-visible { outline: 2px solid #15803D; outline-offset: 2px; }
+
+    /* Bảng hiệu quả: cột đang dùng để xếp hạng được làm nổi bật */
+    .dv-tbl { font-size: .9375rem; }
+    .dv-tbl td, .dv-tbl th { font-size: .9375rem; }
+    .dv-tbl .r { text-align: right; }
+    .dv-tbl th.r, .dv-tbl td.r { white-space: nowrap; }
+    .dv-tbl tr[hidden] { display: none; }
+    .dv-tbl[data-key="v"] .c-v, .dv-tbl[data-key="d"] .c-d, .dv-tbl[data-key="q"] .c-q { background: #F1F5F9; font-weight: 700; color: #1F2937; }
+    .dv-tbl .rk { color: #334155; font-weight: 700; white-space: nowrap; }
+    .dv-tag { display: inline-block; margin-left: .5rem; padding: 0 .45rem; border-radius: 99px; font-size: .8125rem; font-weight: 700; background: #DCFCE7; color: #166534; vertical-align: middle; }
+    .dv-tbl tr:not(.top) .dv-tag { display: none; }
+    .dv-share { display: flex; align-items: center; justify-content: flex-end; gap: .5rem; }
+    .dv-bar { width: 110px; height: 8px; border-radius: 99px; background: #E2E8F0; overflow: hidden; flex: none; }
+    .dv-bar span { display: block; height: 100%; background: #86EFAC; }
+    .dv-tbl tr.top .dv-bar span { background: #15803D; }
+    .dv-pct { min-width: 3.75rem; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #1F2937; }
+    .dv-more { width: 100%; margin-top: .5rem; padding: .45rem; border: 1px dashed #CBD5E1; background: #fff; border-radius: 10px; color: #166534; font-weight: 600; font-size: .9375rem; cursor: pointer; }
+    .dv-more:hover { background: #F0FDF4; }
+    .dv-more[hidden] { display: none; }
+    .dv-notes { margin: .75rem 0 0; padding-left: 1.1rem; font-size: .875rem; color: #475569; line-height: 1.5; }
+
+    @@media (max-width: 1100px) { .dv-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dv-row { grid-template-columns: minmax(0, 1fr); } }
+    @@media (max-width: 576px) { .dv-kpis { grid-template-columns: minmax(0, 1fr); } .dv-kpi .v { font-size: 1.75rem; } .dv-stats { grid-template-columns: minmax(0, 1fr); } .dv-bar { width: 70px; } }
+</style>
+
 <section class="tk-pane" data-pane="dich-vu" role="tabpanel" hidden>
-    <div class="tk-panel">
-        <div class="tk-panel-title">Dịch vụ bán chạy</div>
-        <div class="tk-panel-sub">Top 10 theo số lượng sử dụng trong kỳ, không tính đơn hủy</div>
-        @if (Model.DichVuPhoBien.Count > 0)
-        {
-            <div class="tk-svc-total">
-                Tổng doanh thu dịch vụ (top 10): <b>@tongDichVu.ToString("N0") đ</b>
-                @if (Model.TongDoanhThuNam > 0 && tongDichVu <= Model.TongDoanhThuNam)
+
+    @* ===== Khu vực 1: hiệu quả tổng quan (thứ tự: kết quả -> mức sử dụng -> giá trị/đơn -> đóng góp) ===== *@
+    <h3 class="dv-sec">Hiệu quả tổng quan</h3>
+    @if (!dv.CoKyTruoc)
+    {
+        <p class="dv-notice">Chưa có dữ liệu kỳ trước để so sánh.</p>
+    }
+    <div class="dv-kpis">
+        <div class="dv-kpi main">
+            <span class="l">Doanh thu dịch vụ</span>
+            <span class="v">@(coDv ? Tien(dv.DoanhThu) : "—")</span>
+            @if (kDoanhThu != null)
+            {
+                <span class="d @kDoanhThu.Value.Css">@kDoanhThu.Value.Txt</span>
+            }
+            <span class="s">Tổng các đơn không hủy trong kỳ</span>
+            <span class="s">Trong đó: doanh thu từ đơn hoàn thành <b>@Tien(dv.DoanhThuHoanThanh)</b></span>
+        </div>
+        <div class="dv-kpi">
+            <span class="l">Đơn có sử dụng dịch vụ</span>
+            <span class="v">
+                <span>@(dv.DonCoDichVu.ToString("N0", vi) + "/" + dv.TongDonHopLe.ToString("N0", vi))</span>
+                @if (dv.TongDonHopLe > 0)
                 {
-                    <span class="tk-badge flat">@((tongDichVu / Model.TongDoanhThuNam * 100m).ToString("0.#"))% tổng doanh thu kỳ</span>
+                    <small>@(dv.TyLeDonCoDichVu.ToString("0.#", vi) + "%")</small>
                 }
-            </div>
-        }
-        @if (Model.DichVuPhoBien.Count == 0)
+            </span>
+            @if (kTyLe != null)
+            {
+                <span class="d @kTyLe.Value.Css">@kTyLe.Value.Txt</span>
+            }
+            <span class="s">@dv.DonCoDichVu.ToString("N0", vi) đơn có dịch vụ trên tổng số @dv.TongDonHopLe.ToString("N0", vi) đơn hợp lệ (không hủy).</span>
+        </div>
+        <div class="dv-kpi">
+            <span class="l">Giá trị dịch vụ bình quân/đơn có DV</span>
+            <span class="v">@(dv.DonCoDichVu > 0 ? Tien(dv.GiaTriTbMoiDon) : "—")</span>
+            @if (kTb != null)
+            {
+                <span class="d @kTb.Value.Css">@kTb.Value.Txt</span>
+            }
+            <span class="s">@(dv.DonCoDichVu > 0 ? Tien(dv.DoanhThu) + " doanh thu / " + dv.DonCoDichVu.ToString("N0", vi) + " đơn có sử dụng dịch vụ" : "Chưa có đơn sử dụng dịch vụ")</span>
+        </div>
+        <div class="dv-kpi">
+            <span class="l">Tỷ trọng dịch vụ trong tổng doanh thu</span>
+            <span class="v">@tyTrongTxt</span>
+            <span class="s">Doanh thu dịch vụ / (doanh thu sân + doanh thu dịch vụ), cùng kỳ và cùng phạm vi đơn không hủy.</span>
+        </div>
+    </div>
+
+    @* ===== Khu vực 2: xu hướng (7/12) và nhận định (5/12) ===== *@
+    <h3 class="dv-sec">Xu hướng và nhận định</h3>
+    <div class="dv-row">
+
+        <div class="dv-card">
+            <div class="dv-card-t">Doanh thu dịch vụ theo @donViTxt</div>
+            <div class="dv-card-s">Đơn vị: nghìn đồng (N) · tr = triệu đồng@(coTruoc ? " · so với kỳ trước" : "")</div>
+
+            @if (!coDv)
+            {
+                <div class="dv-summary">
+                    <span class="txt"><b>Chưa có dữ liệu dịch vụ.</b> Không có đơn nào sử dụng dịch vụ trong kỳ này.</span>
+                </div>
+            }
+            else if (!veDuoc)
+            {
+                @* Kỳ lọc chỉ có một cột thời gian nên chưa có chuỗi để so sánh: chỉ tóm tắt *@
+                <div class="dv-summary">
+                    <span class="big">@Tien(dv.DoanhThu)</span>
+                    <span class="txt">Doanh thu dịch vụ trong @(nC == 1 ? dv.XuHuong[0].Ten : "kỳ đang xem"), @(cotMax != null ? cotMax.SoDon : 0) đơn có dịch vụ. Chọn kỳ dài hơn để xem biểu đồ theo thời gian.</span>
+                </div>
+            }
+            else
+            {
+                <svg class="dv-svg" viewBox="0 0 @(Num(W)) @(Num(H))" role="img"
+                     aria-label="Biểu đồ cột doanh thu dịch vụ theo @donViTxt, tổng @Tien(dv.DoanhThu)">
+                    @for (int k = 0; k <= 4; k++)
+                    {
+                        double gv = topY / 4 * k;
+                        <line class="grid" x1="@(Num(pL))" x2="@(Num(W - pR))" y1="@(Num(Y(gv)))" y2="@(Num(Y(gv)))"></line>
+                        @:<text x="@(Num(pL - 8))" y="@(Num(Y(gv) + 4))" text-anchor="end">@(Truc(gv))</text>
+                    }
+                    @for (int i = 0; i < nC; i++)
+                    {
+                        var it = dv.XuHuong[i];
+                        double cx = Cx(i);
+                        double xCur = coTruoc ? cx + 1 : cx - bw / 2;
+                        double xPrev = cx - bw - 1;
+                        string tip = it.Ten + ": " + Tien(it.DoanhThu) + " · " + it.SoDon + " đơn có dịch vụ"
+                            + (it.DoanhThuTruoc != null ? " · kỳ trước " + Tien(it.DoanhThuTruoc.Value) : "");
+                        <g class="col" tabindex="0" role="img" aria-label="@tip">
+                            <title>@tip</title>
+                            <rect class="hit" x="@(Num(pL + slot * i))" y="@(Num(pT))" width="@(Num(slot))" height="@(Num(H - pT - pB))"></rect>
+                            @if (coTruoc && it.DoanhThuTruoc != null && it.DoanhThuTruoc > 0)
+                            {
+                                <rect class="bar-prev" x="@(Num(xPrev))" y="@(Num(Y((double)it.DoanhThuTruoc.Value)))" width="@(Num(bw))" height="@(Num(Cao((double)it.DoanhThuTruoc.Value)))"></rect>
+                            }
+                            @if (it.DoanhThu > 0)
+                            {
+                                <rect class="bar" x="@(Num(xCur))" y="@(Num(Y((double)it.DoanhThu)))" width="@(Num(bw))" height="@(Num(Cao((double)it.DoanhThu)))" rx="2"></rect>
+                                if (nC <= 16)
+                                {
+                                    @:<text class="val" x="@(Num(xCur + bw / 2))" y="@(Num(Y((double)it.DoanhThu) - 5))" text-anchor="middle">@(Truc((double)it.DoanhThu))</text>
+                                }
+                            }
+                        </g>
+                        if (i % buocNhan == 0)
+                        {
+                            @:<text x="@(Num(cx))" y="@(Num(H - 10))" text-anchor="middle">@it.Ten</text>
+                        }
+                    }
+                </svg>
+                <div class="dv-legend">
+                    <span><i></i> Kỳ đang xem</span>
+                    @if (coTruoc)
+                    {
+                        <span><i class="prev"></i> Kỳ trước</span>
+                    }
+                </div>
+                <div class="dv-stats">
+                    <div>
+                        <div class="k">Số @donViTxt có doanh thu</div>
+                        <div class="n">@(cotCoTien.Count == 1 ? cotCoTien[0].Ten : cotCoTien.Count + "/" + nC)</div>
+                    </div>
+                    <div>
+                        <div class="k">Doanh thu cao nhất</div>
+                        <div class="n">@(cotMax != null ? Tien(cotMax.DoanhThu) + " (" + cotMax.Ten + ")" : "—")</div>
+                    </div>
+                    <div>
+                        <div class="k">Tổng kỳ</div>
+                        <div class="n">@Tien(dv.DoanhThu)</div>
+                    </div>
+                </div>
+                <div class="dv-sub">Cột không hiện là @donViTxt không phát sinh dịch vụ.@(Model.DenNgay.Date >= DateTime.UtcNow.AddHours(7).Date ? " Cột cuối là kỳ đang diễn ra nên chưa đủ kỳ." : "")</div>
+            }
+        </div>
+
+        <div class="dv-card">
+            <div class="dv-card-t">Điểm nổi bật trong kỳ</div>
+            <div class="dv-card-s">Tổng hợp từ số liệu của kỳ đang xem</div>
+            @if (ins.Count == 0)
+            {
+                <div class="dv-summary"><span class="txt">Chưa có dịch vụ nào phát sinh trong kỳ này nên chưa có nhận định để hiển thị.</span></div>
+            }
+            else
+            {
+                <ul class="dv-ins">
+                    @foreach (var x in ins)
+                    {
+                        <li class="@x.Css">
+                            <div class="c"><span class="dv-chip @x.Css">@x.Chip</span></div>
+                            <div class="t">@x.Tieu</div>
+                            <p class="n">@x.Nd</p>
+                            @if (!string.IsNullOrEmpty(x.Go))
+                            {
+                                <button type="button" class="dv-go" data-dv-go="@x.Go">@x.GoTxt →</button>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+
+    @* ===== Khu vực 3: hiệu quả từng dịch vụ, toàn chiều rộng ===== *@
+    <h3 class="dv-sec">Hiệu quả từng dịch vụ</h3>
+    <div class="dv-card" id="dv-bang">
+        <div class="tk-head-row">
+            <div class="dv-card-s" style="margin:0">@(coDv ? dangDung.Count + " dịch vụ phát sinh trong kỳ, không tính đơn hủy" : "Không tính đơn hủy")</div>
+            @if (coDv)
+            {
+                <div class="tk-seg" role="group" aria-label="Cách xếp hạng dịch vụ">
+                    <button type="button" class="on" data-dv-sort="v" aria-pressed="true">Theo doanh thu</button>
+                    <button type="button" data-dv-sort="d" aria-pressed="false">Theo số đơn</button>
+                    <button type="button" data-dv-sort="q" aria-pressed="false">Theo số lượng</button>
+                </div>
+            }
+        </div>
+
+        @if (!coDv)
         {
-            <div class="tk-empty"><span>Chưa có dữ liệu</span></div>
+            <div class="dv-summary"><span class="txt">Chưa có dữ liệu</span></div>
         }
         else
         {
-            <table class="tk-tbl" id="tk-dv-tbl">
+            <table class="tk-tbl dv-tbl" id="dv-tbl" data-key="v">
                 <thead>
                     <tr>
-                        <th>#</th>
+                        <th>Hạng</th>
                         <th>Dịch vụ</th>
-                        <th class="r tk-sortable" data-sort="q" title="Bấm để sắp xếp">Số lượng</th>
-                        <th class="r tk-sortable" data-sort="v" title="Bấm để sắp xếp">Doanh thu</th>
-                        <th style="width:28%">Đóng góp</th>
+                        <th class="r c-q" title="Tính theo đơn vị riêng của từng dịch vụ">Số lượng</th>
+                        <th class="r c-d" title="Số đơn đặt sân riêng biệt có dịch vụ này; một đơn có thể dùng nhiều dịch vụ">Số đơn dùng</th>
+                        <th class="r c-v">Doanh thu</th>
+                        <th class="r" style="width:26%">Tỷ trọng doanh thu DV</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @for (int thuTu = 0; thuTu < Model.DichVuPhoBien.Count; thuTu++)
+                    @for (int i = 0; i < dangDung.Count; i++)
                     {
-                        var dv = Model.DichVuPhoBien[thuTu];
-                        decimal dongGop = tongDichVu > 0 ? dv.GiaTri / tongDichVu * 100m : 0m;
-                        <tr class="@(thuTu == 0 ? "top" : "")" data-q="@dv.SoLuong" data-v="@dv.GiaTri.ToString("0.##", inv)">
-                            <td class="rk">#@(thuTu + 1)</td>
-                            <td>@dv.Ten</td>
-                            <td class="r">@dv.SoLuong.ToString("N0")</td>
-                            <td class="r">@dv.GiaTri.ToString("N0") đ</td>
+                        var d = dangDung[i];
+                        decimal tyTrong = dv.DoanhThu > 0 ? d.DoanhThu / dv.DoanhThu * 100m : 0m;
+                        bool dau = hang[i] == 1 && (dangDung.Count == 1 || hang[1] != 1);
+                        <tr class="@(dau ? "top" : "")" data-q="@d.SoLuong" data-d="@d.SoDon" data-v="@d.DoanhThu.ToString("0.##", inv)" data-n="@d.Ten" hidden="@(i >= TRANG)">
+                            <td class="rk">#@hang[i]</td>
+                            <td>@d.Ten<span class="dv-tag">Dẫn đầu</span></td>
+                            <td class="r c-q">@d.SoLuong.ToString("N0", vi)</td>
+                            <td class="r c-d">@d.SoDon.ToString("N0", vi)</td>
+                            <td class="r c-v">@Tien(d.DoanhThu)</td>
                             <td>
-                                <div class="tk-share">
-                                    <div class="tk-mini" style="margin:0;flex:1"><span style="width:@(dongGop.ToString("0.##", inv))%; background:var(--brand)"></span></div>
-                                    <span>@dongGop.ToString("0.#")%</span>
+                                <div class="dv-share">
+                                    <div class="dv-bar"><span style="width:@(Num((double)tyTrong))%"></span></div>
+                                    <span class="dv-pct">@So(tyTrong)%</span>
                                 </div>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
-            <div class="tk-note">Đóng góp = tỷ trọng doanh thu của dịch vụ trong top 10. Lợi nhuận gộp cần có giá vốn dịch vụ trong dữ liệu.</div>
+            @if (dangDung.Count > TRANG)
+            {
+                <button type="button" class="dv-more" id="dv-more" data-total="@dangDung.Count">Xem thêm (@(dangDung.Count - TRANG))</button>
+            }
+            <ul class="dv-notes">
+                <li>Số lượng tính theo đơn vị riêng của từng dịch vụ, không so sánh trực tiếp giữa các loại. Dùng số đơn dùng để so mức phổ biến; các dịch vụ bằng nhau được xếp đồng hạng.</li>
+                <li>Doanh thu chưa trừ giá vốn và chi phí, không đồng nghĩa với lợi nhuận.</li>
+            </ul>
         }
     </div>
 </section>
+
+<script>
+    (function () {
+        var root = document.querySelector('[data-pane="dich-vu"]');
+        if (!root) return;
+        var tbl = root.querySelector('#dv-tbl');
+        if (!tbl) return;
+
+        var body = tbl.tBodies[0];
+        var btns = [].slice.call(root.querySelectorAll('[data-dv-sort]'));
+        var gos = [].slice.call(root.querySelectorAll('[data-dv-go]'));
+        var more = root.querySelector('#dv-more');
+        var PAGE = @TRANG;
+        var open = false, key = 'v';
+
+        function render() {
+            var rows = [].slice.call(body.rows);
+            // Xếp theo chỉ số đang chọn; bằng nhau thì xếp theo các chỉ số còn lại, rồi theo tên
+            var order = [key].concat(['v', 'd', 'q'].filter(function (k) { return k !== key; }));
+            rows.sort(function (a, b) {
+                for (var i = 0; i < order.length; i++) {
+                    var d = parseFloat(b.dataset[order[i]]) - parseFloat(a.dataset[order[i]]);
+                    if (d) return d;
+                }
+                return a.dataset.n.localeCompare(b.dataset.n, 'vi');
+            });
+            // Hạng chỉ dựa trên chỉ số đang chọn: bằng nhau thì đồng hạng, không ép ra một dịch vụ đứng đầu
+            var ranks = [];
+            rows.forEach(function (r, i) {
+                var same = i > 0 && parseFloat(r.dataset[key]) === parseFloat(rows[i - 1].dataset[key]);
+                ranks.push(same ? ranks[i - 1] : i + 1);
+            });
+            var unique = rows.length === 1 || ranks[1] !== 1;
+            rows.forEach(function (r, i) {
+                body.appendChild(r);
+                var rk = r.querySelector('.rk');
+                rk.textContent = '#' + ranks[i];
+                var tied = (i > 0 && ranks[i - 1] === ranks[i]) || (i < rows.length - 1 && ranks[i + 1] === ranks[i]);
+                if (tied) rk.setAttribute('title', 'Đồng hạng'); else rk.removeAttribute('title');
+                r.classList.toggle('top', ranks[i] === 1 && unique);
+                r.hidden = !open && i >= PAGE;
+            });
+            tbl.setAttribute('data-key', key);
+            if (more) {
+                var left = rows.length - PAGE;
+                more.textContent = open ? 'Thu gọn' : 'Xem thêm (' + left + ')';
+            }
+        }
+
+        function chon(k) {
+            key = k;
+            btns.forEach(function (x) {
+                var on = x.getAttribute('data-dv-sort') === k;
+                x.classList.toggle('on', on);
+                x.setAttribute('aria-pressed', on ? 'true' : 'false');
+            });
+            render();
+        }
+
+        btns.forEach(function (b) {
+            b.addEventListener('click', function () { chon(b.getAttribute('data-dv-sort')); });
+        });
+        // Nút trong "Điểm nổi bật": xếp bảng theo doanh thu rồi cuộn tới bảng
+        gos.forEach(function (g) {
+            g.addEventListener('click', function () {
+                chon(g.getAttribute('data-dv-go'));
+                var card = root.querySelector('#dv-bang');
+                (card || tbl).scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+        if (more) more.addEventListener('click', function () { open = !open; render(); });
+    })();
+</script>
