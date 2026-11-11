@@ -211,6 +211,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
             // ----- 2. Kỳ trước (để hiện ▲/▼ so sánh) -----
             var datKyTruoc = LocTheoKy(_thongKeRepository.LayDatSans().AsNoTracking(), tuTruoc, denTruoc.AddDays(1));
             vm.LuotDatKyTruoc = await datKyTruoc.CountAsync();
+            vm.DonHoanThanhKyTruoc = await datKyTruoc.CountAsync(d => d.TrangThai == HOAN_THANH);
             vm.DoanhThuKyTruoc = await datKyTruoc
                 .Where(d => d.TrangThai == HOAN_THANH)
                 .SumAsync(d => (decimal?)d.DonGia) ?? 0m;
@@ -263,8 +264,11 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
                 .Where(d => d.TrangThai == HOAN_THANH)
                 .Select(d => new
                 {
+                    d.MaDatSan,
                     d.NgayDat,
+                    d.GioBatDau,
                     d.DonGia,
+                    TenSan = d.SanTheThao!.TenSan,
                     TenLoai = d.SanTheThao!.LoaiSan!.TenLoai
                 })
                 .ToListAsync();
@@ -329,6 +333,39 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
 
             vm.TongDoanhThuNam = donHoanThanh.Sum(x => x.DonGia);
             vm.SoDonHoanThanh = donHoanThanh.Count;
+
+            // Doanh thu theo NGÀY SỬ DỤNG sân (giờ bắt đầu): thứ trong tuần và buổi trong ngày.
+            // Cùng tập đơn hoàn thành đã lọc ở trên, chỉ khác chiều phân tích nên tổng luôn khớp TongDoanhThuNam.
+            string[] tenThuTrongTuan = { "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật" };
+            ThongKeItem GomDoanhThuTheoGio(string nhanNhom, Func<DateTime, bool> thuocNhom)
+            {
+                var dsNhom = donHoanThanh.Where(x => thuocNhom(x.GioBatDau)).ToList();
+                return new ThongKeItem { Ten = nhanNhom, GiaTri = dsNhom.Sum(x => x.DonGia), SoLuong = dsNhom.Count };
+            }
+            vm.DoanhThuTheoThu = Enumerable.Range(0, 7)
+                .Select(thuSo => GomDoanhThuTheoGio(tenThuTrongTuan[thuSo], gio => ((int)gio.DayOfWeek + 6) % 7 == thuSo))
+                .ToList();
+            vm.DoanhThuTheoBuoi = new List<ThongKeItem>
+            {
+                GomDoanhThuTheoGio("Sáng (trước 12:00)", gio => gio.Hour < 12),
+                GomDoanhThuTheoGio("Chiều (12:00 - 18:00)", gio => gio.Hour >= 12 && gio.Hour < 18),
+                GomDoanhThuTheoGio("Tối (từ 18:00)", gio => gio.Hour >= 18)
+            };
+
+            // Danh sách đơn hoàn thành tạo nên doanh thu, số tiền lớn nhất trước
+            vm.DonHoanThanhDs = donHoanThanh
+                .OrderByDescending(x => x.DonGia).ThenByDescending(x => x.NgayDat).ThenBy(x => x.MaDatSan)
+                .Take(200)
+                .Select(x => new DonDongGopItem
+                {
+                    MaDatSan = x.MaDatSan,
+                    TenSan = x.TenSan,
+                    TenLoai = x.TenLoai,
+                    NgayDat = x.NgayDat,
+                    GioBatDau = x.GioBatDau,
+                    DonGia = x.DonGia
+                })
+                .ToList();
 
             // Dịch vụ được sử dụng nhiều nhất (Top 10 theo số lượng) trong kỳ
             vm.DichVuPhoBien = await datTrongKy

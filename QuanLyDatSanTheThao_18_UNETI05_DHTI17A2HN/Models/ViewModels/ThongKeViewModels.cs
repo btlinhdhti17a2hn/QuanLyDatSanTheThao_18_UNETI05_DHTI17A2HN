@@ -58,6 +58,18 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public int TopN { get; set; } = 5;
         public bool XepHang { get; set; } = true;   // false: giữ nguyên thứ tự (vd. khung giờ)
         public List<ThongKeItem> Items { get; set; } = new();
+        public bool CotCuoiDangDienRa { get; set; } // true: cột cuối của biểu đồ là kỳ chưa kết thúc (VD tháng hiện tại)
+    }
+
+    // Một đơn hoàn thành đóng góp vào doanh thu (hiện ở tab Doanh thu)
+    public class DonDongGopItem
+    {
+        public int MaDatSan { get; set; }
+        public string TenSan { get; set; } = "";
+        public string TenLoai { get; set; } = "";
+        public DateTime NgayDat { get; set; }
+        public DateTime GioBatDau { get; set; }
+        public decimal DonGia { get; set; }
     }
 
     public class ThongKeViewModel
@@ -75,6 +87,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public DateTime DenNgayTruoc { get; set; }
         public decimal DoanhThuKyTruoc { get; set; }
         public int LuotDatKyTruoc { get; set; }
+        public int DonHoanThanhKyTruoc { get; set; }   // số đơn "Hoàn thành" của kỳ trước (để so sánh thẻ Đơn hoàn thành)
 
         // Mỗi cột biểu đồ đại diện cho: "ngày" | "tuần" | "tháng"
         public string DonViBieuDo { get; set; } = "tháng";
@@ -87,6 +100,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
         public ThongKeItem? LoaiSanUaThich { get; set; }
         public List<ThongKeItem> DoanhThuTheoThang { get; set; } = new();
         public List<ThongKeItem> DoanhThuTheoLoai { get; set; } = new();
+        public List<ThongKeItem> DoanhThuTheoThu { get; set; } = new();    // đơn hoàn thành theo thứ trong tuần (ngày sử dụng sân), Thứ 2 đến Chủ nhật
+        public List<ThongKeItem> DoanhThuTheoBuoi { get; set; } = new();   // đơn hoàn thành theo buổi sáng / chiều / tối (giờ bắt đầu)
+        public List<DonDongGopItem> DonHoanThanhDs { get; set; } = new();  // đơn hoàn thành, số tiền lớn nhất trước (tối đa 200)
         public decimal TongDoanhThuNam { get; set; }
         public int SoDonHoanThanh { get; set; }
         public List<ThongKeItem> DichVuPhoBien { get; set; } = new();

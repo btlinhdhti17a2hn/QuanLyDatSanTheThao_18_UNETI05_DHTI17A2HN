@@ -1,4 +1,5 @@
-﻿@* Tab Doanh thu: thẻ chỉ số, biểu đồ cột, biểu đồ tròn + cửa sổ đơn hủy (nhúng từ ThongKe.cshtml) *@
+﻿@* Tab Doanh thu: thẻ chỉ số có so sánh kỳ trước, nhận định nhanh, biểu đồ cột, cơ cấu theo loại sân,
+   đơn đóng góp doanh thu lớn nhất, doanh thu theo thứ / buổi + cửa sổ đơn hủy và đơn hoàn thành (nhúng từ ThongKe.cshtml) *@
 @using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 @model ThongKeViewModel
 @{
@@ -16,23 +17,27 @@
     var tienHuy = h.TienHuy;
     var tienHuyTruncated = h.TienHuyTruncated;
     var dtDelta = h.DtDelta;
-    var luotDelta = h.LuotDelta;
+    var donDelta = h.DonDelta;
+    var tbDelta = h.TbDelta;
+    var nhanDinh = h.NhanDinh;
     var trungBinh = h.TrungBinh;
     var moTaBieuDo = h.MoTaBieuDo;
     var loaiRows = h.LoaiRows;
     var tongTienLoai = h.TongTienLoai;
+    var tongDonLoai = loaiRows.Sum(x => x.DonHoanThanh);
     var mau = h.Mau;
     var donut = h.Donut;
     var gon = h.Gon;
+    var dsDon = Model.DonHoanThanhDs;
 }
 
-@* ===== Tab 1: Doanh thu - biểu đồ cột (60%) + biểu đồ tròn theo loại sân (40%) ===== *@
+@* ===== Tab 1: Doanh thu ===== *@
 <section class="tk-pane" data-pane="doanh-thu" role="tabpanel">
     @* ===== 4 thẻ chỉ số của kỳ đang xem: chỉ nằm trong tab Doanh thu ===== *@
 <div class="tk-kpis">
     <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.DoanhThuKyTruoc.ToString("N0") đ">
         <div class="tk-kpi-top">
-            <span class="tk-kpi-label">Doanh thu</span>
+            <span class="tk-kpi-label">Doanh thu đơn hoàn thành</span>
             <div class="tk-ico" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             </div>
@@ -44,30 +49,31 @@
         </div>
     </div>
 
-    <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.LuotDatKyTruoc.ToString("N0") lượt">
+    <div class="tk-kpi" title="Kỳ trước (@kyTruocKhoang): @Model.DonHoanThanhKyTruoc.ToString("N0") đơn hoàn thành. Kỳ này có @Model.TongLuotDat.ToString("N0") lượt đặt, gồm cả đơn chưa hoàn thành và đã hủy.">
         <div class="tk-kpi-top">
-            <span class="tk-kpi-label">Lượt đặt</span>
+            <span class="tk-kpi-label">Đơn hoàn thành</span>
             <div class="tk-ico" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
             </div>
         </div>
-        <div class="tk-kpi-val">@Model.TongLuotDat.ToString("N0")</div>
+        <div class="tk-kpi-val">@Model.SoDonHoanThanh.ToString("N0")<small>đơn</small></div>
         <div class="tk-kpi-foot">
-            <span class="tk-badge @luotDelta[0]">@luotDelta[1]</span>
+            <span class="tk-badge @donDelta[0]">@donDelta[1]</span>
             <span>@kyTruocNhan</span>
         </div>
     </div>
 
-    <div class="tk-kpi">
+    <div class="tk-kpi" title="Doanh thu trung bình trên @Model.SoDonHoanThanh đơn hoàn thành">
         <div class="tk-kpi-top">
-            <span class="tk-kpi-label">Giá trị TB / đơn</span>
+            <span class="tk-kpi-label">Doanh thu TB / đơn</span>
             <div class="tk-ico" aria-hidden="true">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
             </div>
         </div>
         <div class="tk-kpi-val">@trungBinh.ToString("N0") đ</div>
         <div class="tk-kpi-foot">
-            <span>Trên @Model.SoDonHoanThanh đơn hoàn thành</span>
+            <span class="tk-badge @tbDelta[0]">@tbDelta[1]</span>
+            <span>@kyTruocNhan</span>
         </div>
     </div>
 
@@ -83,7 +89,7 @@
             <span class="tk-badge @huyLop">@huyIcon @huyNhan</span>
             @if (Model.SoLuotHuy > 0)
             {
-                <span class="tk-loss">Thất thoát <b>@(tienHuyTruncated ? "≥ " : "")@tienHuy.ToString("N0") đ</b></span>
+                <span class="tk-loss" title="Tổng giá trị các đơn bị hủy. Không được tính vào doanh thu thực thu.">Giá trị đơn hủy <b>@(tienHuyTruncated ? "≥ " : "")@tienHuy.ToString("N0") đ</b></span>
                 <span class="go">Xem ›</span>
             }
         </div>
@@ -91,14 +97,29 @@
     </button>
 </div>
 
+    @* ===== Nhận định nhanh: rút ra từ chính số liệu của kỳ, giúp đọc nhanh "doanh thu đến từ đâu" ===== *@
+    @if (nhanDinh.Count > 0)
+    {
+        <div class="tk-insights" style="margin:1rem 0; padding:.75rem 1rem; background:#fff; border:1px solid #e8edf3; border-left:4px solid #16a34a; border-radius:10px;">
+            <div class="fw-bold" style="font-size:.9375rem">Nhận định nhanh</div>
+            <ul class="mb-0 ps-3 small text-secondary" style="line-height:1.65">
+                @foreach (var y in nhanDinh)
+                {
+                    <li>@y</li>
+                }
+            </ul>
+        </div>
+    }
+
+    @* ===== Hàng 1: xu hướng theo thời gian (60%) + cơ cấu theo loại sân (40%) ===== *@
     <div class="tk-body">
         <div>
-            <partial name="_BieuDoCot" model='new BangThongKe { TieuDe = "Doanh thu theo " + Model.DonViBieuDo, MoTa = moTaBieuDo, DonVi = "đ", LaTien = true, Items = Model.DoanhThuTheoThang }' />
+            <partial name="_BieuDoCot" model='new BangThongKe { TieuDe = "Doanh thu theo " + Model.DonViBieuDo, MoTa = moTaBieuDo, DonVi = "đ", LaTien = true, CotCuoiDangDienRa = h.CotCuoiDangDienRa, Items = Model.DoanhThuTheoThang }' />
         </div>
 
         <div class="tk-panel">
             <div class="tk-panel-title">Cơ cấu doanh thu theo loại sân</div>
-            <div class="tk-panel-sub">Chỉ tính đơn hoàn thành · lượt đặt không tính đơn hủy</div>
+            <div class="tk-panel-sub">Chỉ tính đơn hoàn thành</div>
 
             @if (loaiRows.Count == 0)
             {
@@ -125,8 +146,9 @@
                     <thead>
                         <tr>
                             <th>Loại sân</th>
-                            <th class="r">Lượt đặt</th>
+                            <th class="r" title="Số đơn hoàn thành">Đơn</th>
                             <th class="r">Doanh thu</th>
+                            <th class="r" title="Doanh thu trung bình mỗi đơn hoàn thành">TB/đơn</th>
                             <th class="r">Tỷ lệ</th>
                         </tr>
                     </thead>
@@ -137,19 +159,80 @@
                             string mauDot = dong.Tien > 0 ? mau[idx % mau.Length] : "#cbd5e1";
                             string tyLeLoai = tongTienLoai > 0 ? (dong.Tien / tongTienLoai * 100m).ToString("0.#") + "%" : "–";
                             string rongLoai = tongTienLoai > 0 ? (dong.Tien / tongTienLoai * 100m).ToString("0.##", inv) : "0";
+                            string tbLoai = dong.DonHoanThanh > 0 ? (dong.Tien / dong.DonHoanThanh).ToString("N0") + " đ" : "–";
                             <tr class="tk-lrow @(idx == 0 && dong.Tien > 0 ? "top" : "")" data-idx="@idx">
                                 <td>
                                     <span class="tk-dot" style="background:@mauDot"></span>@dong.Ten
                                     <div class="tk-mini"><span style="width:@(rongLoai)%; background:@mauDot"></span></div>
                                 </td>
-                                <td class="r">@dong.Luot</td>
+                                <td class="r">@dong.DonHoanThanh</td>
                                 <td class="r">@dong.Tien.ToString("N0") đ</td>
+                                <td class="r">@tbLoai</td>
                                 <td class="r">@tyLeLoai</td>
                             </tr>
                         }
                     </tbody>
+                    <tfoot>
+                        <tr class="tk-ltotal">
+                            <td style="border-top:1px solid #e8edf3"><b>Tổng cộng</b></td>
+                            <td class="r" style="border-top:1px solid #e8edf3"><b>@tongDonLoai</b></td>
+                            <td class="r" style="border-top:1px solid #e8edf3"><b>@tongTienLoai.ToString("N0") đ</b></td>
+                            <td class="r" style="border-top:1px solid #e8edf3"><b>@(tongDonLoai > 0 ? (tongTienLoai / tongDonLoai).ToString("N0") + " đ" : "–")</b></td>
+                            <td class="r" style="border-top:1px solid #e8edf3"><b>@(tongTienLoai > 0 ? "100%" : "–")</b></td>
+                        </tr>
+                    </tfoot>
                 </table>
             }
+        </div>
+    </div>
+
+    @* ===== Hàng 2: truy xuất nguồn doanh thu (đơn lớn nhất) + thời điểm tạo ra doanh thu (thứ, buổi) ===== *@
+    <div class="tk-body" style="margin-top:1.25rem">
+        <div class="tk-panel">
+            <div class="tk-panel-title">Đơn đóng góp doanh thu lớn nhất</div>
+            <div class="tk-panel-sub">@Model.SoDonHoanThanh đơn hoàn thành trong @nhan · sắp theo số tiền</div>
+
+            @if (dsDon.Count == 0)
+            {
+                <div class="tk-empty"><span>Chưa có đơn hoàn thành trong kỳ này</span></div>
+            }
+            else
+            {
+                <table class="table table-sm tk-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Sân</th>
+                            <th>Loại sân</th>
+                            <th>Ngày sử dụng</th>
+                            <th class="text-end">Số tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var don in dsDon.Take(5))
+                        {
+                            <tr>
+                                <td>#@don.MaDatSan</td>
+                                <td>@don.TenSan</td>
+                                <td>@don.TenLoai</td>
+                                <td>@f(don.GioBatDau) <span class="text-secondary">@don.GioBatDau.ToString("HH:mm", inv)</span></td>
+                                <td class="text-end">@don.DonGia.ToString("N0") đ</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                @if (Model.SoDonHoanThanh > 5)
+                {
+                    <button type="button" id="tk-open-donht" style="width:100%; margin-top:.6rem; padding:.4rem; border:1px dashed #cbd5e1; background:#fff; border-radius:10px; color:#15803d; font-weight:600; font-size:.875rem; cursor:pointer;">
+                        Xem tất cả (@Model.SoDonHoanThanh)
+                    </button>
+                }
+            }
+        </div>
+
+        <div class="d-grid gap-3 align-content-start">
+            <partial name="_BangThongKe" model='new BangThongKe { TieuDe = "Doanh thu theo thứ trong tuần", MoTa = "Theo ngày sử dụng sân · chỉ đơn hoàn thành", DonVi = "đ", LaTien = true, XepHang = false, TopN = 7, Items = Model.DoanhThuTheoThu }' />
+            <partial name="_BangThongKe" model='new BangThongKe { TieuDe = "Doanh thu theo buổi trong ngày", MoTa = "Theo giờ bắt đầu · chỉ đơn hoàn thành", DonVi = "đ", LaTien = true, XepHang = false, TopN = 3, Items = Model.DoanhThuTheoBuoi }' />
         </div>
     </div>
 </section>
@@ -195,3 +278,66 @@
         }
     </div>
 </dialog>
+
+@* ===== Cửa sổ: tất cả đơn hoàn thành tạo nên doanh thu ===== *@
+<dialog id="tk-donht" class="tk-dialog">
+    <div class="tk-dialog-head">
+        <div>
+            <div class="fw-bold">Đơn hoàn thành</div>
+            <div class="text-secondary small">@Model.SoDonHoanThanh đơn trong @nhan · tổng @Model.TongDoanhThuNam.ToString("N0") đ</div>
+        </div>
+        <button type="button" data-close aria-label="Đóng">&times;</button>
+    </div>
+    <div class="tk-dialog-body">
+        <div class="tk-scroll">
+            <table class="table table-sm tk-table mb-0">
+                <thead>
+                    <tr>
+                        <th>Mã đơn</th>
+                        <th>Sân</th>
+                        <th>Loại sân</th>
+                        <th>Ngày sử dụng</th>
+                        <th class="text-end">Số tiền</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var don in dsDon)
+                    {
+                        <tr>
+                            <td>#@don.MaDatSan</td>
+                            <td>@don.TenSan</td>
+                            <td>@don.TenLoai</td>
+                            <td>@f(don.GioBatDau) <span class="text-secondary">@don.GioBatDau.ToString("HH:mm", inv)</span></td>
+                            <td class="text-end">@don.DonGia.ToString("N0") đ</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (Model.SoDonHoanThanh > dsDon.Count)
+        {
+            <div class="text-secondary small mt-2">Chỉ hiện @dsDon.Count đơn có số tiền lớn nhất.</div>
+        }
+    </div>
+</dialog>
+
+<script>
+    (function () {
+        var dlg = document.getElementById('tk-donht');
+        var btn = document.getElementById('tk-open-donht');
+        if (!dlg || !btn) return;
+
+        function dong() {
+            if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+        }
+
+        btn.addEventListener('click', function () {
+            if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+        });
+        [].slice.call(dlg.querySelectorAll('[data-close]')).forEach(function (b) {
+            b.addEventListener('click', dong);
+        });
+        // Bấm ra ngoài vùng nội dung cũng đóng
+        dlg.addEventListener('click', function (e) { if (e.target === dlg) dong(); });
+    })();
+</script>

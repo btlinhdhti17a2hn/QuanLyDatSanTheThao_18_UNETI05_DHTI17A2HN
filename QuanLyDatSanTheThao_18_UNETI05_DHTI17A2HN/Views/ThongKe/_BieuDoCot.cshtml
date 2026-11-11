@@ -57,6 +57,11 @@
                 stroke-width: 2;
             }
 
+        /* Cột của kỳ chưa kết thúc (VD tháng hiện tại): làm nhạt để không đọc nhầm là số đã chốt */
+        #tk-chart .tk-col.live .bar {
+            opacity: .6;
+        }
+
         #tk-chart .tk-legend {
             display: flex;
             align-items: center;
@@ -100,9 +105,10 @@
                     @for (int i = 0; i < n; i++)
                     {
                         var it = items[i];
-                        <div class="tk-col" data-v="@it.GiaTri.ToString("0.##", inv)" data-c="@it.SoLuong" data-t="@it.Ten">
+                        bool dangDienRa = Model.CotCuoiDangDienRa && i == n - 1;
+                        <div class="tk-col@(dangDienRa ? " live" : "")" data-v="@it.GiaTri.ToString("0.##", inv)" data-c="@it.SoLuong" data-t="@it.Ten" data-live="@(dangDienRa ? "1" : "0")">
                             <div class="track"><div class="bar"><span class="pill"></span></div></div>
-                            <div class="m"><span>@(i % buoc == 0 ? it.Ten : "")</span></div>
+                            <div class="m"><span>@(i % buoc == 0 ? it.Ten + (dangDienRa ? "*" : "") : "")</span></div>
                         </div>
                     }
                 </div>
@@ -182,13 +188,15 @@
         function updateHint(vals, isInt) {
             if (!hint) return;
             var nonZero = [];
+            var liveCol = cols.filter(function (c) { return c.dataset.live === '1'; })[0];
+            var liveNote = liveCol ? liveCol.dataset.t + '* đang diễn ra nên chưa đủ kỳ.' : '';
             vals.forEach(function (v, i) { if (v > 0) nonZero.push(cols[i].dataset.t); });
             if (nonZero.length === 1) {
                 hint.hidden = false;
-                hint.textContent = 'Chỉ có ' + nonZero[0] + ' phát sinh ' + (isInt ? 'đơn hoàn thành' : 'doanh thu') + '; các kỳ còn lại chưa có số liệu.';
+                hint.textContent = 'Chỉ có ' + nonZero[0] + ' phát sinh ' + (isInt ? 'đơn hoàn thành' : 'doanh thu') + '; các kỳ còn lại chưa có đơn hoàn thành.' + (liveNote ? ' ' + liveNote : '');
             } else if (nonZero.length >= 2) {
                 hint.hidden = false;
-                hint.innerHTML = '<span class="tk-legend"><i></i> Đường xu hướng nối đỉnh các cột (' + nonZero.length + '/' + vals.length + ' kỳ có số liệu)</span>';
+                hint.innerHTML = '<span class="tk-legend"><i></i> Đường xu hướng nối đỉnh các cột (' + nonZero.length + '/' + vals.length + ' kỳ có đơn hoàn thành)</span>' + (liveNote ? '<span class="tk-legend">' + liveNote + '</span>' : '');
             } else {
                 hint.hidden = true;
             }
@@ -209,7 +217,8 @@
                 var txt = isInt ? fmt(v) + ' đơn' : fmt(v) + ' đ';
                 c.querySelector('.bar').style.height = (v / top * 100) + '%';
                 c.querySelector('.pill').textContent = txt;
-                c.title = c.dataset.t + ': ' + txt;
+                // Rê chuột hiện cả hai chỉ số của cột, bất kể đang xem chế độ nào
+                c.title = c.dataset.t + ': ' + fmt(parseFloat(c.dataset.v) || 0) + ' đ · ' + fmt(parseFloat(c.dataset.c) || 0) + ' đơn hoàn thành' + (c.dataset.live === '1' ? ' (kỳ đang diễn ra, chưa đủ)' : '');
                 c.classList.toggle('zero', v === 0);
                 // Chỉ làm nổi bật khi có đúng một cột cao nhất
                 c.classList.toggle('top', max > 0 && v === max && soCotMax === 1);
