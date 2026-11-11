@@ -6,17 +6,139 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 {
     public class DashboardViewModel
     {
+        // ----- Quy mô hệ thống (tích lũy, không theo kỳ) -----
         public int TongLoaiSan { get; set; }
         public int TongSan { get; set; }
         public int SanKhaDung { get; set; }
         public int TongKhachHang { get; set; }
-        public int TongDatSan { get; set; }
-        public int DonChoXuLy { get; set; }
-        public int DonDangXuLy { get; set; }
-        public int DonHoanThanh { get; set; }
-        public int DonHomNay { get; set; }
-        public decimal DoanhThuHoanThanh { get; set; }      // đơn đã hoàn thành
-        public decimal DoanhThuTamTinhHomNay { get; set; }  // đơn hôm nay chưa hủy
+        public int SanBaoTri => Math.Max(0, TongSan - SanKhaDung);
+
+        // ----- Phạm vi thời gian đang xem -----
+        public string Kieu { get; set; } = "homnay";      // homnay | 7ngay | 30ngay | tuychon
+        public DateTime CapNhat { get; set; }
+        public DateTime TuNgay { get; set; }
+        public DateTime DenNgay { get; set; }
+        public DateTime TuNgayTruoc { get; set; }
+        public DateTime DenNgayTruoc { get; set; }
+        public int SoNgay { get; set; }
+        public string NhanKy { get; set; } = "";           // vd. "Hôm nay · 11/11/2026"
+        public string NhanSoSanh { get; set; } = "kỳ trước"; // vd. "hôm qua"
+
+        // ----- 01. Cần xử lý ngay (thời điểm hiện tại, không phụ thuộc kỳ) -----
+        public int DonChoXuLy { get; set; }                // mọi ngày, đang chờ xác nhận
+        public int DonQuaHan { get; set; }                 // chờ xử lý nhưng đã tới giờ chơi
+        public List<DashDonItem> DsQuaHan { get; set; } = new();
+        public int PhutSapDienRa { get; set; } = 60;
+        public int DonSapDienRa { get; set; }              // chờ/đang xử lý, bắt đầu trong PhutSapDienRa phút tới
+        public List<DashDonItem> DsSapDienRa { get; set; } = new();
+        public List<DashDonItem> DsChoXacNhan { get; set; } = new();   // chờ xác nhận nhưng chưa tới giờ chơi (bổ sung cho Dashboard một màn hình)
+        // Đơn cần xử lý tách làm 2 nhóm không trùng nhau theo ngày chơi (xem ThongKeController.Index)
+        public int DonTonChoXacNhan { get; set; }          // Chờ xử lý, ngày chơi trước hôm nay
+        public int DonTonQuaGio { get; set; }              // Đang xử lý đã quá giờ kết thúc, ngày chơi trước hôm nay
+        public int DonNayChoXacNhan { get; set; }          // Chờ xử lý, ngày chơi từ hôm nay trở đi
+        public int DonNayQuaGio { get; set; }              // Đang xử lý quá giờ kết thúc, ngày chơi hôm nay
+        public int DonTon => DonTonChoXacNhan + DonTonQuaGio;
+        public int DonCanXuLyNay => DonNayChoXacNhan + DonNayQuaGio;
+        public List<DashDonItem> DsTon { get; set; } = new();          // cũ nhất trước
+        public List<DashDonItem> DsCanXuLyNay { get; set; } = new();   // cũ nhất trước
+        public int DonQuaGioChuaChot { get; set; }         // đang xử lý nhưng đã quá giờ kết thúc
+        public List<DashDonItem> DsQuaGioChuaChot { get; set; } = new();
+        public int DonDangDienRa { get; set; }
+        public int SanDangCoKhach { get; set; }
+
+        // ----- 02. Kinh doanh (theo kỳ, tính theo ngày tạo đơn) -----
+        public decimal DoanhThu { get; set; }              // đơn Hoàn thành, cộng DonGia (khớp trang Thống kê)
+        public decimal DoanhThuTruoc { get; set; }
+        public decimal DoanhThuTamTinh { get; set; }       // sân + dịch vụ, đơn chưa hủy
+        public int DonHoanThanhKy { get; set; }
+        public int DonHoanThanhTruoc { get; set; }
+        public int TongDonKy { get; set; }
+        public int TongDonTruoc { get; set; }
+        public int DonChoKy { get; set; }
+        public int DonDangKy { get; set; }
+        public int DonHuyKy { get; set; }
+        public int DonHuyTruoc { get; set; }
+        public int DonKhacKy { get; set; }                 // trạng thái ngoài 4 trạng thái chuẩn
+        public bool CoKyTruoc { get; set; }                // kỳ trước có phát sinh đơn để so sánh
+
+        public decimal GiaTriTb => DonHoanThanhKy == 0 ? 0m : Math.Round(DoanhThu / DonHoanThanhKy, 0);
+        public decimal GiaTriTbTruoc => DonHoanThanhTruoc == 0 ? 0m : Math.Round(DoanhThuTruoc / DonHoanThanhTruoc, 0);
+        public double TyLeHuy => TongDonKy == 0 ? 0 : Math.Round(DonHuyKy * 100.0 / TongDonKy, 1);
+        public double TyLeHuyTruoc => TongDonTruoc == 0 ? 0 : Math.Round(DonHuyTruoc * 100.0 / TongDonTruoc, 1);
+
+        // ----- Biểu đồ xu hướng (tối thiểu 7 ngày kết thúc ở cuối kỳ để không chỉ có 1 cột) -----
+        public string DonViBieuDo { get; set; } = "ngày";
+        public string NhanBieuDo { get; set; } = "";
+        public string NhanDonViCot { get; set; } = "1 ngày";   // mỗi cột biểu đồ đại diện: "1 giờ" | "1 ngày" | "7 ngày" | "1 tháng"
+        public string GhiChuBieuDo { get; set; } = "";         // ghi chú khi đơn vị nhóm khác dự kiến (vd. không có giờ tạo đơn)
+        public bool CoSoSanhBieuDo { get; set; }
+        public List<DashCotItem> BieuDo { get; set; } = new();
+        public List<DashNhanDinhItem> NhanDinh { get; set; } = new();
+
+        // ----- 04. Hiệu suất sân -----
+        public HieuSuatSanViewModel HieuSuat { get; set; } = new();       // đúng kỳ đang xem
+        public HieuSuatSanViewModel HieuSuatBanDo { get; set; } = new();  // dùng cho bản đồ nhiệt + xếp hạng sân (kỳ ngắn thì lấy 7 ngày)
+        public string NhanBanDo { get; set; } = "";
+        public List<HieuSuatSanItem> SanCongSuatThap { get; set; } = new();
+        public string? KhungGioVang { get; set; }
+        public string? KhungGioDong { get; set; }
+
+        // ----- 05. Khách hàng -----
+        public int KhachMoi { get; set; }
+        public int KhachMoiTruoc { get; set; }
+        public int KhachCoDon { get; set; }
+        public int KhachCoDonTruoc { get; set; }
+        public int KhachQuayLai { get; set; }              // >= 2 đơn không hủy trong kỳ
+        public int KhachQuayLaiTruoc { get; set; }
+        public int DonKhongHuyKy { get; set; }
+        public double TyLeQuayLai => KhachCoDon == 0 ? 0 : Math.Round(KhachQuayLai * 100.0 / KhachCoDon, 1);
+        public double TyLeQuayLaiTruoc => KhachCoDonTruoc == 0 ? 0 : Math.Round(KhachQuayLaiTruoc * 100.0 / KhachCoDonTruoc, 1);
+        public double DonTbMoiKhach => KhachCoDon == 0 ? 0 : Math.Round(DonKhongHuyKy / (double)KhachCoDon, 1);
+
+        // ----- 06. Hoạt động gần đây -----
+        public List<DashDonItem> DonMoiNhat { get; set; } = new();
+        public List<DashKhachMoiItem> KhachMoiNhat { get; set; } = new();
+    }
+
+    // Một đơn rút gọn để hiện trong danh sách việc cần làm / hoạt động gần đây
+    public class DashDonItem
+    {
+        public int MaDatSan { get; set; }
+        public string TenSan { get; set; } = "";
+        public string TenKhach { get; set; } = "";
+        public string TrangThai { get; set; } = "";
+        public DateTime NgayDat { get; set; }
+        public DateTime GioBatDau { get; set; }
+        public DateTime GioKetThuc { get; set; }
+        public decimal DonGia { get; set; }
+    }
+
+    // Một cột trên biểu đồ xu hướng (ngày / tuần / tháng)
+    public class DashCotItem
+    {
+        public string Ten { get; set; } = "";
+        public string NhanDayDu { get; set; } = "";
+        public decimal DoanhThu { get; set; }
+        public decimal? DoanhThuTruoc { get; set; }   // null = kỳ trước không có dữ liệu
+        public int SoHoanThanh { get; set; }
+        public int SoDang { get; set; }
+        public int SoCho { get; set; }
+        public int SoHuy { get; set; }
+        public int SoKhac { get; set; }
+        public int TongDon => SoHoanThanh + SoDang + SoCho + SoHuy + SoKhac;
+    }
+
+    // Nhận định tự động: chỉ tạo khi dữ liệu đủ chứng minh
+    public class DashNhanDinhItem
+    {
+        public string Muc { get; set; } = "info";     // tot | canhbao | info
+        public string NoiDung { get; set; } = "";
+    }
+
+    public class DashKhachMoiItem
+    {
+        public string HoTen { get; set; } = "";
+        public DateTime? NgayDangKy { get; set; }
     }
 
     // Một dòng thống kê (tên nhóm, số lượng, giá trị tiền, tỷ lệ %)

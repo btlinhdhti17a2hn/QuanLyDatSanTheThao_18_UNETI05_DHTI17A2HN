@@ -1,348 +1,570 @@
-@* Họ và tên: [Điền tên SV 5]
-   Mã sinh viên: [Điền mã SV 5]
-   Nội dung thực hiện: Dashboard quản trị - tổng quan vận hành: việc cần xử lý, hoạt động theo phạm vi thời gian, tình hình đơn, tình trạng sân.
-
-   Bộ lọc phạm vi (giống ô chọn khoảng thời gian trên trang chủ Shopify / Stripe: mọi chỉ số đổi theo, nhãn phạm vi ghi ngay đầu mỗi khu):
-     - Hôm nay       : đơn tạo hôm nay, doanh thu tạm tính hôm nay
-     - Toàn thời gian: doanh thu đơn hoàn thành, tổng đơn, giá trị TB/đơn, phân bổ trạng thái đơn
-   Luôn hiện, không phụ thuộc bộ lọc: đơn đang chờ xử lý (việc tồn đọng của mọi ngày) và tình trạng sân hiện tại.
-   Chọn phạm vi bằng ?phamVi=homnay hoặc ?phamVi=tatca (mặc định: homnay). *@
+@* Dashboard điều hành - bố cục một màn hình (desktop 1366x768 và 1920x1080).
+   Phạm vi thời gian: ?phamVi=homnay (mặc định) | 7ngay | 30ngay | tuychon&tu=yyyy-MM-dd&den=yyyy-MM-dd
+   - "Đơn cần chú ý" và "Tình trạng sân" luôn là thời điểm hiện tại.
+   - Tổng đơn, doanh thu, hoàn thành, hủy, khách mới, tỷ lệ khai thác đổi theo bộ lọc.
+   Không dùng thư viện ngoài. Biểu đồ mini bằng HTML/CSS. *@
 
 @using System.Globalization
+@using System.Net
+@using System.Text
+@using QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
 @model QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels.DashboardViewModel
 @{
     ViewData["Title"] = "Tổng quan vận hành";
 
+    var m = Model;
     var inv = CultureInfo.InvariantCulture;
-    var homNay = DateTime.Now;
-    string phamVi = Context.Request.Query["phamVi"].ToString() == "tatca" ? "tatca" : "homnay";
+    var vi = CultureInfo.GetCultureInfo("vi-VN");
+    bool laTuyChon = m.Kieu == "tuychon";
+    var hs = m.HieuSuat;
 
-    double Pct(double part, double total) => total <= 0 ? 0 : Math.Round(part * 100.0 / total, 1);
+    // ---------- Hàm hỗ trợ định dạng ----------
+    string H(string? s) => WebUtility.HtmlEncode(s ?? "");
+    string N(double v) => v.ToString("0.#", vi);
+    string Tien(decimal v) => v.ToString("N0", vi) + " đ";
     string Css(double v) => Math.Max(0, Math.Min(100, v)).ToString("0.##", inv);
+    string Gon(decimal v)
+    {
+        if (v >= 1000000000m) return (v / 1000000000m).ToString("0.#", vi) + " tỷ";
+        if (v >= 1000000m) return (v / 1000000m).ToString("0.#", vi) + " tr";
+        if (v >= 1000m) return (v / 1000m).ToString("0.#", vi) + "K";
+        return v.ToString("0", vi);
+    }
+    string GioDon(DashDonItem d) =>
+        (d.GioBatDau.Date == m.CapNhat.Date ? "" : d.GioBatDau.ToString("dd/MM ")) + d.GioBatDau.ToString("HH:mm") + "-" + d.GioKetThuc.ToString("HH:mm");
+    string UrlTrangThai(string tt) => Url.Action("Index", "TiepNhanDatSan", new { trangThai = tt }) ?? "#";
+    string UrlKy(string pv) => Url.Action("Index", "ThongKe", new { phamVi = pv }) ?? "#";
 
-    // Đơn đặt sân (toàn thời gian)
-    int tong = Model.TongDatSan;
-    int cho = Model.DonChoXuLy;
-    int dang = Model.DonDangXuLy;
-    int xong = Model.DonHoanThanh;
-    int khac = Math.Max(0, tong - cho - dang - xong);   // đã hủy / trạng thái khác (chưa tách riêng)
+    // ---------- So sánh với kỳ trước (một dòng ngắn) ----------
+    string DeltaPhanTram(decimal cur, decimal prev, bool coTruoc)
+    {
+        if (!coTruoc) return "<span class=\"dl flat\">Chưa có dữ liệu " + H(m.NhanSoSanh) + "</span>";
+        if (prev == 0) return "<span class=\"dl flat\">" + (cur == 0 ? "Không đổi" : "Mới phát sinh") + " so với " + H(m.NhanSoSanh) + "</span>";
+        double pct = (double)((cur - prev) / prev * 100m);
+        if (Math.Abs(pct) < 0.05) return "<span class=\"dl flat\">Không đổi so với " + H(m.NhanSoSanh) + "</span>";
+        return "<span class=\"dl " + (pct > 0 ? "up" : "down") + "\">" + (pct > 0 ? "▲ " : "▼ ") + N(Math.Abs(pct)) + "%</span> so với " + H(m.NhanSoSanh);
+    }
 
-    double pCho = Pct(cho, tong);
-    double pDang = Pct(dang, tong);
-    double pXong = Pct(xong, tong);
-    double pKhac = tong == 0 ? 0 : Math.Max(0, Math.Round(100 - pCho - pDang - pXong, 1));
+    // ---------- Thẻ KPI nhỏ gọn: tiêu đề + số chính + một dòng mô tả ----------
+    string Kpi(string label, string value, string subHtml, string tip, string? href = null, string cls = "")
+    {
+        var tag = href == null ? "div" : "a";
+        var sb = new StringBuilder();
+        sb.Append("<").Append(tag).Append(" class=\"kpi ").Append(cls).Append("\"");
+        if (href != null && href.StartsWith("nav:")) sb.Append(" href=\"#\" data-nav=\"").Append(H(href.Substring(4))).Append("\"");
+        else if (href != null) sb.Append(" href=\"").Append(H(href)).Append("\"");
+        if (!string.IsNullOrEmpty(tip)) sb.Append(" title=\"").Append(H(tip)).Append("\"");
+        sb.Append("><div class=\"lb\">").Append(H(label)).Append("</div>");
+        sb.Append("<div class=\"num\">").Append(value).Append("</div>");
+        sb.Append("<div class=\"sub\">").Append(subHtml).Append("</div>");
+        sb.Append("</").Append(tag).Append(">");
+        return sb.ToString();
+    }
 
-    // Sân: trạng thái quản lý (hoạt động / bảo trì) khác với khung giờ còn trống
-    int sanKhongKhaDung = Math.Max(0, Model.TongSan - Model.SanKhaDung);
-    double pKhaDung = Pct(Model.SanKhaDung, Model.TongSan);
+    // ---------- Khu vực 2: số liệu ----------
+    int sanKhaDung = m.SanKhaDung;
+    int sanCoKhach = Math.Min(m.SanDangCoKhach, sanKhaDung);
+    int sanTrong = Math.Max(0, sanKhaDung - sanCoKhach);
+    bool coHs = hs.GioKhaDung > 0;
 
-    // Toàn thời gian: trung bình mỗi đơn hoàn thành
-    var tbMoiDon = Model.DonHoanThanh > 0 ? Model.DoanhThuHoanThanh / Model.DonHoanThanh : 0;
+    // ---------- Khu vực 3: đơn cần chú ý, tách 2 nhóm không trùng nhau (xem controller) ----------
+    //   Hôm nay & sắp tới: ngày chơi từ hôm nay trở đi.  Tồn từ ngày trước: ngày chơi trước hôm nay.
+    bool moTabTon = m.DonCanXuLyNay == 0 && m.DonTon > 0;       // hôm nay không có việc mà còn tồn -> mở sẵn tab Tồn
+
+    string KhoangQua(DateTime moc)
+    {
+        var t = (m.CapNhat - moc).Duration();   // luôn dương: đã quá hạn bao lâu hoặc còn bao lâu nữa bắt đầu
+        if (t.TotalDays >= 1) return Math.Floor(t.TotalDays).ToString("0") + " ngày";
+        if (t.TotalHours >= 1) return Math.Floor(t.TotalHours).ToString("0") + " giờ";
+        return Math.Max(1, Math.Floor(t.TotalMinutes)).ToString("0") + " phút";
+    }
+    // Trả về (nhãn chip, màu). Chờ xử lý: tính từ giờ bắt đầu; Đang xử lý: tính từ giờ kết thúc.
+    (string Nhan, string Tone) PhanLoai(DashDonItem d)
+    {
+        if (d.TrangThai == "Chờ xử lý")
+            return d.GioBatDau <= m.CapNhat ? ("Chờ xác nhận · quá " + KhoangQua(d.GioBatDau), "red")
+                                            : ("Chờ xác nhận · bắt đầu sau " + KhoangQua(d.GioBatDau), "amber");
+        return ("Quá giờ chưa chốt · " + KhoangQua(d.GioKetThuc), "orange");
+    }
+
+    // ---------- Thống kê doanh thu: phạm vi = đúng bộ lọc, mỗi cột = một mốc của m.DonViBieuDo ----------
+    var cot = m.BieuDo;
+    int nCot = cot.Count;
+    decimal tongBd = cot.Sum(c => c.DoanhThu);   // tổng = tổng các cột (và bằng thẻ Doanh thu thực thu)
+    decimal maxCot = nCot == 0 ? 0m : Math.Max(cot.Max(c => c.DoanhThu), cot.Max(c => c.DoanhThuTruoc ?? 0m));
+    double dinhTrucY = 0;                       // đỉnh trục Y làm tròn đẹp (vd. 3,7 tr -> 4 tr)
+    if (maxCot > 0)
+    {
+        double mx = (double)maxCot;
+        double buoc = Math.Pow(10, Math.Floor(Math.Log10(mx))) / 2;
+        dinhTrucY = Math.Ceiling(mx / buoc) * buoc;
+    }
+    string donViBd = "Theo " + m.DonViBieuDo + " · mỗi cột " + m.NhanDonViCot + (m.DonViBieuDo == "tuần" ? " · nhãn = ngày bắt đầu" : "");
+    string tipDonVi = m.DonViBieuDo == "giờ" ? "Mỗi cột là doanh thu các đơn Hoàn thành được tạo trong một giờ của ngày đang xem."
+        : m.DonViBieuDo == "ngày" ? "Mỗi cột là doanh thu của một ngày (tính theo ngày tạo đơn)."
+        : m.DonViBieuDo == "tuần" ? "Mỗi cột là 7 ngày liên tiếp tính từ ngày bắt đầu; tuần cuối có thể ngắn hơn. Nhãn dưới cột là ngày bắt đầu."
+        : "Mỗi cột là một tháng; tháng đầu và tháng cuối có thể chưa đủ ngày.";
+    // Nhãn trục X: cột nào cũng có nhãn. Khi có nhiều cột ngày thì chỉ in số ngày (đầu tháng in dd/MM)
+    string NhanTruc(int i)
+    {
+        var t = cot[i].Ten;
+        if (m.DonViBieuDo == "ngày" && nCot > 14 && i > 0 && !t.StartsWith("01/")) return t.Substring(0, 2);
+        return t;
+    }
 }
 
 <style>
-    /* Màu: xanh lá = hoàn thành/hoạt động tốt, xanh dương = đang xử lý, cam = chờ xử lý,
-       đỏ = quá hạn/rủi ro (chưa dùng), xám = hủy/ngừng hoạt động. Khoảng cách theo bội số 8px. */
     .dash-wrap {
-        --ink: #0F172A;
-        --muted: #475569;
-        --line: #E2E8F0;
-        --bg: #F8FAFC;
-        --brand: #166534;
-        --done: #16A34A;
-        --wait: #D97706;
-        --doing: #2563EB;
-        --other: #94A3B8;
+        --ink: #0F172A; --muted: #475569; --soft: #64748B; --line: #E2E8F0; --bg: #F8FAFC;
+        --brand: #166534; --done: #16A34A; --wait: #D97706; --doing: #2563EB; --danger: #DC2626; --other: #94A3B8;
+        /* Chiều cao phần khung ngoài (thanh trên + khoảng đệm của _Layout). Chỉnh số này nếu Layout của bạn khác. */
+        --chrome: 48px;
         color: var(--ink);
+        font-variant-numeric: tabular-nums;
+        font-size: 14px;
+        display: flex; flex-direction: column; gap: 10px;
+        height: calc(100vh - var(--chrome));
+        overflow-x: hidden; overflow-y: auto;   /* nếu màn hình quá thấp thì cuộn thay vì cắt mất nội dung */
     }
 
-        .dash-wrap .page-title { font-size: 1.75rem; font-weight: 700; margin: 0; }
-        .dash-wrap .page-sub { color: var(--muted); font-size: .95rem; }
+    /* ---- Khu vực 1: tiêu đề + bộ lọc ---- */
+    .dash-wrap .dh { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; position: relative; flex: 0 0 auto; }
+    .dash-wrap .page-title { font-size: 1.45rem; font-weight: 700; margin: 0; line-height: 1.2; }
+    .dash-wrap .page-sub { color: var(--muted); font-size: .85rem; }
+    .dash-wrap .dh-right { display: flex; align-items: center; gap: 8px; }
+    .dash-wrap .seg { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+    .dash-wrap .seg a, .dash-wrap .seg button { border: 0; background: transparent; padding: 5px 12px; font-size: .9rem; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; text-decoration: none; }
+    .dash-wrap .seg .on { background: var(--brand); color: #fff; font-weight: 600; }
+    .dash-wrap .seg a:focus-visible, .dash-wrap .seg button:focus-visible { outline: 2px solid var(--doing); outline-offset: 2px; }
+    .dash-wrap .custom { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; box-shadow: 0 8px 24px rgba(15,23,42,.14); }
+    .dash-wrap .custom input[type=date] { border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; font-size: .9rem; }
+    .dash-wrap .custom .btn-apply { background: var(--brand); color: #fff; border: 0; border-radius: 8px; padding: 4px 14px; font-weight: 600; font-size: .9rem; }
+    .dash-wrap .custom .note { color: var(--muted); font-size: .8rem; }
+    .dash-wrap .loi { flex: 0 0 auto; padding: 6px 12px; margin: 0; font-size: .9rem; }
 
-        .dash-wrap .sec { font-size: 1.1rem; font-weight: 600; color: var(--ink); margin: 0 0 8px; }
-        .dash-wrap .sec .no { color: var(--brand); margin-right: 8px; }
-        .dash-wrap .sec-sub { color: var(--muted); font-size: .9rem; margin: -4px 0 16px; }
+    /* ---- Khu vực 2: 4 thẻ KPI ---- */
+    .dash-wrap .kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; flex: 0 0 auto; }
+    .dash-wrap .kpi { display: block; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; color: inherit; text-decoration: none; min-width: 0; }
+    .dash-wrap a.kpi:hover, .dash-wrap a.kpi:focus-visible { box-shadow: 0 3px 10px rgba(15,23,42,.10); border-color: #CBD5E1; color: inherit; }
+    .dash-wrap .kpi .lb { font-size: .85rem; font-weight: 600; color: var(--muted); }
+    .dash-wrap .kpi .num { font-size: 1.65rem; font-weight: 700; line-height: 1.15; margin-top: 2px; }
+    .dash-wrap .kpi .num .of { font-size: 1rem; font-weight: 600; color: var(--muted); }
+    .dash-wrap .kpi.brand .num { color: var(--brand); }
+    .dash-wrap .kpi.alert .num { color: var(--danger); }
+    .dash-wrap .kpi.alert { border-left: 3px solid var(--danger); }
+    .dash-wrap .kpi.ok { border-left: 3px solid var(--done); }
+    .dash-wrap .kpi .sub { font-size: .82rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-wrap .dl { font-weight: 600; }
+    .dash-wrap .dl.up { color: var(--done); }
+    .dash-wrap .dl.down { color: var(--danger); }
+    .dash-wrap .dl.flat { color: var(--soft); font-weight: 500; }
 
-        .dash-wrap .panel { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 24px; height: 100%; }
-        .dash-wrap .note { color: var(--muted); font-size: .875rem; margin: 16px 0 0; }
-        .dash-wrap .scope-pane[hidden] { display: none !important; }
+    /* ---- Khu vực 3: hai cột vận hành ---- */
+    .dash-wrap .mid { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 10px; }
+    .dash-wrap .panel { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .dash-wrap .ph { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; flex: 0 0 auto; }
+    .dash-wrap .ph h3 { font-size: .98rem; font-weight: 700; margin: 0; }
+    .dash-wrap .ph a { font-size: .85rem; font-weight: 600; color: var(--brand); text-decoration: none; white-space: nowrap; }
+    .dash-wrap .ph a:hover { text-decoration: underline; }
+    .dash-wrap .ph .cnt { font-size: .8rem; color: var(--muted); font-weight: 500; }
+    .dash-wrap .empty { color: var(--muted); font-size: .9rem; padding: 10px 0; }
 
-        .dash-wrap .tip {
-            display: inline-flex; width: 16px; height: 16px; border-radius: 50%;
-            border: 1px solid var(--muted); color: var(--muted);
-            font-size: 11px; font-weight: 700; align-items: center; justify-content: center;
-            cursor: help; margin-left: 8px; vertical-align: middle; line-height: 1;
-        }
+    .dash-wrap .att { list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    .dash-wrap .att li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 5px 10px; margin-bottom: 5px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 8px; }
+    .dash-wrap .att li.red { border-left-color: var(--danger); background: #FEF2F2; }
+    .dash-wrap .att li.orange { border-left-color: var(--wait); background: #FFFBEB; }
+    .dash-wrap .att li.amber { border-left-color: #F59E0B; background: #FFFBEB; }
+    .dash-wrap .att li.blue { border-left-color: var(--doing); background: #EFF6FF; }
+    .dash-wrap .it-n { font-weight: 600; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-wrap .it-id { color: var(--soft); font-weight: 400; font-size: .8rem; }
+    .dash-wrap .it-s { color: var(--muted); font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-wrap .it-l { min-width: 0; }
+    .dash-wrap .chip { display: inline-block; font-size: .74rem; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+    .dash-wrap .chip.red { background: #FEE2E2; color: #991B1B; }
+    .dash-wrap .chip.orange, .dash-wrap .chip.amber { background: #FDE68A; color: #78350F; }
+    .dash-wrap .chip.blue { background: #DBEAFE; color: #1E40AF; }
 
-    /* Bộ lọc phạm vi */
-    .scope-seg { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
-        .scope-seg button { border: 0; background: transparent; padding: 6px 16px; font-size: .95rem; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; }
-        .scope-seg button.on { background: var(--brand); color: #fff; font-weight: 600; }
-        .scope-seg button:focus-visible { outline: 2px solid var(--doing); outline-offset: 2px; }
+    /* Tab trong khung "Đơn đặt sân cần chú ý" (không phải điều hướng trang) */
+    .dash-wrap .tabs { display: inline-flex; gap: 4px; }
+    .dash-wrap .tab { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 2px 10px; font-size: .82rem; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .dash-wrap .tab.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .dash-wrap .tab i { font-style: normal; display: inline-block; min-width: 18px; text-align: center; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: #F1F5F9; color: var(--muted); }
+    .dash-wrap .tab i.hot { background: #FEE2E2; color: #991B1B; }
+    .dash-wrap .tab.on i { background: rgba(255,255,255,.25); color: #fff; }
+    .dash-wrap .tabpane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .dash-wrap .tabpane.d-none { display: none; }
+    .dash-wrap .att-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .78rem; color: var(--soft); flex: 0 0 auto; }
+    .dash-wrap .att-foot a { color: var(--brand); font-weight: 600; text-decoration: none; margin-left: 10px; }
+    .dash-wrap .att-foot a:hover { text-decoration: underline; }
 
-    /* Dải cần xử lý: một màu cam cho chờ xử lý */
-    .todo { border-radius: 12px; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
-    .todo-warn { background: #FFFBEB; border: 1px solid #FCD34D; color: #78350F; }
-    .todo-ok { background: #F0FDF4; border: 1px solid #86EFAC; color: var(--brand); }
-    .todo .tag { font-size: .8rem; font-weight: 700; background: #FDE68A; color: #78350F; border-radius: 999px; padding: 2px 12px; margin-right: 8px; }
-    .todo .big { font-size: 1.75rem; font-weight: 700; line-height: 1.1; margin-right: 8px; }
+    /* Cột phải: tình trạng và hiệu suất sân */
+    .dash-wrap .court-top { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+    .dash-wrap .donut { width: 100px; height: 100px; border-radius: 50%; flex: 0 0 auto; display: grid; place-items: center; background: conic-gradient(var(--done) calc(var(--p) * 1%), var(--line) 0); }
+    .dash-wrap .donut > div { width: 74px; height: 74px; border-radius: 50%; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+    .dash-wrap .donut b { font-size: 1.25rem; }
+    .dash-wrap .donut small { font-size: .7rem; color: var(--muted); }
+    .dash-wrap .donut.na { background: var(--line); }
+    .dash-wrap .court-stats { flex: 1 1 auto; min-width: 0; }
+    .dash-wrap .crow { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 3px 0; font-size: .92rem; border-bottom: 1px dashed var(--line); }
+    .dash-wrap .crow:last-child { border-bottom: 0; }
+    .dash-wrap .crow b { font-size: 1.05rem; }
+    .dash-wrap .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; }
+    .dash-wrap .stack { display: flex; height: 10px; border-radius: 99px; overflow: hidden; background: var(--line); margin: 10px 0 4px; flex: 0 0 auto; }
+    .dash-wrap .stack > span { display: block; height: 100%; }
+    .dash-wrap .court-note { color: var(--muted); font-size: .82rem; margin-top: 4px; }
 
-    /* KPI */
-    .kpi { display: block; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 24px; height: 100%; color: inherit; text-decoration: none; }
-    a.kpi { transition: box-shadow .15s, border-color .15s; }
-    a.kpi:hover, a.kpi:focus-visible { box-shadow: 0 4px 14px rgba(15,23,42,.1); border-color: #CBD5E1; color: inherit; }
-        .kpi .lb { font-size: .95rem; font-weight: 500; color: var(--muted); }
-        .kpi .num { font-size: 2rem; font-weight: 700; line-height: 1.2; color: var(--ink); margin-top: 4px; }
-        .kpi .num.brand { color: var(--brand); }
-        .kpi .num .of { font-size: 1.25rem; font-weight: 600; color: var(--muted); }
-        .kpi .sub { font-size: .875rem; color: var(--muted); margin-top: 4px; }
+    /* ---- Dải dưới cùng: 4 số liệu nhỏ + biểu đồ doanh thu chiếm phần lớn ---- */
+    .dash-wrap .bottom { flex: 0 0 auto; height: clamp(150px, 28vh, 300px); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.8fr); gap: 10px; }
+    .dash-wrap .minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 10px; }
+    .dash-wrap .mini { display: flex; flex-direction: column; justify-content: center; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; color: inherit; text-decoration: none; min-width: 0; }
+    .dash-wrap a.mini:hover { box-shadow: 0 3px 10px rgba(15,23,42,.10); color: inherit; }
+    .dash-wrap .mini .lb { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dash-wrap .mini .v { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+    .dash-wrap .mini .s { font-size: .78rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* Thanh phân bố trạng thái đơn */
-    .stack { display: flex; height: 12px; border-radius: 99px; overflow: hidden; background: var(--line); margin: 8px 0 16px; }
-    .stack > span { display: block; height: 100%; }
+    .dash-wrap .rev { overflow: visible; padding: 10px 16px 8px; }
+    .dash-wrap .rev-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex: 0 0 auto; }
+    .dash-wrap .rev-t { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+    .dash-wrap .rev-t h3 { font-size: .98rem; font-weight: 700; margin: 0; }
+    .dash-wrap .rev-range { font-size: .85rem; color: var(--muted); }
+    .dash-wrap .rev-unit { font-size: .75rem; font-weight: 600; color: var(--brand); background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 999px; padding: 1px 9px; white-space: nowrap; cursor: help; }
+    .dash-wrap .rev-r { display: flex; align-items: baseline; gap: 12px; white-space: nowrap; }
+    .dash-wrap .rev-leg { font-size: .75rem; color: var(--soft); }
+    .dash-wrap .rev-tot { font-size: .85rem; color: var(--muted); }
+    .dash-wrap .rev-tot b { font-size: 1.2rem; color: var(--brand); }
+    .dash-wrap .rev-note { font-size: .78rem; color: var(--wait); flex: 0 0 auto; }
+    .dash-wrap .rev-body { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; column-gap: 6px; padding-top: 8px; }
+    .dash-wrap .yax { position: relative; }
+    .dash-wrap .yax span { position: absolute; right: 0; transform: translateY(-50%); font-size: .7rem; color: var(--soft); white-space: nowrap; }
+    .dash-wrap .plot { position: relative; }
+    .dash-wrap .plot .gl { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--line); }
+    .dash-wrap .cols { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 3px; }
+    .dash-wrap .col { position: relative; flex: 1 1 0; min-width: 0; height: 100%; display: flex; justify-content: center; align-items: flex-end; outline: none; }
+    .dash-wrap .col:hover, .dash-wrap .col:focus { background: rgba(22,163,74,.07); }
+    .dash-wrap .col .b { width: 72%; max-width: 64px; background: var(--done); border-radius: 3px 3px 0 0; }
+    .dash-wrap .col .b.z { background: #CBD5E1; height: 2px; border-radius: 0; }
+    .dash-wrap .col:hover .b:not(.z), .dash-wrap .col:focus .b:not(.z) { background: var(--brand); }
+    .dash-wrap .col .pv { position: absolute; left: 14%; right: 14%; height: 0; border-top: 2px dashed var(--other); pointer-events: none; }
+    .dash-wrap .tt { display: none; position: absolute; z-index: 30; left: 50%; transform: translateX(-50%); min-width: 190px; padding: 8px 10px; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 24px rgba(15,23,42,.18); font-size: .82rem; line-height: 1.45; text-align: left; white-space: nowrap; pointer-events: none; }
+    .dash-wrap .col.tl .tt { left: 0; transform: none; }
+    .dash-wrap .col.tr .tt { left: auto; right: 0; transform: none; }
+    .dash-wrap .col:hover .tt, .dash-wrap .col:focus .tt { display: block; }
+    .dash-wrap .tt .g { color: var(--brand); }
+    .dash-wrap .tt .pvt { color: var(--soft); }
+    .dash-wrap .xlab { grid-column: 2; display: flex; gap: 3px; padding-top: 3px; }
+    .dash-wrap .xlab span { flex: 1 1 0; min-width: 0; text-align: center; font-size: .7rem; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: clip; }
 
-    .st-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px; margin: 0 -8px; border-radius: 8px; color: inherit; text-decoration: none; font-size: .95rem; }
-        a.st-row:hover, a.st-row:focus-visible { background: var(--bg); color: inherit; }
-        .st-row .name { font-weight: 500; }
-        .st-row .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .st-row .cnt { font-weight: 700; font-size: 1.05rem; }
-        .st-row .pc { color: var(--muted); font-size: .875rem; margin-left: 8px; display: inline-block; min-width: 48px; text-align: right; }
+    /* Màn hình thấp (ví dụ 1366x768, vùng nhìn thấy của trình duyệt khoảng 620px): gọn hơn nhưng không thu nhỏ chữ */
+    @@media (min-width: 1200px) and (max-height: 700px) {
+        .dash-wrap { gap: 8px; }
+        .dash-wrap .kpi { padding: 8px 12px; }
+        .dash-wrap .kpi .num { font-size: 1.45rem; }
+        .dash-wrap .att li:nth-child(n+4) { display: none; }
+        .dash-wrap .donut { width: 84px; height: 84px; }
+        .dash-wrap .donut > div { width: 62px; height: 62px; }
+        .dash-wrap .donut b { font-size: 1.05rem; }
+        .dash-wrap .mini { padding: 6px 12px; }
+        .dash-wrap .mini .v { font-size: 1.25rem; }
+    }
 
-    /* Sân */
-    .court-bar { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
-    .court-bar > span { display: block; height: 100%; background: var(--done); border-radius: 99px; }
-    .legend-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .95rem; }
-        .legend-row:last-of-type { border-bottom: 0; }
-        .legend-row .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
-        .legend-row .cnt { font-weight: 700; }
-
-    .empty { text-align: center; color: var(--muted); padding: 24px 8px; font-size: .95rem; }
-    .empty .big { display: block; font-size: 2rem; font-weight: 700; color: var(--ink); line-height: 1.2; }
+    /* Màn hình nhỏ hơn desktop: xếp lại và cho phép cuộn trang */
+    @@media (max-width: 1199px), (max-height: 559px) {
+        .dash-wrap { height: auto; overflow: visible; }
+        .dash-wrap .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .dash-wrap .mid { grid-template-columns: minmax(0, 1fr); }
+        .dash-wrap .bottom { grid-template-columns: minmax(0, 1fr); height: auto; }
+        .dash-wrap .minis { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .dash-wrap .rev { min-height: 240px; }
+        .dash-wrap .att li:nth-child(n+4) { display: flex; }
+    }
+    @@media (max-width: 560px) {
+        .dash-wrap .kpis { grid-template-columns: minmax(0, 1fr); }
+        .dash-wrap .minis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
 </style>
 
 <div class="dash-wrap">
 
-    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+    @* ============ KHU VỰC 1: Tiêu đề + bộ lọc ============ *@
+    <div class="dh">
         <div>
             <h1 class="page-title">Tổng quan vận hành</h1>
-            <div class="page-sub">Cập nhật lúc @homNay.ToString("HH:mm · dd/MM/yyyy")</div>
+            <div class="page-sub">Cập nhật lúc @m.CapNhat.ToString("HH:mm · dd/MM/yyyy") · Đang xem: <strong>@m.NhanKy</strong></div>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <div class="scope-seg" id="phamViSwitch" role="group" aria-label="Phạm vi thời gian">
-                <button type="button" data-scope="homnay" class="@(phamVi == "homnay" ? "on" : "")">Hôm nay</button>
-                <button type="button" data-scope="tatca" class="@(phamVi == "tatca" ? "on" : "")">Toàn thời gian</button>
+        <div class="dh-right">
+            <div class="seg" role="group" aria-label="Phạm vi thời gian">
+                <a href="@UrlKy("homnay")" class="@(m.Kieu == "homnay" ? "on" : "")">Hôm nay</a>
+                <a href="@UrlKy("tuannay")" class="@(m.Kieu == "tuannay" ? "on" : "")">Tuần này</a>
+                <a href="@UrlKy("7ngay")" class="@(m.Kieu == "7ngay" ? "on" : "")">7 ngày</a>
+                <a href="@UrlKy("30ngay")" class="@(m.Kieu == "30ngay" ? "on" : "")">30 ngày</a>
+                <button type="button" id="btnCustom" class="@(laTuyChon ? "on" : "")" aria-expanded="false">Tùy chỉnh</button>
             </div>
             <a class="btn btn-outline-success btn-sm fw-semibold" href="#" data-nav="thống kê chi tiết">Thống kê chi tiết →</a>
         </div>
+
+        <form method="get" id="customForm" class="custom d-none">
+            <input type="hidden" name="phamVi" value="tuychon" />
+            <label for="tuNgay" class="mb-0">Từ</label>
+            <input type="date" id="tuNgay" name="tu" value="@m.TuNgay.ToString("yyyy-MM-dd")" max="@m.CapNhat.ToString("yyyy-MM-dd")" required />
+            <label for="denNgay" class="mb-0">đến</label>
+            <input type="date" id="denNgay" name="den" value="@m.DenNgay.ToString("yyyy-MM-dd")" max="@m.CapNhat.ToString("yyyy-MM-dd")" required />
+            <button type="submit" class="btn-apply">Áp dụng</button>
+            <span class="note">Tối đa 366 ngày, không chọn ngày tương lai.</span>
+        </form>
     </div>
 
     @if (TempData["Loi"] != null)
     {
-        <div class="alert alert-danger">@TempData["Loi"]</div>
+        <div class="alert alert-danger loi">@TempData["Loi"]</div>
     }
 
-    @* ===== Việc cần làm ngay (tồn đọng của mọi ngày, không phụ thuộc bộ lọc) ===== *@
-    @if (cho > 0)
-    {
-        <div class="todo todo-warn mb-4">
-            <div>
-                <span class="tag">Cần xử lý</span>
-                <span class="big">@cho</span>
-                <strong>đơn đang chờ xử lý</strong>
-                <span class="ms-1">Tính cả các ngày trước. Khách đang chờ xác nhận.</span>
-            </div>
-            <a class="btn btn-warning btn-sm fw-semibold" asp-controller="TiepNhanDatSan" asp-action="Index" asp-route-trangThai="Chờ xử lý">Xem danh sách →</a>
-        </div>
-    }
-    else
-    {
-        <div class="todo todo-ok mb-4">
-            <div><strong>Không có đơn nào đang chờ xử lý.</strong> <span class="ms-1">Mọi đơn đặt sân đã được tiếp nhận.</span></div>
-        </div>
-    }
+    @* ============ KHU VỰC 2: 4 chỉ số quan trọng ============ *@
+    <div class="kpis">
+        @Html.Raw(Kpi("Tổng đơn đặt sân", m.TongDonKy.ToString(),
+            m.TongDonKy == 0 ? "Không có đơn tạo trong kỳ này" : DeltaPhanTram(m.TongDonKy, m.TongDonTruoc, m.TongDonTruoc > 0),
+            "Chỉ đếm đơn có NGÀY TẠO nằm trong kỳ đang chọn (mọi trạng thái). Không gồm đơn tồn từ những ngày trước.",
+            UrlTrangThai("")))
+        @Html.Raw(Kpi("Đơn tồn cần xử lý", m.DonTon.ToString(),
+            m.DonTon == 0 ? "Không có đơn tồn từ ngày trước" : m.DonTonChoXacNhan + " chờ xác nhận · " + m.DonTonQuaGio + " quá giờ chưa chốt",
+            "Đơn có ngày chơi TRƯỚC hôm nay mà vẫn Chờ xử lý, hoặc Đang xử lý nhưng đã quá giờ kết thúc. Không phụ thuộc bộ lọc thời gian và không tính vào Tổng đơn. Cần xử lý của hôm nay trở đi: " + m.DonCanXuLyNay + " đơn (xem tab Hôm nay & sắp tới).",
+            UrlTrangThai("Chờ xử lý"),
+            (m.DonTon + m.DonCanXuLyNay) > 0 ? "alert" : "ok"))
+        @Html.Raw(Kpi("Doanh thu thực thu", Tien(m.DoanhThu),
+            DeltaPhanTram(m.DoanhThu, m.DoanhThuTruoc, m.CoKyTruoc),
+            "Tổng tiền các đơn Hoàn thành tạo trong kỳ. Tạm tính cả đơn chưa hoàn thành: " + Tien(m.DoanhThuTamTinh),
+            "nav:thống kê chi tiết", "brand"))
+        @Html.Raw(Kpi("Tình trạng sân", sanKhaDung + "<span class=\"of\"> / " + m.TongSan + " hoạt động</span>",
+            sanCoKhach + " đang có khách · " + sanTrong + " còn trống",
+            "Hiện tại. Có khách = có đơn chưa hủy đang trong khung giờ chơi. " + (m.SanBaoTri > 0 ? m.SanBaoTri + " sân bảo trì / tạm đóng." : ""),
+            "nav:quản lý sân"))
+    </div>
 
-    @* ===== 01. Chỉ số vận hành theo phạm vi ===== *@
-    <div class="scope-pane" data-pane="homnay" @(phamVi == "homnay" ? "" : "hidden")>
-        <div class="sec"><span class="no">01</span>Chỉ số vận hành hôm nay · @homNay.ToString("dd/MM/yyyy")</div>
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
-                <a class="kpi" asp-controller="TiepNhanDatSan" asp-action="Index" title="Số đơn có ngày tạo là hôm nay. Bấm để xem danh sách đặt sân.">
-                    <div class="lb">Đơn tạo hôm nay</div>
-                    <div class="num">@Model.DonHomNay</div>
-                    <div class="sub">Ngày @homNay.ToString("dd/MM/yyyy")</div>
-                </a>
-            </div>
-            <div class="col-md-4">
-                <div class="kpi" title="Tổng tiền sân và dịch vụ của các đơn tạo hôm nay, chưa tính đơn hủy. Chưa phải doanh thu đơn hoàn thành.">
-                    <div class="lb">Doanh thu tạm tính hôm nay</div>
-                    <div class="num brand">@Model.DoanhThuTamTinhHomNay.ToString("N0") đ</div>
-                    <div class="sub">Sân + dịch vụ, chưa tính đơn hủy</div>
+    @* ============ KHU VỰC 3: Thông tin vận hành ============ *@
+    <div class="mid">
+        <div class="panel">
+            <div class="ph">
+                <h3>Đơn đặt sân cần chú ý</h3>
+                <div class="tabs" role="tablist" title="Luôn là thời điểm hiện tại, không phụ thuộc bộ lọc thời gian. Hai nhóm không trùng nhau.">
+                    <button type="button" class="tab@(moTabTon ? "" : " on")" data-tab="nay" role="tab">Hôm nay &amp; sắp tới <i class="@(m.DonCanXuLyNay > 0 ? "hot" : "")">@m.DonCanXuLyNay</i></button>
+                    <button type="button" class="tab@(moTabTon ? " on" : "")" data-tab="ton" role="tab">Tồn từ ngày trước <i class="@(m.DonTon > 0 ? "hot" : "")">@m.DonTon</i></button>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="kpi" title="Số sân đang ở trạng thái hoạt động trên tổng số sân đang quản lý. Chưa phản ánh khung giờ còn trống.">
-                    <div class="lb">Sân đang hoạt động</div>
-                    <div class="num">@Model.SanKhaDung<span class="of"> / @Model.TongSan</span></div>
-                    <div class="sub">@(sanKhongKhaDung == 0 ? pKhaDung.ToString("0.#") + "% sân hoạt động" : sanKhongKhaDung + " sân bảo trì / tạm đóng")</div>
+            @foreach (var nhom in new[] { "nay", "ton" })
+            {
+                var ds = nhom == "nay" ? m.DsCanXuLyNay : m.DsTon;
+                int tong = nhom == "nay" ? m.DonCanXuLyNay : m.DonTon;
+                int soCho = nhom == "nay" ? m.DonNayChoXacNhan : m.DonTonChoXacNhan;
+                int soQua = nhom == "nay" ? m.DonNayQuaGio : m.DonTonQuaGio;
+                bool dangMo = (nhom == "ton") == moTabTon;
+                <div class="tabpane@(dangMo ? "" : " d-none")" data-pane="@nhom">
+                    @if (ds.Count == 0)
+                    {
+                        <div class="empty">@(nhom == "nay" ? "Hôm nay chưa có đơn nào cần xử lý." : "Không có đơn tồn từ ngày trước.")</div>
+                    }
+                    else
+                    {
+                        <ul class="att">
+                            @foreach (var d in ds)
+                            {
+                                var pl = PhanLoai(d);
+                                <li class="@pl.Tone">
+                                    <div class="it-l">
+                                        <div class="it-n">@d.TenKhach <span class="it-id">#@d.MaDatSan</span></div>
+                                        <div class="it-s">@d.TenSan · @GioDon(d)</div>
+                                    </div>
+                                    <span class="chip @pl.Tone">@pl.Nhan</span>
+                                </li>
+                            }
+                        </ul>
+                        <div class="att-foot">
+                            <span>Hiển thị @ds.Count / @tong đơn, cũ nhất trước</span>
+                            <span>
+                                @if (soCho > 0) { <a href="@UrlTrangThai("Chờ xử lý")">Xem tất cả chờ xác nhận (@soCho) →</a> }
+                                @if (soQua > 0) { <a href="@UrlTrangThai("Đang xử lý")">Xem tất cả quá giờ chưa chốt (@soQua) →</a> }
+                            </span>
+                        </div>
+                    }
                 </div>
+            }
+        </div>
+
+        <div class="panel">
+            <div class="ph">
+                <h3>Tình trạng và hiệu suất sân</h3>
+                <span class="cnt">@(coHs ? N(hs.GioDaDat) + " / " + N(hs.GioKhaDung) + " giờ sân" : "")</span>
+            </div>
+            <div class="court-top">
+                <div class="donut@(coHs ? "" : " na")" style="--p:@(coHs ? Css(hs.TyLeKhaiThac) : "0")" title="Tỷ lệ khai thác = giờ sân được đặt / giờ sân có thể khai thác (@hs.GioMo h - @hs.GioDong h, chỉ tính sân đang hoạt động và giờ đã diễn ra, loại đơn hủy).">
+                    <div><b>@(coHs ? N(hs.TyLeKhaiThac) + "%" : "—")</b><small>khai thác</small></div>
+                </div>
+                <div class="court-stats">
+                    <div class="crow"><span><span class="dot" style="background:var(--brand)"></span>Sân đang hoạt động</span><b>@sanKhaDung<span style="font-weight:500;color:var(--muted);font-size:.85rem"> / @m.TongSan</span></b></div>
+                    <div class="crow"><span><span class="dot" style="background:var(--doing)"></span>Đang có khách</span><b>@sanCoKhach</b></div>
+                    <div class="crow"><span><span class="dot" style="background:var(--done)"></span>Còn trống</span><b>@sanTrong</b></div>
+                </div>
+            </div>
+            <div class="stack" role="img" aria-label="Phân bố sân">
+                @if (m.TongSan > 0)
+                {
+                    <span style="width:@(Css(m.SanDangCoKhach * 100.0 / m.TongSan))%; background:var(--doing)" title="Đang có khách: @sanCoKhach"></span>
+                    <span style="width:@(Css(sanTrong * 100.0 / m.TongSan))%; background:var(--done)" title="Còn trống: @sanTrong"></span>
+                    <span style="width:@(Css(m.SanBaoTri * 100.0 / m.TongSan))%; background:var(--other)" title="Bảo trì / tạm đóng: @m.SanBaoTri"></span>
+                }
+            </div>
+            <div class="court-note">
+                @if (!coHs)
+                {
+                    <text>Chưa có giờ kinh doanh nào đã diễn ra trong kỳ để tính tỷ lệ khai thác.</text>
+                }
+                else if (hs.CoKyTruoc)
+                {
+                    var dd = hs.TyLeKhaiThac - hs.TyLeKyTruoc;
+                    <text>Khai thác @(Math.Abs(dd) < 0.05 ? "không đổi" : (dd > 0 ? "tăng " : "giảm ") + N(Math.Abs(dd)) + " điểm %") so với @m.NhanSoSanh.</text>
+                }
+                @if (m.SanBaoTri > 0)
+                {
+                    <text> @m.SanBaoTri sân bảo trì / tạm đóng.</text>
+                }
+                @if (m.SanCongSuatThap.Count > 0)
+                {
+                    <text> Sân thấp nhất: @m.SanCongSuatThap[0].Ten (@N(m.SanCongSuatThap[0].TyLe)%).</text>
+                }
             </div>
         </div>
     </div>
 
-    <div class="scope-pane" data-pane="tatca" @(phamVi == "tatca" ? "" : "hidden")>
-        <div class="sec"><span class="no">01</span>Chỉ số toàn thời gian<span class="tip" title="Tính trên toàn bộ dữ liệu từ trước đến nay, không phải số liệu hôm nay.">i</span></div>
-        <div class="row g-3 mb-4">
-            <div class="col-md-6 col-xl-3">
-                <a class="kpi" href="#" data-nav="thống kê chi tiết" title="Tổng sân + dịch vụ của các đơn hoàn thành. Bấm để xem thống kê chi tiết.">
-                    <div class="lb">Doanh thu đơn hoàn thành</div>
-                    <div class="num brand">@Model.DoanhThuHoanThanh.ToString("N0") đ</div>
-                    <div class="sub">Trên @xong đơn hoàn thành</div>
-                </a>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <a class="kpi" asp-controller="TiepNhanDatSan" asp-action="Index" title="Tổng số đơn đặt sân trong hệ thống. Bấm để xem danh sách.">
-                    <div class="lb">Tổng đơn đặt sân</div>
-                    <div class="num">@tong</div>
-                    <div class="sub">Mọi trạng thái</div>
-                </a>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <div class="kpi" title="Doanh thu đơn hoàn thành / số đơn hoàn thành.">
-                    <div class="lb">Giá trị TB / đơn</div>
-                    <div class="num">@tbMoiDon.ToString("N0") đ</div>
-                    <div class="sub">Trên @xong đơn hoàn thành</div>
-                </div>
-            </div>
-            <div class="col-md-6 col-xl-3">
-                <div class="kpi">
-                    <div class="lb">Khách hàng</div>
-                    <div class="num">@Model.TongKhachHang</div>
-                    <div class="sub">@Model.TongLoaiSan loại sân đang quản lý</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @* ===== 02. Tình hình đơn (theo phạm vi)  |  03. Tình trạng sân (hiện tại) ===== *@
-    <div class="row g-3">
-        <div class="col-lg-7">
-
-            <div class="scope-pane h-100" data-pane="homnay" @(phamVi == "homnay" ? "" : "hidden")>
-                <div class="panel">
-                    <div class="sec"><span class="no">02</span>Đơn đặt sân hôm nay</div>
-                    <div class="sec-sub">Ngày @homNay.ToString("dd/MM/yyyy")</div>
-                    @if (Model.DonHomNay == 0)
-                    {
-                        <div class="empty">
-                            <span class="big">0</span>
-                            Hôm nay chưa có đơn đặt sân nào.
-                            <div class="mt-3"><button type="button" class="btn btn-outline-success btn-sm fw-semibold" data-scope-go="tatca">Xem toàn thời gian →</button></div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="empty">
-                            <span class="big">@Model.DonHomNay</span>
-                            đơn được tạo hôm nay.
-                            <div class="mt-3"><a class="btn btn-outline-success btn-sm fw-semibold" asp-controller="TiepNhanDatSan" asp-action="Index">Xem danh sách đặt sân →</a></div>
-                        </div>
-                    }
-                </div>
-            </div>
-
-            <div class="scope-pane h-100" data-pane="tatca" @(phamVi == "tatca" ? "" : "hidden")>
-                <div class="panel">
-                    <div class="sec"><span class="no">02</span>Tình hình đơn đặt sân</div>
-                    <div class="sec-sub">@tong đơn trong toàn hệ thống<span class="tip" title="Số đơn theo từng trạng thái / tổng số đơn. Bấm vào một trạng thái để mở danh sách đã lọc.">i</span></div>
-
-                    @if (tong == 0)
-                    {
-                        <div class="empty">Chưa có đơn đặt sân nào.</div>
-                    }
-                    else
-                    {
-                        <div class="stack" role="img" aria-label="Phân bố trạng thái đơn">
-                            <span style="width:@(Css(pCho))%; background:var(--wait)" title="Chờ xử lý: @cho đơn"></span>
-                            <span style="width:@(Css(pDang))%; background:var(--doing)" title="Đang xử lý: @dang đơn"></span>
-                            <span style="width:@(Css(pXong))%; background:var(--done)" title="Hoàn thành: @xong đơn"></span>
-                            <span style="width:@(Css(pKhac))%; background:var(--other)" title="Đã hủy / trạng thái khác: @khac đơn"></span>
-                        </div>
-
-                        <a class="st-row" asp-controller="TiepNhanDatSan" asp-action="Index" asp-route-trangThai="Chờ xử lý">
-                            <span class="name"><span class="dot" style="background:var(--wait)"></span>Chờ xử lý</span>
-                            <span><span class="cnt">@cho</span><span class="pc">@pCho.ToString("0.#")%</span></span>
-                        </a>
-                        <a class="st-row" asp-controller="TiepNhanDatSan" asp-action="Index" asp-route-trangThai="Đang xử lý">
-                            <span class="name"><span class="dot" style="background:var(--doing)"></span>Đang xử lý</span>
-                            <span><span class="cnt">@dang</span><span class="pc">@pDang.ToString("0.#")%</span></span>
-                        </a>
-                        <a class="st-row" asp-controller="TiepNhanDatSan" asp-action="Index" asp-route-trangThai="Hoàn thành">
-                            <span class="name"><span class="dot" style="background:var(--done)"></span>Hoàn thành</span>
-                            <span><span class="cnt">@xong</span><span class="pc">@pXong.ToString("0.#")%</span></span>
-                        </a>
-                        <a class="st-row" asp-controller="TiepNhanDatSan" asp-action="Index">
-                            <span class="name"><span class="dot" style="background:var(--other)"></span>Đã hủy / trạng thái khác<span class="tip" title="Đang gộp nhiều trạng thái (hủy, hết hạn, từ chối...). Không dùng số này để kết luận tỷ lệ hủy; tỷ lệ hủy xem ở Thống kê chi tiết.">i</span></span>
-                            <span><span class="cnt">@khac</span><span class="pc">@pKhac.ToString("0.#")%</span></span>
-                        </a>
-                    }
-                </div>
+    @* ============ Dải dưới: số liệu nhỏ + Thống kê doanh thu ============ *@
+    <div class="bottom">
+        <div class="minis">
+            <a class="mini" href="@UrlTrangThai("Hoàn thành")" title="Đơn trạng thái Hoàn thành, tạo trong kỳ.">
+                <div class="lb">Hoàn thành</div><div class="v">@m.DonHoanThanhKy</div>
+                <div class="s">trên @m.TongDonKy đơn</div>
+            </a>
+            <a class="mini" href="@UrlTrangThai("Đã hủy")" title="Đơn Đã hủy tạo trong kỳ.">
+                <div class="lb">Đã hủy</div><div class="v">@m.DonHuyKy</div>
+                <div class="s">@(m.TongDonKy == 0 ? "chưa có đơn" : "tỷ lệ " + N(m.TyLeHuy) + "%")</div>
+            </a>
+            <a class="mini" href="#" data-nav="khách hàng" title="Số tài khoản khách tích lũy, không phụ thuộc bộ lọc.">
+                <div class="lb">Khách hàng</div><div class="v">@m.TongKhachHang</div>
+                <div class="s">tích lũy</div>
+            </a>
+            <div class="mini" title="Tài khoản khách đăng ký trong kỳ đang chọn.">
+                <div class="lb">Khách mới</div><div class="v">@m.KhachMoi</div>
+                <div class="s">@(m.KhachMoiTruoc > 0 ? "kỳ trước: " + m.KhachMoiTruoc : "trong kỳ")</div>
             </div>
         </div>
 
-        <div class="col-lg-5">
-            <div class="panel">
-                <div class="sec"><span class="no">03</span>Tình trạng sân hiện tại</div>
-                <div class="sec-sub">Trạng thái quản lý sân<span class="tip" title="Sân đang hoạt động không đồng nghĩa mọi khung giờ đều còn trống. Cần kiểm tra lịch đặt để biết sân đang có khách hay còn trống.">i</span></div>
-
-                <div class="d-flex align-items-baseline justify-content-between mb-2">
-                    <div>
-                        <span style="font-size:2rem; font-weight:700; color:var(--brand); line-height:1.1">@Model.SanKhaDung / @Model.TongSan</span>
-                        <span class="ms-1" style="color:var(--muted)">sân hoạt động</span>
+        <div class="panel rev">
+            <div class="rev-h">
+                <div class="rev-t">
+                    <h3>Thống kê doanh thu</h3>
+                    <span class="rev-range">@m.NhanKy</span>
+                    <span class="rev-unit" title="@tipDonVi">@donViBd</span>
+                </div>
+                <div class="rev-r">
+                    @if (m.CoSoSanhBieuDo && maxCot > 0)
+                    {
+                        <span class="rev-leg">┄ @m.NhanSoSanh</span>
+                    }
+                    <span class="rev-tot" title="Tổng doanh thu các đơn Hoàn thành trong khoảng đang xem = tổng các cột = thẻ Doanh thu thực thu.">Tổng <b>@Tien(tongBd)</b></span>
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(m.GhiChuBieuDo))
+            {
+                <div class="rev-note">@m.GhiChuBieuDo</div>
+            }
+            @if (maxCot <= 0)
+            {
+                <div class="empty" style="margin:auto">Chưa có doanh thu hoàn thành trong khoảng này.</div>
+            }
+            else
+            {
+                <div class="rev-body">
+                    <div class="yax">
+                        <span style="top:0">@Gon((decimal)dinhTrucY)</span>
+                        <span style="top:50%">@Gon((decimal)(dinhTrucY / 2))</span>
+                        <span style="top:100%">0</span>
                     </div>
-                    <span style="color:var(--muted); font-size:.9rem">@pKhaDung.ToString("0.#")%</span>
+                    <div class="plot">
+                        <i class="gl" style="top:0"></i><i class="gl" style="top:50%"></i><i class="gl" style="bottom:0"></i>
+                        <div class="cols">
+                            @for (int i = 0; i < nCot; i++)
+                            {
+                                var c = cot[i];
+                                double pct = (double)c.DoanhThu / dinhTrucY * 100.0;
+                                string vt = i < nCot * 0.3 ? "tl" : (i >= nCot * 0.7 ? "tr" : "");
+                                <div class="col @vt" tabindex="0" aria-label="@(c.NhanDayDu + ": " + Tien(c.DoanhThu))">
+                                    @if (c.DoanhThu > 0)
+                                    {
+                                        <div class="b" style="height:@(Css(Math.Max(pct, 2)))%"></div>
+                                    }
+                                    else
+                                    {
+                                        <div class="b z"></div>
+                                    }
+                                    @if (m.CoSoSanhBieuDo && c.DoanhThuTruoc.HasValue && c.DoanhThuTruoc.Value > 0)
+                                    {
+                                        <div class="pv" style="bottom:@(Css((double)c.DoanhThuTruoc.Value / dinhTrucY * 100.0))%"></div>
+                                    }
+                                    <div class="tt" style="bottom:calc(@(Css(Math.Max(pct, 2)))% + 8px)">
+                                        <b>@c.NhanDayDu</b>
+                                        <div>Doanh thu: <b class="g">@Tien(c.DoanhThu)</b></div>
+                                        <div>@c.SoHoanThanh đơn hoàn thành</div>
+                                        @if (m.CoSoSanhBieuDo && c.DoanhThuTruoc.HasValue)
+                                        {
+                                            <div class="pvt">@m.NhanSoSanh: @Tien(c.DoanhThuTruoc.Value)</div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="xlab">
+                        @for (int i = 0; i < nCot; i++)
+                        {
+                            <span>@NhanTruc(i)</span>
+                        }
+                    </div>
                 </div>
-                <div class="court-bar mb-3"><span style="width:@(Css(pKhaDung))%"></span></div>
-
-                <div class="legend-row">
-                    <span><span class="dot" style="background:var(--done)"></span>Sân hoạt động</span>
-                    <span class="cnt">@Model.SanKhaDung sân</span>
-                </div>
-                <div class="legend-row">
-                    <span><span class="dot" style="background:var(--other)"></span>Sân bảo trì / tạm đóng</span>
-                    <span class="cnt">@sanKhongKhaDung sân</span>
-                </div>
-
-                <a class="btn btn-outline-success btn-sm fw-semibold mt-3" href="#" data-nav="quản lý sân">Mở quản lý sân →</a>
-            </div>
+            }
         </div>
     </div>
-
 </div>
 
 <script>
     (function () {
-        // Bộ lọc phạm vi: Hôm nay / Toàn thời gian (không tải lại trang, cập nhật ?phamVi= trên địa chỉ)
-        var buttons = document.querySelectorAll("#phamViSwitch button");
-        function setScope(s) {
-            buttons.forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-scope") === s); });
-            document.querySelectorAll(".scope-pane").forEach(function (p) {
-                p.hidden = p.getAttribute("data-pane") !== s;
+        // Nút "Tùy chỉnh": mở / đóng ô chọn khoảng ngày (hiện nổi, không đẩy nội dung xuống)
+        var btn = document.getElementById("btnCustom");
+        var form = document.getElementById("customForm");
+        if (btn && form) {
+            if (@(laTuyChon ? "true" : "false")) { form.classList.remove("d-none"); btn.setAttribute("aria-expanded", "true"); }
+            btn.addEventListener("click", function () {
+                var show = form.classList.contains("d-none");
+                form.classList.toggle("d-none", !show);
+                btn.setAttribute("aria-expanded", show ? "true" : "false");
             });
-            try {
-                var u = new URL(window.location.href);
-                u.searchParams.set("phamVi", s);
-                history.replaceState(null, "", u);
-            } catch (e) { }
+            form.addEventListener("submit", function (e) {
+                var tu = document.getElementById("tuNgay"), den = document.getElementById("denNgay");
+                if (tu && den && tu.value && den.value && den.value < tu.value) {
+                    e.preventDefault();
+                    den.setCustomValidity("Ngày kết thúc phải sau hoặc bằng ngày bắt đầu");
+                    den.reportValidity();
+                    den.addEventListener("input", function () { den.setCustomValidity(""); }, { once: true });
+                }
+            });
         }
-        buttons.forEach(function (b) {
-            b.addEventListener("click", function () { setScope(b.getAttribute("data-scope")); });
-        });
-        document.querySelectorAll("[data-scope-go]").forEach(function (b) {
-            b.addEventListener("click", function () { setScope(b.getAttribute("data-scope-go")); });
+
+        // Tab "Hôm nay & sắp tới" / "Tồn từ ngày trước": chỉ đổi nội dung khung, không điều hướng
+        document.querySelectorAll(".dash-wrap .tab").forEach(function (t) {
+            t.addEventListener("click", function () {
+                var key = t.getAttribute("data-tab");
+                document.querySelectorAll(".dash-wrap .tab").forEach(function (x) { x.classList.toggle("on", x === t); });
+                document.querySelectorAll(".dash-wrap .tabpane").forEach(function (p) { p.classList.toggle("d-none", p.getAttribute("data-pane") !== key); });
+            });
         });
 
-        // Liên kết "Thống kê chi tiết" / "Quản lý sân": lấy đúng địa chỉ từ menu bên trái,
-        // nên không phụ thuộc tên controller. Không tìm thấy thì ẩn nút, không dẫn tới trang lỗi.
+        // Liên kết "Thống kê chi tiết" / "Quản lý sân" / "Khách hàng": lấy địa chỉ từ menu bên trái,
+        // nên không phụ thuộc tên controller. Không tìm thấy thì ẩn nút / bỏ liên kết, không dẫn tới trang lỗi.
         document.querySelectorAll("[data-nav]").forEach(function (el) {
             var key = el.getAttribute("data-nav").toLowerCase();
             var found = Array.prototype.slice.call(document.querySelectorAll("a[href]")).find(function (a) {
@@ -351,6 +573,7 @@
                     && a.textContent.trim().toLowerCase().indexOf(key) > -1;
             });
             if (found) { el.setAttribute("href", found.getAttribute("href")); }
+            else if (el.classList.contains("kpi") || el.classList.contains("mini")) { el.removeAttribute("href"); }
             else { el.style.display = "none"; }
         });
     })();

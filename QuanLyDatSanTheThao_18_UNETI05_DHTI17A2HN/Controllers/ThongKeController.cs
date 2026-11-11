@@ -65,35 +65,406 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Controllers
         }
 
         // ================== DASHBOARD ==================
-        public async Task<IActionResult> Index()
+        // Ngưỡng nghiệp vụ của dashboard (đổi tại đây nếu quy trình thay đổi)
+        private const int PHUT_SAP_DIEN_RA = 60;     // đơn bắt đầu trong ngần ấy phút tới = "sắp diễn ra"
+        private const double NGUONG_SAN_THAP = 30;   // sân khai thác dưới ngần ấy % = cơ hội cải thiện
+        private static readonly System.Globalization.CultureInfo Vi = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+
+        // Một đơn rút gọn (mọi trạng thái) để tính chỉ số theo kỳ ở bộ nhớ
+        private sealed class DonDash
+        {
+            public int MaDatSan { get; set; }
+            public int MaKhachHang { get; set; }
+            public string TrangThai { get; set; } = "";
+            public decimal DonGia { get; set; }
+            public DateTime NgayDat { get; set; }
+            public DateTime GioBatDau { get; set; }
+        }
+
+        private sealed class DashChiSo
+        {
+            public int Tong, Cho, Dang, Xong, Huy, Khac, DonKhongHuy, KhachCoDon, KhachQuayLai;
+            public decimal DoanhThu;
+        }
+
+        private static DashChiSo TinhChiSoDash(List<DonDash> ds)
+        {
+            var cs = new DashChiSo
+            {
+                Tong = ds.Count,
+                Cho = ds.Count(d => d.TrangThai == CHO_XU_LY),
+                Dang = ds.Count(d => d.TrangThai == DANG_XU_LY),
+                Xong = ds.Count(d => d.TrangThai == HOAN_THANH),
+                Huy = ds.Count(d => d.TrangThai == HUY),
+                DonKhongHuy = ds.Count(d => d.TrangThai != HUY),
+                DoanhThu = ds.Where(d => d.TrangThai == HOAN_THANH).Sum(d => d.DonGia)
+            };
+            cs.Khac = Math.Max(0, cs.Tong - cs.Cho - cs.Dang - cs.Xong - cs.Huy);
+            var luot = ds.Where(d => d.TrangThai != HUY).GroupBy(d => d.MaKhachHang).Select(g => g.Count()).ToList();
+            cs.KhachCoDon = luot.Count;
+            cs.KhachQuayLai = luot.Count(n => n >= 2);
+            return cs;
+        }
+
+        // Lấy danh sách đơn kèm tên sân / tên khách (không phụ thuộc navigation property của khách)
+        private async Task<List<DashDonItem>> LayDsDonAsync(IQueryable<DatSan> q, int top, bool theoGioTangDan)
+        {
+            var sapXep = theoGioTangDan ? q.OrderBy(d => d.GioBatDau).ThenBy(d => d.MaDatSan) : q.OrderByDescending(d => d.MaDatSan);
+            var raw = await sapXep.Take(top)
+                .Select(d => new
+                {
+                    d.MaDatSan,
+                    d.MaKhachHang,
+                    TenSan = d.SanTheThao!.TenSan,
+                    d.TrangThai,
+                    d.NgayDat,
+                    d.GioBatDau,
+                    d.GioKetThuc,
+                    d.DonGia
+                })
+                .ToListAsync();
+
+            var ids = raw.Select(x => x.MaKhachHang).Distinct().ToList();
+            var ten = ids.Count == 0
+                ? new Dictionary<int, string>()
+                : (await _thongKeRepository.LayKhachHangs().AsNoTracking()
+                    .Where(k => ids.Contains(k.MaKhachHang))
+                    .Select(k => new { k.MaKhachHang, k.HoTen })
+                    .ToListAsync()).ToDictionary(k => k.MaKhachHang, k => k.HoTen);
+
+            return raw.Select(x => new DashDonItem
+            {
+                MaDatSan = x.MaDatSan,
+                TenSan = x.TenSan,
+                TenKhach = ten.TryGetValue(x.MaKhachHang, out var hoTen) ? hoTen : $"Khách #{x.MaKhachHang}",
+                TrangThai = x.TrangThai,
+                NgayDat = x.NgayDat,
+                GioBatDau = x.GioBatDau,
+                GioKetThuc = x.GioKetThuc,
+                DonGia = x.DonGia
+            }).ToList();
+        }
+
+        // phamVi: homnay (mặc định) | 7ngay | 30ngay | tuychon (kèm tu, den). Giá trị cũ "tatca" được đổi thành 30ngay.
+        public async Task<IActionResult> Index(string? phamVi, DateTime? tu, DateTime? den)
         {
             if (!LaQuanLy()) return TuChoi();
 
-            var homNay = HomNayVn();
-            var ngayMai = homNay.AddDays(1);
+            var bay = DateTime.UtcNow.AddHours(7);   // giờ Việt Nam, không phụ thuộc múi giờ máy chủ
+            var homNay = bay.Date;
+
+            // ----- 1. Khoảng thời gian đang xem và kỳ trước (cùng độ dài) -----
+            var kieu = (phamVi ?? "homnay").Trim().ToLowerInvariant();
+            DateTime tuNgay, denNgay;
+            switch (kieu)
+            {
+                case "tuannay":   // từ thứ Hai của tuần hiện tại đến hôm nay
+                    denNgay = homNay; tuNgay = homNay.AddDays(-(((int)homNay.DayOfWeek + 6) % 7));
+                    break;
+                case "7ngay":
+                    denNgay = homNay; tuNgay = homNay.AddDays(-6);
+                    break;
+                case "30ngay":
+                case "tatca":
+                    kieu = "30ngay"; denNgay = homNay; tuNgay = homNay.AddDays(-29);
+                    break;
+                case "tuychon":
+                    tuNgay = (tu ?? homNay).Date;
+                    denNgay = (den ?? tuNgay).Date;
+                    if (denNgay < tuNgay) (tuNgay, denNgay) = (denNgay, tuNgay);
+                    if (denNgay > homNay) denNgay = homNay;          // không thống kê ngày chưa diễn ra
+                    if (tuNgay > denNgay) tuNgay = denNgay;
+                    if (tuNgay < new DateTime(2000, 1, 1)) tuNgay = new DateTime(2000, 1, 1);
+                    if ((denNgay - tuNgay).TotalDays > 365) tuNgay = denNgay.AddDays(-365);   // tối đa 366 ngày
+                    break;
+                default:
+                    kieu = "homnay"; tuNgay = denNgay = homNay;
+                    break;
+            }
+            int soNgay = (denNgay - tuNgay).Days + 1;
+            // Kỳ trước: "Tuần này" so với CÙNG các thứ của tuần trước (cùng số ngày đã trôi qua);
+            // các kỳ khác so với khoảng liền trước có cùng độ dài.
+            var denTruoc = kieu == "tuannay" ? denNgay.AddDays(-7) : tuNgay.AddDays(-1);
+            var tuTruoc = kieu == "tuannay" ? tuNgay.AddDays(-7) : denTruoc.AddDays(-(soNgay - 1));
+            int dichKyTruoc = (tuNgay - tuTruoc).Days;    // số ngày lùi để ghép cột kỳ này với cột kỳ trước
+            var denLoaiTru = denNgay.AddDays(1);
+
+            // Dữ liệu cho bản đồ nhiệt / xếp hạng sân: kỳ quá ngắn (hôm nay) thì lấy 7 ngày gần nhất để có dữ liệu.
+            int soNgayBd = Math.Max(soNgay, 7);
+            var tuBd = denNgay.AddDays(-(soNgayBd - 1));
+            var tuBdTruoc = tuBd.AddDays(-soNgayBd);
+            string donVi = soNgayBd <= 31 ? "ngày" : (soNgayBd <= 120 ? "tuần" : "tháng");
+
+            // ----- Biểu đồ doanh thu: phạm vi = ĐÚNG bộ lọc, không tự kéo dài hay cắt ngắn -----
+            // Quy tắc nhóm cố định theo độ dài khoảng thời gian (view luôn ghi rõ đơn vị và nhãn từng cột):
+            //   1 ngày      -> mỗi cột 1 giờ (24 cột; tự chuyển sang "ngày" nếu hệ thống không lưu giờ tạo đơn, có ghi chú)
+            //   2-31 ngày   -> mỗi cột 1 ngày
+            //   32-120 ngày -> mỗi cột 7 ngày liên tiếp kể từ ngày bắt đầu (cột cuối có thể ngắn hơn)
+            //   > 120 ngày  -> mỗi cột 1 tháng (tháng đầu / cuối có thể chưa đủ)
+            string donViCh = soNgay == 1 ? "giờ" : (soNgay <= 31 ? "ngày" : (soNgay <= 120 ? "tuần" : "tháng"));
+            string NhanCotCua(string dv) => dv == "giờ" ? "1 giờ" : dv == "ngày" ? "1 ngày" : dv == "tuần" ? "7 ngày" : "1 tháng";
+            string nhanDonViCot = NhanCotCua(donViCh);
+
+            string nhanSoSanh = kieu == "homnay" ? "hôm qua"
+                : kieu == "tuannay" ? "tuần trước (cùng số ngày)"
+                : kieu == "7ngay" ? "7 ngày trước đó"
+                : kieu == "30ngay" ? "30 ngày trước đó"
+                : $"kỳ trước ({tuTruoc:dd/MM} - {denTruoc:dd/MM})";
+            string nhanKy = kieu == "homnay" ? $"Hôm nay · {homNay:dd/MM/yyyy}"
+                : kieu == "tuannay" ? $"Tuần này · {tuNgay:dd/MM} - {denNgay:dd/MM/yyyy}"
+                : kieu == "7ngay" ? $"7 ngày gần nhất · {tuNgay:dd/MM} - {denNgay:dd/MM/yyyy}"
+                : kieu == "30ngay" ? $"30 ngày gần nhất · {tuNgay:dd/MM} - {denNgay:dd/MM/yyyy}"
+                : (soNgay == 1 ? $"Ngày {tuNgay:dd/MM/yyyy}" : $"{tuNgay:dd/MM/yyyy} - {denNgay:dd/MM/yyyy}");
 
             var vm = new DashboardViewModel
             {
-                TongLoaiSan = await _thongKeRepository.LayLoaiSans().CountAsync(),
-                TongSan = await _thongKeRepository.LaySanTheThaos().CountAsync(),
-                SanKhaDung = await _thongKeRepository.LaySanTheThaos().CountAsync(s => s.TrangThai == SAN_KHA_DUNG),
-                TongKhachHang = await _thongKeRepository.LayKhachHangs().CountAsync(),
-                TongDatSan = await _thongKeRepository.LayDatSans().CountAsync(),
-                DonChoXuLy = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == CHO_XU_LY),
-                DonDangXuLy = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == DANG_XU_LY),
-                DonHoanThanh = await _thongKeRepository.LayDatSans().CountAsync(d => d.TrangThai == HOAN_THANH),
-                DonHomNay = await _thongKeRepository.LayDatSans().CountAsync(d => d.NgayDat >= homNay && d.NgayDat < ngayMai)
+                Kieu = kieu,
+                CapNhat = bay,
+                TuNgay = tuNgay,
+                DenNgay = denNgay,
+                TuNgayTruoc = tuTruoc,
+                DenNgayTruoc = denTruoc,
+                SoNgay = soNgay,
+                NhanKy = nhanKy,
+                NhanSoSanh = nhanSoSanh,
+                PhutSapDienRa = PHUT_SAP_DIEN_RA,
+                DonViBieuDo = donViCh,
+                NhanDonViCot = nhanDonViCot,
+                NhanBieuDo = ""
             };
 
-            // Doanh thu hoàn thành: cộng DonGia của các đơn "Hoàn thành"
-            // (cùng cách tính với trang Thống kê để hai nơi luôn khớp nhau)
-            vm.DoanhThuHoanThanh = await _thongKeRepository.LayDatSans()
-                .Where(d => d.TrangThai == HOAN_THANH)
-                .SumAsync(d => (decimal?)d.DonGia) ?? 0m;
+            // ----- 2. Quy mô hệ thống (tích lũy) -----
+            vm.TongLoaiSan = await _thongKeRepository.LayLoaiSans().CountAsync();
+            vm.TongSan = await _thongKeRepository.LaySanTheThaos().CountAsync();
+            vm.SanKhaDung = await _thongKeRepository.LaySanTheThaos().CountAsync(s => s.TrangThai == SAN_KHA_DUNG);
+            vm.TongKhachHang = await _thongKeRepository.LayKhachHangs().CountAsync();
 
-            // Tạm tính hôm nay: bỏ đơn đã hủy
-            var donHomNay = await LayDonTienAsync(d => d.NgayDat >= homNay && d.NgayDat < ngayMai && d.TrangThai != HUY);
-            vm.DoanhThuTamTinhHomNay = donHomNay.Sum(x => x.TongTien);
+            // ----- 3. Cần xử lý ngay: thời điểm hiện tại, không phụ thuộc bộ lọc -----
+            var datSans = _thongKeRepository.LayDatSans().AsNoTracking();
+            var sapToi = bay.AddMinutes(PHUT_SAP_DIEN_RA);
+
+            vm.DonChoXuLy = await datSans.CountAsync(d => d.TrangThai == CHO_XU_LY);
+
+            // Quá hạn xác nhận: vẫn "Chờ xử lý" dù đã tới giờ chơi
+            var qQuaHan = datSans.Where(d => d.TrangThai == CHO_XU_LY && d.GioBatDau <= bay);
+            vm.DonQuaHan = await qQuaHan.CountAsync();
+            vm.DsQuaHan = await LayDsDonAsync(qQuaHan, 5, true);
+
+            // Sắp diễn ra: chưa hoàn thành / chưa hủy, bắt đầu trong PHUT_SAP_DIEN_RA phút tới
+            var qSap = datSans.Where(d => (d.TrangThai == CHO_XU_LY || d.TrangThai == DANG_XU_LY)
+                                          && d.GioBatDau > bay && d.GioBatDau <= sapToi);
+            vm.DonSapDienRa = await qSap.CountAsync();
+            vm.DsSapDienRa = await LayDsDonAsync(qSap, 5, true);
+
+            // Chờ xác nhận nhưng chưa tới giờ chơi (đơn quá hạn đã có ở DsQuaHan)
+            var qChoChuaQuaHan = datSans.Where(d => d.TrangThai == CHO_XU_LY && d.GioBatDau > bay);
+            vm.DsChoXacNhan = await LayDsDonAsync(qChoChuaQuaHan, 4, true);
+
+            // Quá giờ chưa chốt: "Đang xử lý" nhưng đã quá giờ kết thúc (nghi không đến hoặc quên cập nhật)
+            var qQuaGio = datSans.Where(d => d.TrangThai == DANG_XU_LY && d.GioKetThuc < bay);
+            vm.DonQuaGioChuaChot = await qQuaGio.CountAsync();
+            vm.DsQuaGioChuaChot = await LayDsDonAsync(qQuaGio, 5, true);
+
+            // Phân loại "đơn cần xử lý" thành 2 nhóm KHÔNG TRÙNG NHAU theo NGÀY CHƠI (GioBatDau), mỗi đơn đúng một lần:
+            //   - Tồn từ ngày trước: ngày chơi < 00:00 hôm nay mà vẫn còn Chờ xử lý, hoặc Đang xử lý đã quá giờ kết thúc.
+            //   - Hôm nay & sắp tới: ngày chơi >= 00:00 hôm nay, cùng điều kiện trạng thái.
+            // Cùng một bảng DatSan, không JOIN nên không thể đếm trùng. Không phụ thuộc bộ lọc thời gian.
+            // Đơn đã Hoàn thành / Đã hủy / Đang xử lý còn trong giờ không thuộc nhóm nào. Sắp xếp: ngày chơi cũ nhất (quá hạn lâu nhất) trước.
+            var qCanXuLy = datSans.Where(d => d.TrangThai == CHO_XU_LY || (d.TrangThai == DANG_XU_LY && d.GioKetThuc < bay));
+            var qTon = qCanXuLy.Where(d => d.GioBatDau < homNay);
+            var qNay = qCanXuLy.Where(d => d.GioBatDau >= homNay);
+            vm.DonTonChoXacNhan = await qTon.CountAsync(d => d.TrangThai == CHO_XU_LY);
+            vm.DonTonQuaGio = await qTon.CountAsync(d => d.TrangThai == DANG_XU_LY);
+            vm.DonNayChoXacNhan = await qNay.CountAsync(d => d.TrangThai == CHO_XU_LY);
+            vm.DonNayQuaGio = await qNay.CountAsync(d => d.TrangThai == DANG_XU_LY);
+            vm.DsTon = await LayDsDonAsync(qTon, 4, true);
+            vm.DsCanXuLyNay = await LayDsDonAsync(qNay, 4, true);
+
+            // Đang diễn ra ngay lúc này (không tính đơn hủy)
+            var sanDangDung = await datSans
+                .Where(d => d.TrangThai != HUY && d.GioBatDau <= bay && d.GioKetThuc > bay)
+                .Select(d => d.MaSan).Distinct().ToListAsync();
+            vm.SanDangCoKhach = sanDangDung.Count;
+            vm.DonDangDienRa = await datSans.CountAsync(d => d.TrangThai != HUY && d.GioBatDau <= bay && d.GioKetThuc > bay);
+
+            // ----- 4. Đơn trong kỳ và kỳ trước (lọc theo ngày tạo đơn, giống trang Thống kê) -----
+            var tuLay = tuBdTruoc < tuTruoc ? tuBdTruoc : tuTruoc;
+            var dons = await datSans
+                .Where(d => d.NgayDat >= tuLay && d.NgayDat < denLoaiTru)
+                .Select(d => new DonDash
+                {
+                    MaDatSan = d.MaDatSan,
+                    MaKhachHang = d.MaKhachHang,
+                    TrangThai = d.TrangThai,
+                    DonGia = d.DonGia,
+                    NgayDat = d.NgayDat,
+                    GioBatDau = d.GioBatDau
+                })
+                .ToListAsync();
+
+            var kyNay = dons.Where(d => d.NgayDat >= tuNgay && d.NgayDat < denLoaiTru).ToList();
+            var kyTruoc = dons.Where(d => d.NgayDat >= tuTruoc && d.NgayDat < denTruoc.AddDays(1)).ToList();
+            var csNay = TinhChiSoDash(kyNay);
+            var csTruoc = TinhChiSoDash(kyTruoc);
+
+            vm.DoanhThu = csNay.DoanhThu; vm.DoanhThuTruoc = csTruoc.DoanhThu;
+            vm.TongDonKy = csNay.Tong; vm.TongDonTruoc = csTruoc.Tong;
+            vm.DonHoanThanhKy = csNay.Xong; vm.DonHoanThanhTruoc = csTruoc.Xong;
+            vm.DonChoKy = csNay.Cho; vm.DonDangKy = csNay.Dang;
+            vm.DonHuyKy = csNay.Huy; vm.DonHuyTruoc = csTruoc.Huy;
+            vm.DonKhacKy = csNay.Khac;
+            vm.CoKyTruoc = csTruoc.Tong > 0;
+            vm.KhachCoDon = csNay.KhachCoDon; vm.KhachCoDonTruoc = csTruoc.KhachCoDon;
+            vm.KhachQuayLai = csNay.KhachQuayLai; vm.KhachQuayLaiTruoc = csTruoc.KhachQuayLai;
+            vm.DonKhongHuyKy = csNay.DonKhongHuy;
+
+            // Doanh thu tạm tính (sân + dịch vụ, đơn chưa hủy) - tách riêng khỏi doanh thu thực thu
+            var donTien = await LayDonTienAsync(d => d.NgayDat >= tuNgay && d.NgayDat < denLoaiTru && d.TrangThai != HUY);
+            vm.DoanhThuTamTinh = donTien.Sum(x => x.TongTien);
+
+            // Khách mới theo ngày đăng ký
+            var khachs = _thongKeRepository.LayKhachHangs().AsNoTracking();
+            var denTruocLoaiTru = denTruoc.AddDays(1);
+            vm.KhachMoi = await khachs.CountAsync(k => k.NgayDangKy >= tuNgay && k.NgayDangKy < denLoaiTru);
+            vm.KhachMoiTruoc = await khachs.CountAsync(k => k.NgayDangKy >= tuTruoc && k.NgayDangKy < denTruocLoaiTru);
+
+            // ----- 5. Biểu đồ xu hướng (kỳ này so với cùng độ dài ngay trước đó) -----
+            vm.CoSoSanhBieuDo = dons.Any(d => d.NgayDat >= tuTruoc && d.NgayDat < denTruoc.AddDays(1));
+            // Thống kê theo giờ chỉ có nghĩa khi NgayDat có lưu giờ. Nếu toàn bộ đơn trong ngày đều là 00:00
+            // (cột chỉ lưu ngày) thì chia theo giờ sẽ dồn hết vào 0h gây hiểu nhầm -> dùng cột "ngày" và nói rõ.
+            if (donViCh == "giờ" && kyNay.Count > 0 && kyNay.All(d => d.NgayDat.TimeOfDay == TimeSpan.Zero))
+            {
+                donViCh = "ngày";
+                nhanDonViCot = NhanCotCua(donViCh);
+                vm.GhiChuBieuDo = "Hệ thống chỉ lưu ngày tạo đơn (không có giờ) nên không thể chia theo giờ.";
+            }
+            vm.DonViBieuDo = donViCh;
+            vm.NhanDonViCot = nhanDonViCot;
+
+            List<(string Ten, DateTime Tu, DateTime Den)> cotBd;
+            if (donViCh == "giờ")
+                cotBd = Enumerable.Range(0, 24).Select(h => ($"{h}h", tuNgay.AddHours(h), tuNgay.AddHours(h + 1))).ToList();
+            else
+                cotBd = TaoCotThoiGian(tuNgay, denNgay, donViCh);
+
+            foreach (var c in cotBd)
+            {
+                var trongCot = dons.Where(d => d.NgayDat >= c.Tu && d.NgayDat < c.Den).ToList();
+                var cs = TinhChiSoDash(trongCot);
+                decimal? truoc = null;
+                if (vm.CoSoSanhBieuDo)
+                {
+                    var tT = c.Tu.AddDays(-dichKyTruoc);
+                    var dT = c.Den.AddDays(-dichKyTruoc);
+                    truoc = dons.Where(d => d.TrangThai == HOAN_THANH && d.NgayDat >= tT && d.NgayDat < dT).Sum(d => d.DonGia);
+                }
+                var cuoi = c.Den.AddDays(-1);
+                int soNgayCot = (c.Den - c.Tu).Days;
+                string nhanDayDu = donViCh == "giờ" ? $"{c.Tu:dd/MM/yyyy} · {c.Tu:HH}:00 - {c.Den:HH}:00"
+                    : donViCh == "ngày" ? c.Tu.ToString("dddd, dd/MM/yyyy", Vi)
+                    : $"{c.Tu:dd/MM/yyyy} - {cuoi:dd/MM/yyyy}";
+                // Tuần đầu/cuối hoặc tháng đầu/cuối của khoảng tùy chỉnh có thể chưa đủ ngày: ghi rõ số ngày thực tế
+                if (donViCh == "tuần" && soNgayCot < 7) nhanDayDu += $" ({soNgayCot} ngày)";
+                else if (donViCh == "tháng" && soNgayCot != DateTime.DaysInMonth(c.Tu.Year, c.Tu.Month)) nhanDayDu += $" ({soNgayCot} ngày)";
+                vm.BieuDo.Add(new DashCotItem
+                {
+                    Ten = c.Ten,
+                    NhanDayDu = nhanDayDu,
+                    DoanhThu = cs.DoanhThu,
+                    DoanhThuTruoc = truoc,
+                    SoHoanThanh = cs.Xong,
+                    SoDang = cs.Dang,
+                    SoCho = cs.Cho,
+                    SoHuy = cs.Huy,
+                    SoKhac = cs.Khac
+                });
+            }
+
+            // ----- 6. Hiệu suất sân (dùng lại cách tính của tab Hiệu suất ở trang Thống kê) -----
+            vm.HieuSuat = await TinhHieuSuatSanAsync(tuNgay, denNgay, tuTruoc, denTruoc, donVi);
+            if (soNgay >= 7)
+            {
+                vm.HieuSuatBanDo = vm.HieuSuat;
+                vm.NhanBanDo = nhanKy;
+            }
+            else
+            {
+                // Kỳ quá ngắn (hôm nay) thì bản đồ nhiệt gần như trống -> lấy 7 ngày gần nhất và ghi rõ
+                vm.HieuSuatBanDo = await TinhHieuSuatSanAsync(tuBd, denNgay, tuBdTruoc, tuBd.AddDays(-1), donVi);
+                vm.NhanBanDo = $"7 ngày gần nhất · {tuBd:dd/MM} - {denNgay:dd/MM/yyyy}";
+            }
+            var hsb = vm.HieuSuatBanDo;
+            vm.SanCongSuatThap = hsb.San
+                .Where(s => s.GioKhaDung > 0 && s.TyLe < NGUONG_SAN_THAP)
+                .OrderBy(s => s.TyLe).ThenBy(s => s.Ten).Take(3).ToList();
+
+            // Khung giờ đông nhất / vắng nhất (gộp mọi thứ trong tuần), chỉ nêu khi chênh lệch đủ lớn
+            var theoGio = new List<(int Gio, double Dat, double Cap)>();
+            for (int g = 0; g < hsb.GioDong - hsb.GioMo; g++)
+            {
+                double dat = hsb.Heatmap.Sum(h => h.O.Count > g ? h.O[g].GioDat : 0);
+                double cap = hsb.Heatmap.Sum(h => h.O.Count > g ? h.O[g].GioKhaDung : 0);
+                if (cap > 0) theoGio.Add((hsb.GioMo + g, dat, cap));
+            }
+            if (theoGio.Count >= 2)
+            {
+                var cao = theoGio.OrderByDescending(x => x.Dat / x.Cap).First();
+                var thap = theoGio.OrderBy(x => x.Dat / x.Cap).First();
+                double tCao = cao.Dat / cao.Cap * 100, tThap = thap.Dat / thap.Cap * 100;
+                if (tCao - tThap >= 20)
+                {
+                    vm.KhungGioDong = $"{cao.Gio:00}:00 - {cao.Gio + 1:00}:00 ({tCao:0}% công suất)";
+                    vm.KhungGioVang = $"{thap.Gio:00}:00 - {thap.Gio + 1:00}:00 ({tThap:0}% công suất)";
+                }
+            }
+
+            // ----- 7. Nhận định tự động: chỉ nêu khi dữ liệu đủ chứng minh -----
+            if (csNay.Xong + csTruoc.Xong >= 3 && csTruoc.DoanhThu > 0)
+            {
+                double pct = (double)((csNay.DoanhThu - csTruoc.DoanhThu) / csTruoc.DoanhThu * 100m);
+                if (Math.Abs(pct) >= 1)
+                    vm.NhanDinh.Add(new DashNhanDinhItem
+                    {
+                        Muc = pct > 0 ? "tot" : "canhbao",
+                        NoiDung = $"Doanh thu {(pct > 0 ? "tăng" : "giảm")} {Math.Abs(pct).ToString("0.#", Vi)}% so với {nhanSoSanh}."
+                    });
+            }
+            if (csNay.Tong >= 5 && csTruoc.Tong >= 5)
+            {
+                double dHuy = vm.TyLeHuy - vm.TyLeHuyTruoc;
+                if (dHuy >= 5)
+                    vm.NhanDinh.Add(new DashNhanDinhItem
+                    {
+                        Muc = "canhbao",
+                        NoiDung = $"Tỷ lệ hủy đơn tăng {dHuy.ToString("0.#", Vi)} điểm % so với {nhanSoSanh} (hiện {vm.TyLeHuy.ToString("0.#", Vi)}%)."
+                    });
+            }
+            var gioBd = kyNay.Where(d => d.TrangThai != HUY).Select(d => d.GioBatDau.Hour).ToList();
+            if (gioBd.Count >= 5)
+            {
+                var top = gioBd.GroupBy(h => h).OrderByDescending(g => g.Count()).First();
+                double tl = top.Count() * 100.0 / gioBd.Count;
+                if (tl >= 20)
+                    vm.NhanDinh.Add(new DashNhanDinhItem
+                    {
+                        Muc = "info",
+                        NoiDung = $"Khung giờ được đặt nhiều nhất là {top.Key:00}:00 - {top.Key + 1:00}:00 ({tl.ToString("0.#", Vi)}% số đơn trong kỳ)."
+                    });
+            }
+            if (vm.SanCongSuatThap.Count > 0)
+                vm.NhanDinh.Add(new DashNhanDinhItem
+                {
+                    Muc = "info",
+                    NoiDung = $"{vm.SanCongSuatThap.Count} sân có công suất dưới {NGUONG_SAN_THAP:0}% trong {vm.NhanBanDo.Split('·')[0].Trim().ToLowerInvariant()}."
+                });
+
+            // ----- 8. Hoạt động gần đây -----
+            vm.DonMoiNhat = await LayDsDonAsync(datSans, 6, false);
+            vm.KhachMoiNhat = await khachs
+                .OrderByDescending(k => k.NgayDangKy).ThenByDescending(k => k.MaKhachHang)
+                .Take(5)
+                .Select(k => new DashKhachMoiItem { HoTen = k.HoTen, NgayDangKy = k.NgayDangKy })
+                .ToListAsync();
 
             return View(vm);
         }
