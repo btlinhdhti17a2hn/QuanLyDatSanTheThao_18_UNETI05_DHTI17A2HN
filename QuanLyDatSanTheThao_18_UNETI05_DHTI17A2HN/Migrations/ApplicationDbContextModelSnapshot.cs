@@ -294,6 +294,12 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                     b.Property<bool>("DaThanhToan")
                         .HasColumnType("bit");
 
+                    b.Property<int>("DiemCong")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DiemSuDung")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("DonGia")
                         .HasColumnType("decimal(18,2)");
 
@@ -329,6 +335,9 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                     b.Property<decimal>("TienCoc")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<decimal>("TienGiamDiem")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("TrangThai")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -347,6 +356,8 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                         {
                             MaDatSan = 1,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 2, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 2, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -355,12 +366,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 2,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 3, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 3, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -369,12 +383,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 3,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 4, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 4, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -383,12 +400,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 4,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 5, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 5, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -397,12 +417,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 5,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 6, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 6, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -411,12 +434,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 6,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 7, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 7, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -425,12 +451,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 7,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 8, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 8, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -439,12 +468,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 8,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 9, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 9, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -453,12 +485,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 9,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 10, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 10, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -467,12 +502,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 10,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 11, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 11, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -481,12 +519,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 11,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 12, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 12, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -495,12 +536,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 12,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 13, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 13, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -509,12 +553,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 13,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 14, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 14, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -523,12 +570,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 14,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 15, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 15, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -537,12 +587,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 15,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 16, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 16, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -551,12 +604,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 16,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 17, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 17, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -565,12 +621,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 17,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 18, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 18, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -579,12 +638,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 18,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 19, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 19, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -593,12 +655,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 19,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 20, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 20, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -607,12 +672,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 20,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 21, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 21, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -621,12 +689,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 21,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 22, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 22, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -635,12 +706,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 22,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 23, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 23, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -649,12 +723,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 23,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 24, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 24, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -663,12 +740,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 24,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 25, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 25, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -677,12 +757,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 25,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 26, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 26, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -691,12 +774,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 26,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 27, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 27, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -705,12 +791,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 27,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 28, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 28, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -719,12 +808,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 28,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 1, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 1, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -733,12 +825,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 29,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 2, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 2, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -747,12 +842,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 30,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 3, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 3, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -761,12 +859,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 31,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 4, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 4, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -775,12 +876,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 32,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 5, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 5, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -789,12 +893,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 33,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 6, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 6, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -803,12 +910,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 34,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 7, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 7, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -817,12 +927,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 35,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 8, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 8, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -831,12 +944,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 36,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 9, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 9, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -845,12 +961,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 37,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 10, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 10, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -859,12 +978,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 38,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 11, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 11, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -873,12 +995,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 39,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 12, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 12, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -887,12 +1012,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 40,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 13, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 13, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -901,12 +1029,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 41,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 160000m,
                             GioBatDau = new DateTime(2026, 10, 14, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 14, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -915,12 +1046,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         },
                         new
                         {
                             MaDatSan = 42,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 300000m,
                             GioBatDau = new DateTime(2026, 10, 15, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 15, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -929,12 +1063,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Hoàn thành"
                         },
                         new
                         {
                             MaDatSan = 43,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 240000m,
                             GioBatDau = new DateTime(2026, 10, 16, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 16, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -943,12 +1080,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đã hủy"
                         },
                         new
                         {
                             MaDatSan = 44,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 600000m,
                             GioBatDau = new DateTime(2026, 10, 17, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 17, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -957,12 +1097,15 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Chờ xử lý"
                         },
                         new
                         {
                             MaDatSan = 45,
                             DaThanhToan = false,
+                            DiemCong = 0,
+                            DiemSuDung = 0,
                             DonGia = 400000m,
                             GioBatDau = new DateTime(2026, 10, 18, 17, 0, 0, 0, DateTimeKind.Unspecified),
                             GioKetThuc = new DateTime(2026, 10, 18, 19, 0, 0, 0, DateTimeKind.Unspecified),
@@ -971,6 +1114,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Migrations
                             NgayDat = new DateTime(2026, 9, 25, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             SoTienDaThu = 0m,
                             TienCoc = 100000m,
+                            TienGiamDiem = 0m,
                             TrangThai = "Đang xử lý"
                         });
                 });
