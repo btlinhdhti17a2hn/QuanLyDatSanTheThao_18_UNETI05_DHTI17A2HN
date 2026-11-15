@@ -84,7 +84,7 @@ namespace QuanLyDatSanTheThao_18_UNETI05_DHTI17A2HN.Models.ViewModels
             int namHienTai = DateTime.Today.Year;
             var danhSachNam = new List<int>();
             if (model.DanhSachNam != null) { danhSachNam.AddRange(model.DanhSachNam); }
-            for (int y = namHienTai - 5; y <= namHienTai + 2; y++) { danhSachNam.Add(y); }
+            for (int y = namHienTai - 5; y <= namHienTai; y++) { danhSachNam.Add(y); }
             danhSachNam.Add(model.Nam);
             danhSachNam = danhSachNam.Distinct().OrderByDescending(y => y).ToList();
 
